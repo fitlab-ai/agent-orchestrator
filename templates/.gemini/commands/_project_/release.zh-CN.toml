@@ -1,61 +1,6 @@
-description = "执行版本发布流程"
+description = "执行版本发布流程。当用户要求发布版本时触发。参数：版本号（X.Y.Z）。"
 prompt = """
-请执行版本 {{args}} 的标准化发布流程。
+读取并执行 `.agents/skills/release/SKILL.md` 中的 release 技能。
 
-<!-- TODO: 根据你的项目发布流程调整以下步骤 -->
-
-**不含构建验证**：仅做版本号替换和 Git 操作。
-**不含自动推送**：仅做本地操作，推送由用户手动完成。
-
-**当前状态**:
-!{git status --short}
-!{git log -1 --oneline}
-!{git branch --show-current}
-
-执行以下步骤:
-
-1. **解析并验证参数**:
-   - 版本号 = {{args}}，必须匹配 `X.Y.Z` 格式（X、Y、Z 均为非负整数）
-   - 如果格式不正确，报错退出：`错误：版本号格式不正确，期望格式为 X.Y.Z（例如 1.2.3）`
-
-2. **确认工作区状态**:
-   - 如果 `git status --short` 有输出（存在未提交的更改），报错退出
-   - 工作区必须是干净的才能继续
-
-3. **更新版本引用**:
-   <!-- TODO: 替换为你的项目版本更新步骤 -->
-   - 搜索项目文件中的版本引用并更新
-   - 常见文件: pom.xml, package.json, README.md, setup.py, version.go
-   - **必须排除以下目录**: `.agents/`、`.ai-workspace/`、`.claude/`、`.codex/`、`.gemini/`、`.opencode/`
-   - 替换后确认无遗漏
-
-4. **创建 Release commit**:
-   - 使用 `run_shell_command` 执行: `git add -A && git commit -m "chore: release v{version}"`
-
-5. **创建标签**:
-   - 使用 `run_shell_command` 执行: `git tag v{version}`
-
-6. **输出总结**:
-   输出发布操作的完整总结，包含:
-   - 发布版本、commit hash、标签
-   - 替换文件数
-   - 后续手动操作提示:
-     * `git push origin v{version}`
-     * `git push origin <current-branch>`
-     * （可选）生成 Release Notes:
-       - Claude Code / OpenCode: `/create-release-note {version}`
-       - Gemini CLI: `/{project}:create-release-note {version}`
-       - Codex CLI: `/prompts:{project}-create-release-note {version}`
-
-**错误处理**:
-- 版本号格式错误 → 提示正确格式并退出
-- 工作区不干净 → 提示先提交或暂存更改并退出
-- Git 操作失败 → 显示错误信息，提示用户手动处理
-
-**回滚方式**（如出错）:
-```
-git tag -d v{version}
-git reset --soft HEAD~1
-git checkout -- .
-```
+严格按照技能中定义的所有步骤执行。
 """

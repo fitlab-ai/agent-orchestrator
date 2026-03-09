@@ -1,39 +1,6 @@
-description = "升级项目依赖到新版本"
+description = "升级项目中的指定依赖包到新版本并验证变更。 当用户要求升级依赖时触发。参数：包名、原版本和新版本。"
 prompt = """
-升级项目依赖。参数格式: <package-name> <old-version> <new-version>
+读取并执行 `.agents/skills/upgrade-dependency/SKILL.md` 中的 upgrade-dependency 技能。
 
-{{args}}
-
-执行步骤:
-
-本项目仅使用 Node.js 内置模块，无外部依赖。如需操作 `package.json`：
-
-1. **查找目标包**:
-   ```bash
-   # 搜索 package.json 中的依赖声明
-   ```
-
-2. **更新版本号**。
-
-3. **安装新版本**:
-   本项目无外部依赖，通常无需安装。如有新增依赖：
-   ```bash
-   npm install
-   ```
-
-4. **验证构建**:
-   本项目无构建步骤。运行测试验证：
-   ```bash
-   node --test tests/*.test.js
-   ```
-
-5. **运行测试**，确保没有破坏。
-
-6. **输出变更摘要**。
-   - 提醒用户提交:
-     - Claude Code / OpenCode: `/commit`
-     - Gemini CLI: `/ai-collaboration-installer:commit`
-     - Codex CLI: `/prompts:ai-collaboration-installer-commit`
-
-**注意**: 如果是 major 版本升级，提示可能的 breaking changes。不要自动提交代码。
+严格按照技能中定义的所有步骤执行。
 """

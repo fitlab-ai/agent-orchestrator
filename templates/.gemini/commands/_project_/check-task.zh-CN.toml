@@ -1,23 +1,6 @@
-description = "查看任务状态和进度"
+description = "查看任务的当前状态、工作流进度和上下文文件。这是只读操作，报告任务状态并建议 适当的下一步操作。当用户要求查看任务状态时触发。参数：task-id。"
 prompt = """
-请查看任务 {{args}} 的状态。
+读取并执行 `.agents/skills/check-task/SKILL.md` 中的 check-task 技能。
 
-**查找任务**:
-!{if [ -d .ai-workspace/active/{{args}} ]; then echo "active"; elif [ -d .ai-workspace/completed/{{args}} ]; then echo "completed"; elif [ -d .ai-workspace/blocked/{{args}} ]; then echo "blocked"; else echo "not_found"; fi}
-
-执行以下步骤:
-
-1. **读取任务文件**:
-   - 根据上面查找到的状态目录，读取 `task.md`。
-   - 如果未找到，提示用户。
-
-2. **检查上下文文件**:
-   - 列出该任务目录下的所有 `.md` 文件。
-
-3. **输出状态报告**:
-   - 任务 ID、标题、Issue 号。
-   - 当前状态（active/completed/blocked）。
-   - 当前步骤（current_step）。
-   - 工作流进度（哪些文件已存在）。
-   - 下一步建议。
+严格按照技能中定义的所有步骤执行。
 """

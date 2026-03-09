@@ -1,28 +1,6 @@
-description = "执行集成测试"
+description = "执行项目集成测试流程。 当用户要求运行集成测试或端到端验证时触发。"
 prompt = """
-请执行集成测试。
+读取并执行 `.agents/skills/test-integration/SKILL.md` 中的 test-integration 技能。
 
-**前置检查**:
-!{node --version}
-
-执行以下步骤:
-
-1. **环境检查**:
-   - 确认 Node.js >= 18 已安装（用于内置测试运行器）。
-
-2. **执行测试**:
-   - 本项目的集成测试包含在统一测试套件中（如在临时目录中运行 `aci init` 并验证结果）。
-   - 使用 `run_shell_command` 执行:
-     ```bash
-     node --test tests/*.test.js
-     ```
-
-3. **报告**:
-   - 输出测试结果摘要。
-
-**下一步**:
-测试通过后，使用以下命令提交代码:
-- Claude Code / OpenCode: `/commit`
-- Gemini CLI: `/ai-collaboration-installer:commit`
-- Codex CLI: `/prompts:ai-collaboration-installer-commit`
+严格按照技能中定义的所有步骤执行。
 """

@@ -1,28 +1,6 @@
-description = "将任务进度同步到 Issue"
+description = "将任务处理进度同步到对应的 GitHub Issue 评论。 当用户要求同步进度到 Issue 时触发。参数：task-id。"
 prompt = """
-请将任务 {{args}} 的进度同步到 GitHub Issue。
+读取并执行 `.agents/skills/sync-issue/SKILL.md` 中的 sync-issue 技能。
 
-**当前时间**: !{date '+%Y-%m-%d %H:%M:%S'}
-
-**任务状态**:
-!{if [ -d .ai-workspace/active/{{args}} ]; then echo "active"; else echo "check other dirs"; fi}
-
-执行以下步骤:
-
-1. **读取任务**:
-   - 读取 `task.md` 获取 `issue_number`.
-   - 读取 `analysis.md`, `plan.md`, `implementation.md` 等获取进度。
-
-2. **生成摘要**:
-   - 格式: `## 🤖 任务进度更新` ... (参考 OpenCode 格式).
-   - 包含已完成步骤、当前进展、下一步、相关文件。
-
-3. **同步**:
-   - 使用 `run_shell_command`: `gh issue comment <issue_number> --body "..."`
-
-4. **更新状态**:
-   - 在 `task.md` 中更新 `last_synced_at`.
-
-5. **告知用户**:
-   - 同步完成。
+严格按照技能中定义的所有步骤执行。
 """

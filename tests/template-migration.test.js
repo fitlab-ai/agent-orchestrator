@@ -17,6 +17,41 @@ function read(relativePath) {
   return fs.readFileSync(filePath(relativePath), "utf8");
 }
 
+function listSkillNames() {
+  return fs.readdirSync(filePath(".agents/skills"), { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => entry.name)
+    .sort();
+}
+
+function langTemplate(basePath, lang) {
+  if (lang === "zh-CN") {
+    const ext = path.extname(basePath);
+    const variant = basePath.replace(ext, `.zh-CN${ext}`);
+    if (exists(variant)) return variant;
+  }
+  return basePath;
+}
+
+function renderPlaceholders(content, replacements) {
+  return content
+    .replace(/\{project\}/g, replacements.project)
+    .replace(/\{org\}/g, replacements.org);
+}
+
+function buildCommandSyncFiles(project) {
+  return listSkillNames().flatMap((skill) => [
+    [`.claude/commands/${skill}.md`, `templates/.claude/commands/${skill}.md`],
+    [`.opencode/commands/${skill}.md`, `templates/.opencode/commands/${skill}.md`],
+    [`.codex/commands/${project}-${skill}.md`, `templates/.codex/commands/_project_-${skill}.md`],
+    [`.gemini/commands/${project}/${skill}.toml`, `templates/.gemini/commands/_project_/${skill}.toml`]
+  ]);
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 test("collaborator.json declares templates as the template source", () => {
   const collaborator = JSON.parse(read("collaborator.json"));
 
@@ -106,38 +141,77 @@ test("update-ai-collaboration instructions point to templates rendering", () => 
   assert.match(geminiUpdate, /templateSource/);
 });
 
+test("skill command templates use thin adapter bodies", () => {
+  const skills = listSkillNames().filter((skill) => skill !== "update-ai-collaboration");
+
+  skills.forEach((skill) => {
+    const markdownTargets = [
+      `templates/.claude/commands/${skill}.md`,
+      `templates/.claude/commands/${skill}.zh-CN.md`,
+      `templates/.opencode/commands/${skill}.md`,
+      `templates/.opencode/commands/${skill}.zh-CN.md`,
+      `templates/.codex/commands/_project_-${skill}.md`,
+      `templates/.codex/commands/_project_-${skill}.zh-CN.md`
+    ];
+    const tomlTargets = [
+      `templates/.gemini/commands/_project_/${skill}.toml`,
+      `templates/.gemini/commands/_project_/${skill}.zh-CN.toml`
+    ];
+    const skillPathPattern = new RegExp(escapeRegExp(`.agents/skills/${skill}/SKILL.md`));
+
+    markdownTargets.forEach((target) => {
+      const content = read(target);
+
+      assert.match(content, skillPathPattern, `${target} should reference the skill file`);
+      assert.doesNotMatch(content, /^name:/m, `${target} should not declare a name field`);
+
+      if (target.includes("/.codex/")) {
+        assert.match(content, /^usage: \/prompts:/m, `${target} should declare Codex usage`);
+      } else {
+        assert.doesNotMatch(content, /^usage:/m, `${target} should not declare usage`);
+      }
+
+      if (target.endsWith(".zh-CN.md")) {
+        assert.match(content, /读取并执行/, `${target} should use the Chinese thin adapter body`);
+        assert.match(content, /严格按照技能中定义的所有步骤执行。/, `${target} should include the Chinese execution instruction`);
+      } else {
+        assert.match(content, /Read and execute the .* skill from/, `${target} should use the English thin adapter body`);
+        assert.match(content, /Follow all steps defined in the skill exactly\./, `${target} should include the English execution instruction`);
+      }
+    });
+
+    tomlTargets.forEach((target) => {
+      const content = read(target);
+
+      assert.match(content, /^description = "/, `${target} should declare a TOML description`);
+      assert.match(content, /^prompt = """$/m, `${target} should use a multiline TOML prompt`);
+      assert.match(content, skillPathPattern, `${target} should reference the skill file`);
+
+      if (target.endsWith(".zh-CN.toml")) {
+        assert.match(content, /读取并执行/, `${target} should use the Chinese thin adapter body`);
+        assert.match(content, /严格按照技能中定义的所有步骤执行。/, `${target} should include the Chinese execution instruction`);
+      } else {
+        assert.match(content, /Read and execute the .* skill from/, `${target} should use the English thin adapter body`);
+        assert.match(content, /Follow all steps defined in the skill exactly\./, `${target} should include the English execution instruction`);
+      }
+    });
+  });
+});
+
 test("update-ai-collaboration template copies stay in sync with working files", () => {
   const collaborator = JSON.parse(read("collaborator.json"));
   const project = collaborator.project;
   const org = collaborator.org;
   const lang = collaborator.language;
 
-  // Select the correct language variant for template files
-  function langTemplate(basePath) {
-    if (lang === "zh-CN") {
-      const ext = path.extname(basePath);
-      const variant = basePath.replace(ext, `.zh-CN${ext}`);
-      if (exists(variant)) return variant;
-    }
-    return basePath;
-  }
-
-  // Render {project} and {org} placeholders in template content
-  function renderPlaceholders(content) {
-    return content.replace(/\{project\}/g, project).replace(/\{org\}/g, org);
-  }
-
   const syncFiles = [
     [".agents/skills/update-ai-collaboration/SKILL.md", "templates/.agents/skills/update-ai-collaboration/SKILL.md"],
-    [".claude/commands/update-ai-collaboration.md", "templates/.claude/commands/update-ai-collaboration.md"],
-    [".gemini/commands/ai-collaboration-installer/update-ai-collaboration.toml", "templates/.gemini/commands/_project_/update-ai-collaboration.toml"],
-    [".opencode/commands/update-ai-collaboration.md", "templates/.opencode/commands/update-ai-collaboration.md"],
-    [".codex/commands/ai-collaboration-installer-update-ai-collaboration.md", "templates/.codex/commands/_project_-update-ai-collaboration.md"]
+    ...buildCommandSyncFiles(project)
   ];
 
   syncFiles.forEach(([source, target]) => {
-    const templatePath = langTemplate(target);
-    const rendered = renderPlaceholders(read(templatePath));
+    const templatePath = langTemplate(target, lang);
+    const rendered = renderPlaceholders(read(templatePath), { project, org });
     assert.equal(rendered, read(source), `${templatePath} is out of sync with ${source}`);
   });
 });

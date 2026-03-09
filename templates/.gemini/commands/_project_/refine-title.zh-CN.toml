@@ -1,22 +1,6 @@
-description = "优化 Issue/PR 标题为 Conventional Commits 格式"
+description = "深度分析 Issue 或 PR 内容，并将其标题重构为 Conventional Commits 格式。 当用户要求优化标题时触发。参数：issue 或 PR 编号。"
 prompt = """
-请分析并优化 Issue/PR #{{args}} 的标题。
+读取并执行 `.agents/skills/refine-title/SKILL.md` 中的 refine-title 技能。
 
-执行以下步骤:
-
-1. **获取信息**:
-   - 尝试 `gh issue view {{args}}` 或 `gh pr view {{args}}`。
-   - 获取 title、body、labels、files。
-
-2. **分析**:
-   - 忽略原标题。
-   - 根据 body 和 labels 推断 Type（feat/fix/docs/refactor/chore...）和 Scope。
-   - 提炼 Subject（英文、祈使语气、不超过 50 字符）。
-
-3. **建议**:
-   - 输出: `原标题` -> `新标题`。
-   - 询问用户是否确认修改。
-
-4. **执行**（如果用户确认）:
-   - `gh issue edit {{args}} --title "..."` 或 `gh pr edit {{args}} --title "..."`。
+严格按照技能中定义的所有步骤执行。
 """
