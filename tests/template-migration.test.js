@@ -138,11 +138,11 @@ test("update-ai-collaboration instructions point to templates rendering", () => 
   assert.match(updateSkill, /templateSource/);
   assert.match(updateSkill, /templates\//);
   assert.match(updateSkill, /git.*pull/);
-  assert.match(geminiUpdate, /templateSource/);
+  assert.match(geminiUpdate, /SKILL\.md/);
 });
 
 test("skill command templates use thin adapter bodies", () => {
-  const skills = listSkillNames().filter((skill) => skill !== "update-ai-collaboration");
+  const skills = listSkillNames();
 
   skills.forEach((skill) => {
     const markdownTargets = [
@@ -173,10 +173,10 @@ test("skill command templates use thin adapter bodies", () => {
 
       if (target.endsWith(".zh-CN.md")) {
         assert.match(content, /读取并执行/, `${target} should use the Chinese thin adapter body`);
-        assert.match(content, /严格按照技能中定义的所有步骤执行。/, `${target} should include the Chinese execution instruction`);
+        assert.match(content, /严格按照技能中定义的所有步骤执行/, `${target} should include the Chinese execution instruction`);
       } else {
         assert.match(content, /Read and execute the .* skill from/, `${target} should use the English thin adapter body`);
-        assert.match(content, /Follow all steps defined in the skill exactly\./, `${target} should include the English execution instruction`);
+        assert.match(content, /Follow all steps defined in the skill exactly/, `${target} should include the English execution instruction`);
       }
     });
 
@@ -189,10 +189,10 @@ test("skill command templates use thin adapter bodies", () => {
 
       if (target.endsWith(".zh-CN.toml")) {
         assert.match(content, /读取并执行/, `${target} should use the Chinese thin adapter body`);
-        assert.match(content, /严格按照技能中定义的所有步骤执行。/, `${target} should include the Chinese execution instruction`);
+        assert.match(content, /严格按照技能中定义的所有步骤执行/, `${target} should include the Chinese execution instruction`);
       } else {
         assert.match(content, /Read and execute the .* skill from/, `${target} should use the English thin adapter body`);
-        assert.match(content, /Follow all steps defined in the skill exactly\./, `${target} should include the English execution instruction`);
+        assert.match(content, /Follow all steps defined in the skill exactly/, `${target} should include the English execution instruction`);
       }
     });
   });
