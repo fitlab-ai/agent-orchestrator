@@ -5,7 +5,7 @@
   "language": "zh-CN",
   "license": "MIT",
   "templateSource": "templates/",
-  "templateVersion": "0346194",
+  "templateVersion": "a5ef29d",
   "modules": ["ai", "github"],
   "files": {
     "managed": [
@@ -36,7 +36,11 @@
       "*/test.*",
       "*/test-integration.*",
       "*/release.*",
-      "*/upgrade-dependency.*"
+      "*/upgrade-dependency.*",
+      ".agents/skills/test/SKILL.*",
+      ".agents/skills/test-integration/SKILL.*",
+      ".agents/skills/release/SKILL.*",
+      ".agents/skills/upgrade-dependency/SKILL.*"
     ],
     "ejected": [
       "README.md",

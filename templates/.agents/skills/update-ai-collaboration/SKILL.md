@@ -11,9 +11,12 @@ description: >
 
 ## Step 1: Read project config
 
-Read `collaborator.json` from project root.
-Extract: source, project, org, language,
-modules, templateSource, files (managed/merged/ejected lists).
+Read `collaborator.json` from project root. Extract:
+- `project`, `org`
+- `language`
+- `modules`
+- `templateSource`
+- `files.managed` / `files.merged` / `files.ejected`
 
 ## Step 2: Locate and refresh template source
 
@@ -21,67 +24,89 @@ modules, templateSource, files (managed/merged/ejected lists).
    "Template source not found. Please install first:
    curl -fsSL https://raw.githubusercontent.com/fitlab-ai/ai-collaboration-installer/main/install.sh | sh"
 2. Run `git -C ~/.ai-collaboration-installer pull` to fetch the latest templates.
-3. Read from `~/.ai-collaboration-installer/`.
+3. Record the template source's current commit SHA (`git -C ~/.ai-collaboration-installer rev-parse --short HEAD`).
 
 Resolve the template root from `templateSource` (default: `templates/`).
 All update inputs must be rendered from that template tree, not from the
 project's own files.
 
-## Step 3: Determine update scope
+## Step 3: Determine update scope and classify files
 
-Only process files belonging to modules listed in
-`collaborator.json.modules`.
+Only process files belonging to modules listed in `collaborator.json.modules`.
+
+**File classification priority** (high → low):
+1. Paths listed in `files.ejected` → **ejected** (user fully owns, do not touch)
+2. Paths or glob patterns in `files.merged` → **merged** (AI intelligent merge)
+3. Paths listed in `files.managed` → **managed** (template overwrites)
+
+**Critical**: Even if a file lives inside a managed directory, if it matches
+ANY glob pattern in `files.merged`, it MUST use the merged strategy.
+Match glob patterns against the file's relative path in the project.
 
 ## Step 4: Process managed files
 
-For each path in `files.managed` (filtered by active modules):
-1. Read the corresponding file(s) from `{templateSource}`
-2. Apply language selection rules:
-   - `zh-CN`: prefer `.zh-CN.*` variant, output to target path without
-     `.zh-CN.` suffix; skip the English counterpart. If no `.zh-CN.*`
-     variant exists, fall back to the English file.
-   - `en` (default): use non-`.zh-CN.*` files; skip `.zh-CN.*` files.
-   - Each target path receives exactly ONE language version.
-3. Render placeholders:
-   - file content: `{project}`, `{org}`
-   - path segments or filenames: `_project_`
-4. Write to the project (overwrite existing files)
-6. Create new template files that do not exist locally
-7. Flag files removed from the template source; do not auto-delete them
+For each file classified as managed:
+
+### 4.1 Language selection
+
+Based on the `language` field:
+- `zh-CN`: prefer `.zh-CN.*` variant, output to target path without
+  `.zh-CN.` suffix; skip the English counterpart. If no `.zh-CN.*`
+  variant exists, fall back to the English file.
+- `en` (default): use non-`.zh-CN.*` files; skip `.zh-CN.*` files.
+- Each target path receives exactly ONE language version.
+
+### 4.2 Render placeholders
+
+Template files use two types of placeholders:
+
+**Content placeholders**: The words `project` and `org` wrapped in curly braces
+within the template text. During rendering, replace them with the actual values
+from collaborator.json's `project` and `org` fields.
+
+**Path placeholders**: `_project_` in file or directory names, replaced with
+the project name.
+
+> **Warning**: Never skip rendering and copy template files as-is. Skipping
+> rendering leaves unresolved placeholders in the output, causing massive
+> spurious changes on the next run and breaking idempotency.
+
+### 4.3 Write
+
+- Overwrite existing local files
+- Create new files that exist in the template but not locally
+- Flag files removed from the template source; do not auto-delete them
 
 ## Step 5: Process merged files (AI intelligent merge)
 
-For each path in `files.merged` (filtered by active modules):
-1. Render the latest template version from `{templateSource}`
-2. Read current local file. **If the local file does not exist**,
-   write the rendered template directly and skip merge (first-time setup).
-3. Analyze both files:
-   - Identify **template standard sections**
-   - Identify **user customizations** (added sections, modified content)
-4. Produce merged result:
-   - Template standard sections -> update to latest version
-   - User customizations -> preserve in original positions
-   - New template sections -> insert at appropriate locations
-   - Removed template sections -> flag to user, preserve by default
-5. Write merged result
+Render the latest template version (same language selection and placeholder
+rendering rules as Step 4), then read the current local file.
+
+**If the local file does not exist** (first-time setup), write the rendered
+template directly and skip merge.
+
+If the local file exists, compare the rendered template with the local file:
+- Identify **template standard sections** (structure, formatting, general rules)
+  and **user customizations** (project-specific content, filled TODOs, etc.)
+- Template standard sections → update to latest version
+- User customizations → preserve
+- New template sections → insert at appropriate locations
+- Removed template sections → flag to user, preserve by default
 
 **Merge principles**:
 - When in doubt, preserve user content
 - Never silently delete user-added content
-- If a template section was both updated in template AND modified
-  by user, keep user's version and note the template's new version
-  in a comment
 
 ## Step 6: Process ejected files
 
-For files listed in `files.ejected`:
 - **If the local file already exists**: do not touch it (ejected = user owns it).
 - **If the local file does not exist** (first-time setup): render from template
   and write it once. Future updates will skip it.
 
 ## Step 7: Update collaborator.json
 
-Set `templateVersion` to the template source's current version.
+Set `templateVersion` to the template source's current commit SHA
+(recorded in Step 2).
 Keep `templateSource` unchanged unless the user explicitly wants to move
 to a different template tree.
 
@@ -95,11 +120,12 @@ newly rendered commands are immediately available in Codex CLI.
 bash .codex/scripts/install-prompts.sh
 ```
 
-## Step 9: Output report
+## Step 9: Verify and output report
 
-Report organized by module and category:
-- managed: files updated, new files created, removed files flagged
-- merged: files merged, details of what changed
-- ejected: files skipped
+**Idempotency check**: Running this command on an already up-to-date project
+should produce zero or very few file changes. If managed file changes are
+unexpectedly high, pause before committing and spot-check with `git diff`
+that the change direction is correct (correct: new template content → local;
+wrong: reverting rendered content back to placeholders).
 
-**STOP**: Do not make other changes to the project.
+Output the report, then **STOP** — do not make other changes to the project.
