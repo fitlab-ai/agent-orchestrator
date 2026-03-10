@@ -109,22 +109,29 @@ assigned_to: ai
 - `updated_at`：{当前时间}
 - 标记 analysis.md 为已完成
 - 在工作流进度中标记 requirement-analysis 为已完成
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Requirement Analysis** by {agent} — Issue #{number} analyzed
+  ```
 
 ### 7. 告知用户
 
 ```
-Issue #{number} analysis complete.
+Issue #{number} 分析完成。
 
-Task info:
-- Task ID: {task-id}
-- Title: {title}
-- Workflow: {workflow}
+任务信息：
+- 任务 ID：{task-id}
+- 标题：{title}
+- 工作流：{workflow}
 
-Output files:
-- Task file: .ai-workspace/active/{task-id}/task.md
-- Analysis: .ai-workspace/active/{task-id}/analysis.md
+产出文件：
+- 任务文件：.ai-workspace/active/{task-id}/task.md
+- 分析报告：.ai-workspace/active/{task-id}/analysis.md
 
-Next step - review analysis, then execute the plan-task skill with {task-id}.
+下一步 - 审查分析报告，然后设计技术方案：
+  - Claude Code / OpenCode：/plan-task {task-id}
+  - Gemini CLI：/ai-collaboration-installer:plan-task {task-id}
+  - Codex CLI：$plan-task {task-id}
 ```
 
 ## 完成检查清单
@@ -134,8 +141,9 @@ Next step - review analysis, then execute the plan-task skill with {task-id}.
 - [ ] 在 task.md 中记录了 issue_number
 - [ ] 更新了 `current_step` 为 requirement-analysis
 - [ ] 更新了 `updated_at` 为当前时间
+- [ ] 追加了 Activity Log 条目到 task.md
 - [ ] 在工作流进度中标记了 requirement-analysis 为已完成
-- [ ] 告知了用户下一步（plan-task 技能）
+- [ ] 告知了用户下一步（含 TUI 特定命令格式）
 - [ ] **没有修改任何业务代码**
 
 ## 停止

@@ -76,22 +76,32 @@ description: >
 - `current_step`：refinement
 - `assigned_to`：{当前 AI 代理}
 - `updated_at`：{当前时间}
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Refinement** by {agent} — Fixed {n} blockers, {n} major, {n} minor issues
+  ```
 
 ### 8. 告知用户
 
 输出格式：
 ```
-Refinement complete for task {task-id}.
+任务 {task-id} 修复完成。
 
-Fixes applied:
-- Blockers fixed: {数量}/{总数}
-- Major issues fixed: {数量}/{总数}
-- Minor issues fixed: {数量}/{总数}
-- All tests pass: {Yes/No}
+修复情况：
+- 阻塞项修复：{数量}/{总数}
+- 主要问题修复：{数量}/{总数}
+- 次要问题修复：{数量}/{总数}
+- 所有测试通过：{是/否}
 
-Next step - re-review or commit:
-- Re-review: execute the review-task skill with {task-id}
-- Commit directly: execute the commit skill
+下一步 - 重新审查或提交：
+- 重新审查：
+  - Claude Code / OpenCode：/review-task {task-id}
+  - Gemini CLI：/ai-collaboration-installer:review-task {task-id}
+  - Codex CLI：$review-task {task-id}
+- 直接提交：
+  - Claude Code / OpenCode：/commit
+  - Gemini CLI：/ai-collaboration-installer:commit
+  - Codex CLI：$commit
 ```
 
 ## 输出模板
@@ -135,7 +145,8 @@ Next step - re-review or commit:
 - [ ] 修复后所有测试通过
 - [ ] 更新了 implementation.md 的修复记录
 - [ ] 更新了 task.md 中的任务状态
-- [ ] 告知了用户下一步
+- [ ] 追加了 Activity Log 条目到 task.md
+- [ ] 告知了用户下一步（含 TUI 特定命令格式）
 
 ## 注意事项
 

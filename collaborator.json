@@ -5,7 +5,7 @@
   "language": "zh-CN",
   "license": "MIT",
   "templateSource": "templates/",
-  "templateVersion": "a5ef29d",
+  "templateVersion": "a255d1a",
   "modules": ["ai", "github"],
   "files": {
     "managed": [

@@ -74,8 +74,10 @@ Next steps (manual):
 2. Push branch:
    git push origin {current-branch}
 
-3. (Optional) Generate release notes:
-   Execute the create-release-note skill with {version}
+3.（可选）生成发布说明：
+   - Claude Code / OpenCode：/create-release-note {version}
+   - Gemini CLI：/ai-collaboration-installer:create-release-note {version}
+   - Codex CLI：$create-release-note {version}
 ```
 
 ### 回滚说明

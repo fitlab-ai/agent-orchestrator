@@ -100,18 +100,22 @@ EOF
 ### 6. 更新任务状态
 
 在 task.md 中添加或更新 `last_synced_to_pr_at` 字段。
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Sync to PR** by {agent} — Progress synced to PR #{pr-number}
+  ```
 
 ### 7. 告知用户
 
 ```
-Progress synced to PR #{pr-number}.
+进度已同步到 PR #{pr-number}。
 
-Synced content:
-- Completed steps: {数量}
-- Current status: {状态}
-- Next step: {描述}
+已同步内容：
+- 已完成步骤：{数量}
+- 当前状态：{状态}
+- 下一步：{描述}
 
-View: https://github.com/{owner}/{repo}/pull/{pr-number}
+查看：https://github.com/{owner}/{repo}/pull/{pr-number}
 ```
 
 ## 注意事项

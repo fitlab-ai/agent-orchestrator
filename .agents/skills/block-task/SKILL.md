@@ -44,6 +44,10 @@ description: >
 - `status`：blocked
 - `blocked_at`：{当前时间戳}
 - `updated_at`：{当前时间戳}
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Blocked** by {agent} — {一行原因}
+  ```
 
 在 task.md 中添加阻塞信息部分。
 
@@ -63,22 +67,25 @@ ls .ai-workspace/blocked/{task-id}/task.md
 
 如果任务有 `issue_number`，建议同步：
 ```
-Consider syncing the blocking status to the Issue using the sync-issue skill.
+（可选）同步阻塞状态到 Issue：
+  - Claude Code / OpenCode：/sync-issue {task-id}
+  - Gemini CLI：/ai-collaboration-installer:sync-issue {task-id}
+  - Codex CLI：$sync-issue {task-id}
 ```
 
 ### 7. 告知用户
 
 输出格式：
 ```
-Task {task-id} marked as blocked.
+任务 {task-id} 已标记为阻塞。
 
-Blocking reason: {摘要}
-Required to unblock: {需要什么}
-Archived to: .ai-workspace/blocked/{task-id}/
+阻塞原因：{摘要}
+解除阻塞所需：{需要什么}
+归档路径：.ai-workspace/blocked/{task-id}/
 
-To unblock when the issue is resolved:
+解除阻塞时执行：
   mv .ai-workspace/blocked/{task-id} .ai-workspace/active/{task-id}
-  # Then update task.md: status -> active, remove blocked_at
+  # 然后更新 task.md：status -> active，移除 blocked_at
 ```
 
 ## 输出模板

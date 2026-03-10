@@ -46,33 +46,33 @@ description: >
 以清晰的结构和状态指示器格式化输出：
 
 ```
-Task Status: {task-id}
+任务状态：{task-id}
 =======================
 
-Basic Info:
-- Title: {title}
-- Type: {type}
-- Status: {status}
-- Workflow: {workflow}
-- Assigned to: {assigned_to}
-- Created: {created_at}
-- Updated: {updated_at}
+基本信息：
+- 标题：{title}
+- 类型：{type}
+- 状态：{status}
+- 工作流：{workflow}
+- 分配给：{assigned_to}
+- 创建时间：{created_at}
+- 更新时间：{updated_at}
 
-Workflow Progress:
-  [done]       Requirement Analysis    analysis.md
-  [done]       Technical Design        plan.md
-  [current]    Implementation          implementation.md
-  [pending]    Code Review             review.md
-  [pending]    Final Commit
+工作流进度：
+  [已完成]    需求分析        analysis.md
+  [已完成]    技术设计        plan.md
+  [进行中]    实现            implementation.md
+  [待处理]    代码审查        review.md
+  [待处理]    最终提交
 
-Context Files:
-- analysis.md:       exists
-- plan.md:           exists
-- implementation.md: in progress
-- review.md:         not started
+上下文文件：
+- analysis.md：       已存在
+- plan.md：           已存在
+- implementation.md：进行中
+- review.md：         未开始
 
-Next Step:
-  Complete implementation, then run the review-task skill with {task-id}
+下一步：
+  完成实现，然后执行代码审查
 ```
 
 **状态指示器**：
@@ -84,17 +84,17 @@ Next Step:
 
 ### 5. 建议下一步操作
 
-根据当前工作流状态，建议合适的下一个技能：
+根据当前工作流状态，建议合适的下一个技能（含 TUI 特定命令格式）：
 
-| 当前状态 | 建议 |
-|---------|------|
-| 分析完成 | 执行 `plan-task` 技能 |
-| 计划完成 | 执行 `implement-task` 技能 |
-| 实现完成 | 执行 `review-task` 技能 |
-| 审查通过 | 执行 `commit` 技能 |
-| 审查有问题 | 执行 `refine-task` 技能 |
-| 任务被阻塞 | 解除阻塞或提供所需信息 |
-| 任务已完成 | 无需操作 |
+| 当前状态 | Claude Code / OpenCode | Gemini CLI | Codex CLI |
+|---------|----------------------|------------|-----------|
+| 分析完成 | `/plan-task {task-id}` | `/ai-collaboration-installer:plan-task {task-id}` | `$plan-task {task-id}` |
+| 计划完成 | `/implement-task {task-id}` | `/ai-collaboration-installer:implement-task {task-id}` | `$implement-task {task-id}` |
+| 实现完成 | `/review-task {task-id}` | `/ai-collaboration-installer:review-task {task-id}` | `$review-task {task-id}` |
+| 审查通过 | `/commit` | `/ai-collaboration-installer:commit` | `$commit` |
+| 审查有问题 | `/refine-task {task-id}` | `/ai-collaboration-installer:refine-task {task-id}` | `$refine-task {task-id}` |
+| 任务被阻塞 | 解除阻塞或提供所需信息 | — | 解除阻塞或提供所需信息 |
+| 任务已完成 | 无需操作 | — | 无需操作 |
 
 ## 注意事项
 

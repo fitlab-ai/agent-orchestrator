@@ -48,6 +48,10 @@ Please complete the missing steps first, or use --force to override.
 - `completed_at`：{当前时间戳}
 - `updated_at`：{当前时间戳}
 - 标记所有工作流步骤为已完成
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Completed** by {agent} — Task archived to completed/
+  ```
 
 ### 4. 归档任务
 
@@ -68,20 +72,26 @@ ls .ai-workspace/completed/{task-id}/task.md
 ### 6. 同步到 Issue（可选）
 
 如果任务有 `issue_number` 字段，可选择同步完成状态：
-- 建议用户执行 `sync-issue` 技能来更新 GitHub Issue
+
+```
+（可选）同步完成状态到 GitHub Issue：
+  - Claude Code / OpenCode：/sync-issue {task-id}
+  - Gemini CLI：/ai-collaboration-installer:sync-issue {task-id}
+  - Codex CLI：$sync-issue {task-id}
+```
 
 ### 7. 告知用户
 
 输出格式：
 ```
-Task {task-id} completed and archived.
+任务 {task-id} 已完成并归档。
 
-Task info:
-- Title: {title}
-- Completed at: {timestamp}
-- Archived to: .ai-workspace/completed/{task-id}/
+任务信息：
+- 标题：{title}
+- 完成时间：{timestamp}
+- 归档路径：.ai-workspace/completed/{task-id}/
 
-Deliverables:
+交付物：
 - {关键产出列表：修改的文件、添加的测试等}
 ```
 

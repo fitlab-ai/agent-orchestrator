@@ -128,28 +128,38 @@ ghsa_id: <GHSA-ID>
 ### 6. 更新任务状态
 
 更新 task.md：`current_step` -> `security-analysis`。
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Security Analysis** by {agent} — Dependabot alert #{alert-number} analyzed, risk: {High/Medium/Low}
+  ```
 
 ### 7. 告知用户
 
 ```
-Security alert #{alert-number} analysis complete.
+安全告警 #{alert-number} 分析完成。
 
-Vulnerability info:
-- Severity: {severity}
-- CVE/GHSA: {cve-id} / {ghsa-id}
-- Affected package: {package-name}
+漏洞信息：
+- 严重程度：{severity}
+- CVE/GHSA：{cve-id} / {ghsa-id}
+- 受影响包：{package-name}
 
-Task info:
-- Task ID: {task-id}
-- Risk level: {High/Medium/Low}
+任务信息：
+- 任务 ID：{task-id}
+- 风险等级：{高/中/低}
 
-Output files:
-- Task: .ai-workspace/active/{task-id}/task.md
-- Analysis: .ai-workspace/active/{task-id}/analysis.md
+产出文件：
+- 任务文件：.ai-workspace/active/{task-id}/task.md
+- 分析报告：.ai-workspace/active/{task-id}/analysis.md
 
-Next step:
-- To fix: execute the plan-task skill with {task-id}
-- If not applicable: execute the close-dependabot skill with {alert-number}
+下一步：
+- 修复：
+  - Claude Code / OpenCode：/plan-task {task-id}
+  - Gemini CLI：/ai-collaboration-installer:plan-task {task-id}
+  - Codex CLI：$plan-task {task-id}
+- 不适用：
+  - Claude Code / OpenCode：/close-dependabot {alert-number}
+  - Gemini CLI：/ai-collaboration-installer:close-dependabot {alert-number}
+  - Codex CLI：$close-dependabot {alert-number}
 ```
 
 ## 注意事项

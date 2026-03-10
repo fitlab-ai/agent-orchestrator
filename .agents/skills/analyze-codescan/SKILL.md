@@ -134,24 +134,34 @@ tool: <tool-name>
 ### 6. 更新任务状态
 
 更新 task.md：`current_step` -> `security-analysis`。
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Security Analysis** by {agent} — Code Scanning alert #{alert-number} analyzed, risk: {High/Medium/Low}
+  ```
 
 ### 7. 告知用户
 
 ```
-Code Scanning alert #{alert-number} analysis complete.
+Code Scanning 告警 #{alert-number} 分析完成。
 
-Alert info:
-- Severity: {severity}
-- Rule: {rule-id}
-- Location: {file-path}:{line-number}
+告警信息：
+- 严重程度：{severity}
+- 规则：{rule-id}
+- 位置：{file-path}:{line-number}
 
-Task info:
-- Task ID: {task-id}
-- Risk level: {High/Medium/Low}
+任务信息：
+- 任务 ID：{task-id}
+- 风险等级：{高/中/低}
 
-Next step:
-- To fix: execute the plan-task skill with {task-id}
-- If false positive: execute the close-codescan skill with {alert-number}
+下一步：
+- 修复：
+  - Claude Code / OpenCode：/plan-task {task-id}
+  - Gemini CLI：/ai-collaboration-installer:plan-task {task-id}
+  - Codex CLI：$plan-task {task-id}
+- 误报：
+  - Claude Code / OpenCode：/close-codescan {alert-number}
+  - Gemini CLI：/ai-collaboration-installer:close-codescan {alert-number}
+  - Codex CLI：$close-codescan {alert-number}
 ```
 
 ## 注意事项
