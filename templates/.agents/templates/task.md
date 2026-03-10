@@ -6,7 +6,7 @@ status: open           # open | in-progress | review | blocked | completed
 created_at: YYYY-MM-DD
 updated_at: YYYY-MM-DD
 current_step: analysis # analysis | design | implementation | review | fix | commit
-assigned_to: ""        # claude | codex | gemini | cursor | human
+assigned_to: ""        # claude | codex | gemini | opencode | human
 ---
 
 # Task: [Title]

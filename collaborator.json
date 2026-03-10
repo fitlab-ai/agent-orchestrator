@@ -8,7 +8,6 @@
   "modules": ["ai", "github"],
   "files": {
     "managed": [
-      ".mailmap",
       ".editorconfig",
       ".agents/workflows/",
       ".agents/skills/",
@@ -22,6 +21,7 @@
       ".ai-workspace/README.md"
     ],
     "merged": [
+      ".mailmap",
       "AGENTS.md",
       "CONTRIBUTING.md",
       "SECURITY.md",

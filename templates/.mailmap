@@ -1,23 +1,4 @@
-# Git mailmap file
-# Unify AI contributor names so GitHub correctly attributes all AI-assisted commits
-
-# Consolidate all Claude model variants under "Claude"
-Claude <noreply@anthropic.com> Claude Haiku 4 <noreply@anthropic.com>
-Claude <noreply@anthropic.com> Claude Sonnet 4 <noreply@anthropic.com>
-Claude <noreply@anthropic.com> Claude Opus 4 <noreply@anthropic.com>
-Claude <noreply@anthropic.com> Claude Haiku 4.5 <noreply@anthropic.com>
-Claude <noreply@anthropic.com> Claude Sonnet 4.5 <noreply@anthropic.com>
-Claude <noreply@anthropic.com> Claude Opus 4.5 <noreply@anthropic.com>
-Claude <noreply@anthropic.com> Claude Haiku 4.6 <noreply@anthropic.com>
-Claude <noreply@anthropic.com> Claude Sonnet 4.6 <noreply@anthropic.com>
-Claude <noreply@anthropic.com> Claude Opus 4.6 <noreply@anthropic.com>
-
-# Consolidate all Codex/GPT model variants under "Codex"
-Codex <noreply@openai.com> GPT-4o <noreply@openai.com>
-Codex <noreply@openai.com> GPT-4.1 <noreply@openai.com>
-Codex <noreply@openai.com> o3 <noreply@openai.com>
-Codex <noreply@openai.com> o4-mini <noreply@openai.com>
-
-# Consolidate all Gemini model variants under "Gemini"
-Gemini <noreply@google.com> Gemini 2.5 Pro <noreply@google.com>
-Gemini <noreply@google.com> Gemini 2.5 Flash <noreply@google.com>
+Claude <noreply@anthropic.com>
+Codex <noreply@openai.com>
+Gemini <noreply@google.com>
+OpenCode <noreply@opencode.ai>

@@ -84,7 +84,33 @@ git log --oneline -5
 Generate commit message in Conventional Commits format:
 - `<type>(<scope>): <subject>` (English imperative mood, max 50 chars)
 - Body: 2-4 bullet points explaining what and why
-- Signature: `Co-Authored-By: {Your Model Name} <noreply@provider.com>`
+- Signature block:
+  - `Co-Authored-By: {Your Model Name} <noreply@provider.com>`
+  - If task-related, append extra `Co-Authored-By` lines for other contributing agents
+
+### Multi-Agent Co-Authorship (If Task-Related)
+
+If the commit belongs to an active task and `.ai-workspace/active/{task-id}/task.md` exists:
+
+1. Read the `## Activity Log` section from `task.md`.
+2. Extract all unique agent names from entries matching `by {agent}`. A loose pattern such as `by (\S+)` is acceptable.
+3. Exclude `human` because the Git author is already the human user.
+4. Map each agent to a `Co-Authored-By` line:
+
+| Agent | Signature |
+|-------|-----------|
+| `claude` | `Co-Authored-By: Claude <noreply@anthropic.com>` |
+| `codex` | `Co-Authored-By: Codex <noreply@openai.com>` |
+| `gemini` | `Co-Authored-By: Gemini <noreply@google.com>` |
+| `opencode` | `Co-Authored-By: OpenCode <noreply@opencode.ai>` |
+
+5. Build the signature block with these rules:
+   - Keep the current executing agent's signature in its original position.
+   - Append other unique participating agents as additional `Co-Authored-By` lines.
+   - Do not duplicate the current agent if it already appears in `Activity Log`.
+   - For unknown agent names, use `Co-Authored-By: {Agent} <noreply@unknown>`.
+
+If the commit is not task-related, keep the existing single-signature behavior.
 
 ## Step 3: Create Commit
 
@@ -97,6 +123,7 @@ git commit -m "$(cat <<'EOF'
 - <bullet point 2>
 
 Co-Authored-By: {Your Model Name} <noreply@provider.com>
+<additional Co-Authored-By lines for other task participants, if any>
 EOF
 )"
 ```
@@ -104,6 +131,7 @@ EOF
 **Important**:
 - Add specific files by name - do NOT use `git add -A` or `git add .`
 - Do NOT commit files that may contain secrets (.env, credentials, keys)
+- For task-related commits, keep the current agent first and append the extra lines generated above
 
 ## Step 4: Update Task Status (If Task-Related)
 

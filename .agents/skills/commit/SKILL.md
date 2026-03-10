@@ -83,7 +83,33 @@ git log --oneline -5
 生成 Conventional Commits 格式的提交信息：
 - `<type>(<scope>): <subject>`（英文祈使语气，不超过 50 字符）
 - Body：2-4 个要点说明修改了什么以及为什么
-- 署名：`Co-Authored-By: {你的模型名称} <noreply@provider.com>`
+- 署名块：
+  - `Co-Authored-By: {你的模型名称} <noreply@provider.com>`
+  - 如果与任务相关，追加其他贡献 Agent 的 `Co-Authored-By` 行
+
+### 多 Agent 协作署名（仅任务相关提交）
+
+如果本次提交属于某个活动任务，且存在 `.ai-workspace/active/{task-id}/task.md`：
+
+1. 读取 `task.md` 中的 `## Activity Log` 部分。
+2. 从符合 `by {agent}` 的条目中提取所有唯一 Agent 名称；可使用较宽松的匹配模式，例如 `by (\S+)`。
+3. 排除 `human`，因为 Git author 已经是人类用户。
+4. 将 Agent 名称映射为 `Co-Authored-By` 行：
+
+| Agent | 署名 |
+|-------|------|
+| `claude` | `Co-Authored-By: Claude <noreply@anthropic.com>` |
+| `codex` | `Co-Authored-By: Codex <noreply@openai.com>` |
+| `gemini` | `Co-Authored-By: Gemini <noreply@google.com>` |
+| `opencode` | `Co-Authored-By: OpenCode <noreply@opencode.ai>` |
+
+5. 构建署名块时遵循以下规则：
+   - 保持当前执行提交的 Agent 署名在原有位置。
+   - 将其他唯一参与 Agent 作为额外的 `Co-Authored-By` 行追加。
+   - 如果当前 Agent 已在 `Activity Log` 中出现，不要重复追加。
+   - 未知 Agent 名称使用兜底格式 `Co-Authored-By: {Agent} <noreply@unknown>`。
+
+如果本次提交与任务无关，保持原有单行署名行为不变。
 
 ## 步骤 3：创建提交
 
@@ -96,6 +122,7 @@ git commit -m "$(cat <<'EOF'
 - <要点 2>
 
 Co-Authored-By: {你的模型名称} <noreply@provider.com>
+<其他任务参与者的额外 Co-Authored-By 行（如有）>
 EOF
 )"
 ```
@@ -103,6 +130,7 @@ EOF
 **重要**：
 - 按名称添加特定文件 —— 不要使用 `git add -A` 或 `git add .`
 - 不要提交可能包含密钥的文件（.env、凭据、密钥）
+- 对于任务相关提交，保持当前 Agent 署名在前，并在其后追加上面生成的额外署名行
 
 ## 步骤 4：更新任务状态（如果与任务相关）
 
