@@ -50,6 +50,10 @@ Update `.ai-workspace/active/{task-id}/task.md`:
 - `completed_at`: {current timestamp}
 - `updated_at`: {current timestamp}
 - Mark all workflow steps as complete
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Completed** by {agent} — Task archived to completed/
+  ```
 
 ### 4. Archive Task
 
@@ -70,7 +74,13 @@ Confirm the task directory was successfully moved.
 ### 6. Sync to Issue (Optional)
 
 If the task has an `issue_number` field, optionally sync the completion status:
-- Suggest user run the `sync-issue` skill to update the GitHub Issue
+
+```
+(Optional) Sync completion status to the GitHub Issue:
+  - Claude Code / OpenCode: /sync-issue {task-id}
+  - Gemini CLI: /{project}:sync-issue {task-id}
+  - Codex CLI: $sync-issue {task-id}
+```
 
 ### 7. Inform User
 

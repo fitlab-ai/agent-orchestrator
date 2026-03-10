@@ -108,15 +108,28 @@ EOF
 
 提交后，根据情况更新任务状态：
 
+对于以下所有情况，**追加**到 task.md 的 `## Activity Log`（不要覆盖之前的记录）：
+```
+- {yyyy-MM-dd HH:mm} — **Commit** by {agent} — {commit hash short} {commit subject}
+```
+
 ### 情况 1：最终提交（任务完成）
 
-如果这是最后一次提交且所有工作已完成，建议执行 `complete-task` 技能。
+如果这是最后一次提交且所有工作已完成：
 
 前置条件：
 - [ ] 所有代码已提交
 - [ ] 所有测试通过
 - [ ] 代码审查通过
 - [ ] 所有工作流步骤完成
+
+建议下一步：
+```
+下一步 - 完成并归档任务：
+  - Claude Code / OpenCode：/complete-task {task-id}
+  - Gemini CLI：/{project}:complete-task {task-id}
+  - Codex CLI：$complete-task {task-id}
+```
 
 ### 情况 2：还有后续工作
 
@@ -130,14 +143,28 @@ EOF
 - 更新 `task.md`：设置 `current_step` 为 `code-review`
 - 更新 `task.md`：设置 `updated_at` 为当前时间
 - 在工作流进度中标记 implementation 步骤为已完成
-- 建议执行 `review-task` 技能
+
+建议下一步：
+```
+下一步 - 代码审查：
+  - Claude Code / OpenCode：/review-task {task-id}
+  - Gemini CLI：/{project}:review-task {task-id}
+  - Codex CLI：$review-task {task-id}
+```
 
 ### 情况 4：准备创建 PR
 
 如果提交应该创建 Pull Request：
 - 更新 `task.md`：设置 `updated_at` 为当前时间
 - 在 task.md 中记录 PR 计划
-- 建议执行 `create-pr` 技能
+
+建议下一步：
+```
+下一步 - 创建 Pull Request：
+  - Claude Code / OpenCode：/create-pr
+  - Gemini CLI：/{project}:create-pr
+  - Codex CLI：$create-pr
+```
 
 ## 注意事项
 

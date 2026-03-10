@@ -78,21 +78,27 @@ gh api --method PATCH \
 
 ### 7. 记录到任务（如存在）
 
-如果有关联任务（搜索 `codescan_alert_number: <alert-number>`），添加关闭记录并归档任务。
+如果有关联任务（搜索 `codescan_alert_number: <alert-number>`）：
+- 添加关闭记录到 task.md
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Alert Closed** by {agent} — Code Scanning alert #{alert-number} dismissed: {reason}
+  ```
+- 归档任务
 
 ### 8. 告知用户
 
 ```
-Code Scanning alert #{alert-number} closed.
+Code Scanning 告警 #{alert-number} 已关闭。
 
-Rule: {rule.id}
-Location: {location.path}:{location.start_line}
-Reason: {reason}
-Explanation: {explanation}
+规则：{rule.id}
+位置：{location.path}:{location.start_line}
+原因：{reason}
+说明：{explanation}
 
-View: {html_url}
+查看：{html_url}
 
-Note: This can be reopened on GitHub if needed later.
+注意：如有需要，可在 GitHub 上重新打开。
 ```
 
 ## 注意事项

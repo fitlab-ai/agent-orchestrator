@@ -67,6 +67,10 @@ Update `.ai-workspace/active/{task-id}/task.md`:
 - `updated_at`: {current time}
 - Mark review.md as completed
 - Mark code-review as complete in workflow progress
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Code Review** by {agent} — Verdict: {Approved/Changes Requested/Rejected}, Blockers: {n}, Major: {n}, Minor: {n}
+  ```
 
 ### 6. Inform User
 
@@ -77,7 +81,10 @@ Output based on review result:
 Code review complete for task {task-id}. Verdict: Approved.
 - Blockers: 0 | Major: {n} | Minor: {n}
 
-Next step - commit changes using the commit skill.
+Next step - commit changes:
+  - Claude Code / OpenCode: /commit
+  - Gemini CLI: /{project}:commit
+  - Codex CLI: $commit
 ```
 
 **If changes requested**:
@@ -87,7 +94,9 @@ Code review complete for task {task-id}. Verdict: Changes Requested.
 - Report: .ai-workspace/active/{task-id}/review.md
 
 Next step - fix issues:
-  execute the refine-task skill with {task-id}
+  - Claude Code / OpenCode: /refine-task {task-id}
+  - Gemini CLI: /{project}:refine-task {task-id}
+  - Codex CLI: $refine-task {task-id}
 ```
 
 **If rejected**:
@@ -96,7 +105,9 @@ Code review complete for task {task-id}. Verdict: Rejected - needs major rework.
 - Report: .ai-workspace/active/{task-id}/review.md
 
 Next step - re-implement:
-  execute the implement-task skill with {task-id}
+  - Claude Code / OpenCode: /implement-task {task-id}
+  - Gemini CLI: /{project}:implement-task {task-id}
+  - Codex CLI: $implement-task {task-id}
 ```
 
 ## Output Template
@@ -202,8 +213,9 @@ Next step - re-implement:
 - [ ] Updated `current_step` to code-review in task.md
 - [ ] Updated `updated_at` to current time in task.md
 - [ ] Updated `assigned_to` to reviewer name in task.md
+- [ ] Appended entry to Activity Log in task.md
 - [ ] Marked code-review as complete in workflow progress
-- [ ] Informed user of next step based on review result
+- [ ] Informed user of next step with TUI-specific commands based on review result
 
 ## Notes
 

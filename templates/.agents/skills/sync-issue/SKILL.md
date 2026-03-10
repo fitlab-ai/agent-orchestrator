@@ -93,6 +93,10 @@ EOF
 ### 6. Update Task Status
 
 Add or update `last_synced_at` field in task.md.
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Sync to Issue** by {agent} — Progress synced to Issue #{issue-number}
+  ```
 
 ### 7. Inform User
 

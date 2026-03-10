@@ -87,7 +87,9 @@ Next steps (manual):
    git push origin {current-branch}
 
 3. (Optional) Generate release notes:
-   Execute the create-release-note skill with {version}
+   - Claude Code / OpenCode: /create-release-note {version}
+   - Gemini CLI: /{project}:create-release-note {version}
+   - Codex CLI: $create-release-note {version}
 ```
 
 ### Rollback Instructions

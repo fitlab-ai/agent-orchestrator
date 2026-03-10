@@ -71,27 +71,33 @@ description: >
 - `updated_at`：{当前时间}
 - 标记 plan.md 为已完成
 - 在工作流进度中标记 technical-design 为已完成
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Technical Design** by {agent} — Plan completed, awaiting human review
+  ```
 
 ### 7. 告知用户
 
 输出格式：
 ```
-Technical plan complete for task {task-id}.
+任务 {task-id} 技术方案完成。
 
-Plan summary:
-- Approach: {简要描述}
-- Files to modify: {数量}
-- Files to create: {数量}
-- Estimated complexity: {评估}
+方案概要：
+- 方法：{简要描述}
+- 需修改文件：{数量}
+- 需新建文件：{数量}
+- 预估复杂度：{评估}
 
-Output file:
-- Technical plan: .ai-workspace/active/{task-id}/plan.md
+产出文件：
+- 技术方案：.ai-workspace/active/{task-id}/plan.md
 
-IMPORTANT: Human review checkpoint.
-Please review the technical plan before proceeding to implementation.
+重要：人工审查检查点。
+请在继续实现之前审查技术方案。
 
-Next step:
-  execute the implement-task skill with {task-id}
+下一步 - 实施任务：
+  - Claude Code / OpenCode：/implement-task {task-id}
+  - Gemini CLI：/{project}:implement-task {task-id}
+  - Codex CLI：$implement-task {task-id}
 ```
 
 ## 输出模板
@@ -170,8 +176,9 @@ Next step:
 - [ ] 更新了 task.md 中的 `updated_at` 为当前时间
 - [ ] 在 task.md 中标记了 plan.md 为已完成
 - [ ] 在工作流进度中标记了 technical-design 为已完成
+- [ ] 追加了 Activity Log 条目到 task.md
 - [ ] 告知了用户这是人工审查检查点
-- [ ] 告知了用户下一步（implement-task）
+- [ ] 告知了用户下一步（含 TUI 特定命令格式）
 
 ## 停止
 

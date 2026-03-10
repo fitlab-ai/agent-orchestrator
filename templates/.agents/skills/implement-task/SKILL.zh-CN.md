@@ -78,23 +78,29 @@ description: >
 - `updated_at`：{当前时间}
 - 标记 implementation.md 为已完成
 - 在工作流进度中标记 implementation 为已完成
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Implementation** by {agent} — Code implemented, {n} files modified, {n} tests passed
+  ```
 
 ### 7. 告知用户
 
 输出格式：
 ```
-Implementation complete for task {task-id}.
+任务 {task-id} 实现完成。
 
-Summary:
-- Modified files: {数量}
-- New files: {数量}
-- Tests passed: {数量}/{总数}
+摘要：
+- 修改文件：{数量}
+- 新建文件：{数量}
+- 测试通过：{数量}/{总数}
 
-Output file:
-- Implementation report: .ai-workspace/active/{task-id}/implementation.md
+产出文件：
+- 实现报告：.ai-workspace/active/{task-id}/implementation.md
 
-Next step - code review:
-  execute the review-task skill with {task-id}
+下一步 - 代码审查：
+  - Claude Code / OpenCode：/review-task {task-id}
+  - Gemini CLI：/{project}:review-task {task-id}
+  - Codex CLI：$review-task {task-id}
 ```
 
 ## 输出模板
@@ -162,8 +168,9 @@ Next step - code review:
 - [ ] 更新了 task.md 中的 `current_step` 为 implementation
 - [ ] 更新了 task.md 中的 `updated_at` 为当前时间
 - [ ] 更新了 task.md 中的 `assigned_to`
+- [ ] 追加了 Activity Log 条目到 task.md
 - [ ] 在工作流进度中标记了 implementation 为已完成
-- [ ] 告知了用户下一步（review-task）
+- [ ] 告知了用户下一步（含 TUI 特定命令格式）
 
 ## 停止
 

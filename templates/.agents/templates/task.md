@@ -51,6 +51,11 @@ assigned_to: ""        # claude | codex | gemini | cursor | human
 - [ ] Issue 1
 - [ ] Issue 2
 
+## Activity Log
+
+<!-- Append a new entry for each workflow step. Do NOT overwrite previous entries. -->
+<!-- Format: - {yyyy-MM-dd HH:mm} — **{step}** by {agent} — {brief summary} -->
+
 ## Completion Checklist
 
 - [ ] All requirements met

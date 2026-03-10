@@ -62,7 +62,13 @@ Report:
 - Test status (pass/fail)
 - Any deprecation warnings or breaking changes noticed
 
-Suggest next step: commit the changes.
+Suggest next step:
+```
+Next step - commit changes:
+  - Claude Code / OpenCode: /commit
+  - Gemini CLI: /{project}:commit
+  - Codex CLI: $commit
+```
 
 ## Notes
 

@@ -78,6 +78,10 @@ Update `.ai-workspace/active/{task-id}/task.md`:
 - `current_step`: refinement
 - `assigned_to`: {current AI agent}
 - `updated_at`: {current time}
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Refinement** by {agent} — Fixed {n} blockers, {n} major, {n} minor issues
+  ```
 
 ### 8. Inform User
 
@@ -92,8 +96,14 @@ Fixes applied:
 - All tests pass: {Yes/No}
 
 Next step - re-review or commit:
-- Re-review: execute the review-task skill with {task-id}
-- Commit directly: execute the commit skill
+- Re-review:
+  - Claude Code / OpenCode: /review-task {task-id}
+  - Gemini CLI: /{project}:review-task {task-id}
+  - Codex CLI: $review-task {task-id}
+- Commit directly:
+  - Claude Code / OpenCode: /commit
+  - Gemini CLI: /{project}:commit
+  - Codex CLI: $commit
 ```
 
 ## Output Template
@@ -137,7 +147,8 @@ Append to `implementation.md`:
 - [ ] All tests pass after fixes
 - [ ] Updated implementation.md with refinement record
 - [ ] Updated task status in task.md
-- [ ] Informed user of next step
+- [ ] Appended entry to Activity Log in task.md
+- [ ] Informed user of next step with TUI-specific commands
 
 ## Notes
 

@@ -129,6 +129,10 @@ Create `.ai-workspace/active/{task-id}/analysis.md`:
 ### 6. Update Task Status
 
 Update task.md with `current_step: security-analysis`.
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Security Analysis** by {agent} — Dependabot alert #{alert-number} analyzed, risk: {High/Medium/Low}
+  ```
 
 ### 7. Inform User
 
@@ -149,8 +153,14 @@ Output files:
 - Analysis: .ai-workspace/active/{task-id}/analysis.md
 
 Next step:
-- To fix: execute the plan-task skill with {task-id}
-- If not applicable: execute the close-dependabot skill with {alert-number}
+- To fix:
+  - Claude Code / OpenCode: /plan-task {task-id}
+  - Gemini CLI: /{project}:plan-task {task-id}
+  - Codex CLI: $plan-task {task-id}
+- If not applicable:
+  - Claude Code / OpenCode: /close-dependabot {alert-number}
+  - Gemini CLI: /{project}:close-dependabot {alert-number}
+  - Codex CLI: $close-dependabot {alert-number}
 ```
 
 ## Notes

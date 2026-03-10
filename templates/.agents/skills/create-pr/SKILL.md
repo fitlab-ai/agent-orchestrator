@@ -78,14 +78,30 @@ EOF
 )"
 ```
 
-### 8. Output Result
+### 8. Update Task Status (If Task-Related)
+
+If there is an active task for this work, update `.ai-workspace/active/{task-id}/task.md`:
+- `pr_number`: {pr-number}
+- `updated_at`: {current time}
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **PR Created** by {agent} — PR #{pr-number} created
+  ```
+
+### 9. Output Result
 
 ```
 PR created: {pr-url}
 
 Next steps (if in task workflow):
-- Sync progress: execute the sync-pr skill with {task-id}
-- Complete task: execute the complete-task skill with {task-id}
+- Sync progress:
+  - Claude Code / OpenCode: /sync-pr {task-id}
+  - Gemini CLI: /{project}:sync-pr {task-id}
+  - Codex CLI: $sync-pr {task-id}
+- Complete task:
+  - Claude Code / OpenCode: /complete-task {task-id}
+  - Gemini CLI: /{project}:complete-task {task-id}
+  - Codex CLI: $complete-task {task-id}
 ```
 
 ## Notes

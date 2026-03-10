@@ -77,14 +77,30 @@ EOF
 )"
 ```
 
-### 8. 输出结果
+### 8. 更新任务状态（如果与任务相关）
+
+如果有关联的活跃任务，更新 `.ai-workspace/active/{task-id}/task.md`：
+- `pr_number`：{pr-number}
+- `updated_at`：{当前时间}
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **PR Created** by {agent} — PR #{pr-number} created
+  ```
+
+### 9. 输出结果
 
 ```
-PR created: {pr-url}
+PR 已创建：{pr-url}
 
-Next steps (if in task workflow):
-- Sync progress: execute the sync-pr skill with {task-id}
-- Complete task: execute the complete-task skill with {task-id}
+下一步（如在任务工作流中）：
+- 同步进度：
+  - Claude Code / OpenCode：/sync-pr {task-id}
+  - Gemini CLI：/{project}:sync-pr {task-id}
+  - Codex CLI：$sync-pr {task-id}
+- 完成任务：
+  - Claude Code / OpenCode：/complete-task {task-id}
+  - Gemini CLI：/{project}:complete-task {task-id}
+  - Codex CLI：$complete-task {task-id}
 ```
 
 ## 注意事项

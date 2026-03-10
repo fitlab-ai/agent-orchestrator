@@ -61,7 +61,13 @@ description: >
 - 测试状态（通过/失败）
 - 发现的任何弃用警告或破坏性变更
 
-建议下一步：提交变更。
+建议下一步：
+```
+下一步 - 提交代码：
+  - Claude Code / OpenCode：/commit
+  - Gemini CLI：/{project}:commit
+  - Codex CLI：$commit
+```
 
 ## 注意事项
 

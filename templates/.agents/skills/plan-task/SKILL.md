@@ -73,6 +73,10 @@ Update `.ai-workspace/active/{task-id}/task.md`:
 - `updated_at`: {current time}
 - Mark plan.md as completed
 - Mark technical-design as complete in workflow progress
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Technical Design** by {agent} — Plan completed, awaiting human review
+  ```
 
 ### 7. Inform User
 
@@ -92,8 +96,10 @@ Output file:
 IMPORTANT: Human review checkpoint.
 Please review the technical plan before proceeding to implementation.
 
-Next step:
-  execute the implement-task skill with {task-id}
+Next step - implement the task:
+  - Claude Code / OpenCode: /implement-task {task-id}
+  - Gemini CLI: /{project}:implement-task {task-id}
+  - Codex CLI: $implement-task {task-id}
 ```
 
 ## Output Template
@@ -172,8 +178,9 @@ Next step:
 - [ ] Updated `updated_at` to current time in task.md
 - [ ] Marked plan.md as completed in task.md
 - [ ] Marked technical-design as complete in workflow progress
+- [ ] Appended entry to Activity Log in task.md
 - [ ] Informed user this is a human review checkpoint
-- [ ] Informed user of next step (implement-task)
+- [ ] Informed user of next step with TUI-specific commands (implement-task)
 
 ## STOP
 

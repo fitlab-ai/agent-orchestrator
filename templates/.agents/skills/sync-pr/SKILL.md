@@ -101,6 +101,10 @@ EOF
 ### 6. Update Task Status
 
 Add or update `last_synced_to_pr_at` field in task.md.
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Sync to PR** by {agent} — Progress synced to PR #{pr-number}
+  ```
 
 ### 7. Inform User
 

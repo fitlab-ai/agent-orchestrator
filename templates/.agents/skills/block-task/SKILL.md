@@ -45,6 +45,10 @@ Update `.ai-workspace/active/{task-id}/task.md`:
 - `status`: blocked
 - `blocked_at`: {current timestamp}
 - `updated_at`: {current timestamp}
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Blocked** by {agent} — {one-line reason}
+  ```
 
 Add a blocking information section to task.md.
 
@@ -64,7 +68,10 @@ ls .ai-workspace/blocked/{task-id}/task.md
 
 If the task has an `issue_number`, suggest syncing:
 ```
-Consider syncing the blocking status to the Issue using the sync-issue skill.
+(Optional) Sync the blocking status to the Issue:
+  - Claude Code / OpenCode: /sync-issue {task-id}
+  - Gemini CLI: /{project}:sync-issue {task-id}
+  - Codex CLI: $sync-issue {task-id}
 ```
 
 ### 7. Inform User

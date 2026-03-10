@@ -49,4 +49,10 @@ description: >
 
 ## 后续步骤
 
-测试通过后，建议提交变更。
+测试通过后，建议提交变更：
+```
+下一步 - 提交代码：
+  - Claude Code / OpenCode：/commit
+  - Gemini CLI：/{project}:commit
+  - Codex CLI：$commit
+```

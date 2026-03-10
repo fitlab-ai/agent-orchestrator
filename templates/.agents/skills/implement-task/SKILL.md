@@ -80,6 +80,10 @@ Update `.ai-workspace/active/{task-id}/task.md`:
 - `updated_at`: {current time}
 - Mark implementation.md as completed
 - Mark implementation as complete in workflow progress
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Implementation** by {agent} — Code implemented, {n} files modified, {n} tests passed
+  ```
 
 ### 7. Inform User
 
@@ -96,7 +100,9 @@ Output file:
 - Implementation report: .ai-workspace/active/{task-id}/implementation.md
 
 Next step - code review:
-  execute the review-task skill with {task-id}
+  - Claude Code / OpenCode: /review-task {task-id}
+  - Gemini CLI: /{project}:review-task {task-id}
+  - Codex CLI: $review-task {task-id}
 ```
 
 ## Output Template
@@ -164,8 +170,9 @@ Next step - code review:
 - [ ] Updated `current_step` to implementation in task.md
 - [ ] Updated `updated_at` to current time in task.md
 - [ ] Updated `assigned_to` in task.md
+- [ ] Appended entry to Activity Log in task.md
 - [ ] Marked implementation as complete in workflow progress
-- [ ] Informed user of next step (review-task)
+- [ ] Informed user of next step with TUI-specific commands (review-task)
 
 ## STOP
 

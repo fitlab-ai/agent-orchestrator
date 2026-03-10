@@ -87,7 +87,13 @@ gh api --method PATCH \
 
 ### 7. Record in Task (If Exists)
 
-If a related task exists (search for `security_alert_number: <alert-number>`), add closure record and archive the task.
+If a related task exists (search for `security_alert_number: <alert-number>`):
+- Add closure record to task.md
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Alert Closed** by {agent} — Dependabot alert #{alert-number} dismissed: {reason}
+  ```
+- Archive the task
 
 ### 8. Inform User
 

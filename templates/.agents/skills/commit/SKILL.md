@@ -109,15 +109,28 @@ EOF
 
 After committing, update task status based on the situation:
 
+For all cases below, **append** to `## Activity Log` in task.md (do NOT overwrite previous entries):
+```
+- {yyyy-MM-dd HH:mm} — **Commit** by {agent} — {commit hash short} {commit subject}
+```
+
 ### Case 1: Final Commit (Task Complete)
 
-If this is the last commit and all work is done, suggest executing the `complete-task` skill.
+If this is the last commit and all work is done:
 
 Prerequisites:
 - [ ] All code committed
 - [ ] All tests pass
 - [ ] Code review passed
 - [ ] All workflow steps complete
+
+Suggest next step:
+```
+Next step - complete and archive the task:
+  - Claude Code / OpenCode: /complete-task {task-id}
+  - Gemini CLI: /{project}:complete-task {task-id}
+  - Codex CLI: $complete-task {task-id}
+```
 
 ### Case 2: More Work Needed
 
@@ -131,14 +144,28 @@ If the commit is ready for code review:
 - Update `task.md`: set `current_step` to `code-review`
 - Update `task.md`: set `updated_at` to current time
 - Mark implementation step as complete in workflow progress
-- Suggest executing the `review-task` skill
+
+Suggest next step:
+```
+Next step - code review:
+  - Claude Code / OpenCode: /review-task {task-id}
+  - Gemini CLI: /{project}:review-task {task-id}
+  - Codex CLI: $review-task {task-id}
+```
 
 ### Case 4: Ready for PR
 
 If the commit should become a Pull Request:
 - Update `task.md`: set `updated_at` to current time
 - Record PR plan in task.md
-- Suggest executing the `create-pr` skill
+
+Suggest next step:
+```
+Next step - create a Pull Request:
+  - Claude Code / OpenCode: /create-pr
+  - Gemini CLI: /{project}:create-pr
+  - Codex CLI: $create-pr
+```
 
 ## Notes
 

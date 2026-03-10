@@ -135,6 +135,10 @@ Update `.ai-workspace/active/{task-id}/task.md`:
 - `updated_at`: {current time}
 - Mark analysis.md as completed
 - Mark requirement-analysis as complete in workflow progress
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Requirement Analysis** by {agent} — Task created and analysis completed
+  ```
 
 ### 6. Inform User
 
@@ -153,7 +157,9 @@ Output files:
 - Analysis: .ai-workspace/active/{task-id}/analysis.md
 
 Next step - review the analysis, then design the technical plan:
-  execute the plan-task skill with {task-id}
+  - Claude Code / OpenCode: /plan-task {task-id}
+  - Gemini CLI: /{project}:plan-task {task-id}
+  - Codex CLI: $plan-task {task-id}
 ```
 
 ## Completion Checklist
@@ -163,8 +169,9 @@ Next step - review the analysis, then design the technical plan:
 - [ ] Updated `current_step` to requirement-analysis in task.md
 - [ ] Updated `updated_at` to current time in task.md
 - [ ] Updated `assigned_to` in task.md
+- [ ] Appended entry to Activity Log in task.md
 - [ ] Marked requirement-analysis as complete in workflow progress
-- [ ] Informed user of next step (plan-task)
+- [ ] Informed user of next step with TUI-specific commands (plan-task)
 - [ ] **Did NOT modify any business code or config files** (only task.md and analysis.md)
 
 ## STOP

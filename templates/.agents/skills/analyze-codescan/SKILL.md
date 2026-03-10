@@ -135,6 +135,10 @@ Create `.ai-workspace/active/{task-id}/analysis.md`:
 ### 6. Update Task Status
 
 Update task.md with `current_step: security-analysis`.
+- **Append** to `## Activity Log` (do NOT overwrite previous entries):
+  ```
+  - {yyyy-MM-dd HH:mm} — **Security Analysis** by {agent} — Code Scanning alert #{alert-number} analyzed, risk: {High/Medium/Low}
+  ```
 
 ### 7. Inform User
 
@@ -151,8 +155,14 @@ Task info:
 - Risk level: {High/Medium/Low}
 
 Next step:
-- To fix: execute the plan-task skill with {task-id}
-- If false positive: execute the close-codescan skill with {alert-number}
+- To fix:
+  - Claude Code / OpenCode: /plan-task {task-id}
+  - Gemini CLI: /{project}:plan-task {task-id}
+  - Codex CLI: $plan-task {task-id}
+- If false positive:
+  - Claude Code / OpenCode: /close-codescan {alert-number}
+  - Gemini CLI: /{project}:close-codescan {alert-number}
+  - Codex CLI: $close-codescan {alert-number}
 ```
 
 ## Notes

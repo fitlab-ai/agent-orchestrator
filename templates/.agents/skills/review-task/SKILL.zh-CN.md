@@ -65,6 +65,10 @@ description: >
 - `updated_at`：{当前时间}
 - 标记 review.md 为已完成
 - 在工作流进度中标记 code-review 为已完成
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Code Review** by {agent} — Verdict: {Approved/Changes Requested/Rejected}, Blockers: {n}, Major: {n}, Minor: {n}
+  ```
 
 ### 6. 告知用户
 
@@ -72,29 +76,36 @@ description: >
 
 **如果通过**：
 ```
-Code review complete for task {task-id}. Verdict: Approved.
-- Blockers: 0 | Major: {n} | Minor: {n}
+任务 {task-id} 代码审查完成。结论：通过。
+- 阻塞项：0 | 主要问题：{n} | 次要问题：{n}
 
-Next step - commit changes using the commit skill.
+下一步 - 提交代码：
+  - Claude Code / OpenCode：/commit
+  - Gemini CLI：/{project}:commit
+  - Codex CLI：$commit
 ```
 
 **如果需要修改**：
 ```
-Code review complete for task {task-id}. Verdict: Changes Requested.
-- Blockers: {n} | Major: {n} | Minor: {n}
-- Report: .ai-workspace/active/{task-id}/review.md
+任务 {task-id} 代码审查完成。结论：需要修改。
+- 阻塞项：{n} | 主要问题：{n} | 次要问题：{n}
+- 审查报告：.ai-workspace/active/{task-id}/review.md
 
-Next step - fix issues:
-  execute the refine-task skill with {task-id}
+下一步 - 修复问题：
+  - Claude Code / OpenCode：/refine-task {task-id}
+  - Gemini CLI：/{project}:refine-task {task-id}
+  - Codex CLI：$refine-task {task-id}
 ```
 
 **如果拒绝**：
 ```
-Code review complete for task {task-id}. Verdict: Rejected - needs major rework.
-- Report: .ai-workspace/active/{task-id}/review.md
+任务 {task-id} 代码审查完成。结论：拒绝，需要重大返工。
+- 审查报告：.ai-workspace/active/{task-id}/review.md
 
-Next step - re-implement:
-  execute the implement-task skill with {task-id}
+下一步 - 重新实现：
+  - Claude Code / OpenCode：/implement-task {task-id}
+  - Gemini CLI：/{project}:implement-task {task-id}
+  - Codex CLI：$implement-task {task-id}
 ```
 
 ## 输出模板
@@ -200,8 +211,9 @@ Next step - re-implement:
 - [ ] 更新了 task.md 中的 `current_step` 为 code-review
 - [ ] 更新了 task.md 中的 `updated_at` 为当前时间
 - [ ] 更新了 task.md 中的 `assigned_to` 为审查者名称
+- [ ] 追加了 Activity Log 条目到 task.md
 - [ ] 在工作流进度中标记了 code-review 为已完成
-- [ ] 根据审查结果告知了用户下一步
+- [ ] 根据审查结果告知了用户下一步（含 TUI 特定命令格式）
 
 ## 注意事项
 

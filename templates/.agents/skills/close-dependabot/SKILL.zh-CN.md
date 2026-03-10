@@ -86,21 +86,27 @@ gh api --method PATCH \
 
 ### 7. 记录到任务（如存在）
 
-如果有关联任务（搜索 `security_alert_number: <alert-number>`），添加关闭记录并归档任务。
+如果有关联任务（搜索 `security_alert_number: <alert-number>`）：
+- 添加关闭记录到 task.md
+- **追加**到 `## Activity Log`（不要覆盖之前的记录）：
+  ```
+  - {yyyy-MM-dd HH:mm} — **Alert Closed** by {agent} — Dependabot alert #{alert-number} dismissed: {reason}
+  ```
+- 归档任务
 
 ### 8. 告知用户
 
 ```
-Security alert #{alert-number} closed.
+安全告警 #{alert-number} 已关闭。
 
-Alert: {summary}
-Severity: {severity}
-Reason: {reason}
-Explanation: {explanation}
+告警：{summary}
+严重程度：{severity}
+原因：{reason}
+说明：{explanation}
 
-View: https://github.com/{owner}/{repo}/security/dependabot/{alert-number}
+查看：https://github.com/{owner}/{repo}/security/dependabot/{alert-number}
 
-Note: This can be reopened on GitHub if needed later.
+注意：如有需要，可在 GitHub 上重新打开。
 ```
 
 ## 注意事项

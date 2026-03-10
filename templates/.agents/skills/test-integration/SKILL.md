@@ -51,7 +51,13 @@ If tests fail:
 
 ## Next Steps
 
-After tests pass, suggest committing the changes.
+After tests pass, suggest committing the changes:
+```
+Next step - commit changes:
+  - Claude Code / OpenCode: /commit
+  - Gemini CLI: /{project}:commit
+  - Codex CLI: $commit
+```
 
 ## Notes
 
