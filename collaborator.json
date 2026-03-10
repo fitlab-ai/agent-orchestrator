@@ -3,7 +3,6 @@
   "project": "ai-collaboration-installer",
   "org": "fitlab-ai",
   "language": "zh-CN",
-  "license": "MIT",
   "templateSource": "templates/",
   "templateVersion": "a255d1a",
   "modules": ["ai", "github"],
@@ -42,8 +41,7 @@
     ],
     "ejected": [
       "README.md",
-      "README.zh-CN.md",
-      "License.txt"
+      "README.zh-CN.md"
     ]
   }
 }

@@ -98,12 +98,9 @@ cmd_init() {
   esac
 
   _default_org="$(git remote get-url origin 2>/dev/null | sed 's/\.git$//' | sed 's|.*://[^/]*/||;s|.*:||' | cut -d/ -f1)" || true
-  prompt ORG_NAME "Organization / owner" "$_default_org"
-  if [ -z "$ORG_NAME" ]; then
-    err "Organization name is required."
-    exit 1
-  fi
+  prompt ORG_NAME "Organization / owner (optional)" "$_default_org"
   case "$ORG_NAME" in
+    "") ;;  # empty is allowed
     *[!a-zA-Z0-9_.@-]*)
       err "Organization name may only contain letters, digits, hyphens, underscores, dots, and @."
       err "Got: $ORG_NAME"
@@ -125,22 +122,17 @@ cmd_init() {
       ;;
   esac
 
-  prompt LICENSE "License (MIT / Apache-2.0)" "MIT"
-  case "$LICENSE" in
-    MIT|Apache-2.0) ;;
-    *)
-      err "License must be 'MIT' or 'Apache-2.0'. Got: $LICENSE"
-      exit 1
-      ;;
-  esac
-
   MODULES="ai,github"
 
   # derive the short project name used in paths and placeholders
   PROJECT="$PROJECT_NAME"
 
   echo ""
-  info "Installing update-ai-collaboration seed command for: $PROJECT_NAME ($ORG_NAME)"
+  if [ -n "$ORG_NAME" ]; then
+    info "Installing update-ai-collaboration seed command for: $PROJECT_NAME ($ORG_NAME)"
+  else
+    info "Installing update-ai-collaboration seed command for: $PROJECT_NAME"
+  fi
   echo ""
 
   # select language suffix for template files
@@ -212,7 +204,6 @@ cmd_init() {
   "project": "$PROJECT_NAME",
   "org": "$ORG_NAME",
   "language": "$LANGUAGE",
-  "license": "$LICENSE",
   "templateSource": "templates/",
   "templateVersion": "$VERSION",
   "modules": ["$MODULES_JSON"],
@@ -247,8 +238,7 @@ cmd_init() {
     ],
     "ejected": [
       "README.md",
-      "README.zh-CN.md",
-      "License.txt"
+      "README.zh-CN.md"
     ]
   }
 }

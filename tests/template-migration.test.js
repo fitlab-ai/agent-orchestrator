@@ -205,8 +205,7 @@ test("required template files were migrated into templates/", () => {
     "templates/SECURITY.md",
     "templates/.gitignore",
     "templates/README.md",
-    "templates/README.zh-CN.md",
-    "templates/License.txt"
+    "templates/README.zh-CN.md"
   ];
 
   requiredFiles.forEach((relativePath) => {
@@ -409,9 +408,9 @@ test("ai-collaboration-installer init generates seed files in a temp directory",
     // symlink the real ai-collaboration-installer repo as the template source for this test HOME
     fs.symlinkSync(rootDir, path.join(tmpDir, ".ai-collaboration-installer"));
 
-    // run init with piped input: project=testproj, org=testorg, defaults for rest
+    // run init with piped input: project=testproj, org=testorg, language=default
     execSync(
-      `printf 'testproj\\ntestorg\\n\\n\\n' | sh "${cli}" init`,
+      `printf 'testproj\\ntestorg\\n\\n' | sh "${cli}" init`,
       { cwd: tmpDir, stdio: "pipe", env: { ...process.env, HOME: tmpDir } }
     );
 
@@ -471,8 +470,8 @@ test("ai-collaboration-installer init rejects invalid input", () => {
   const cli = filePath("bin/ai-collaboration-installer");
 
   const cases = [
-    { input: 'demo"x\\ntestorg\\n\\n\\n', desc: "project name with quote" },
-    { input: 'testproj\\ntestorg\\nbad-lang\\n\\n', desc: "unsupported language" }
+    { input: 'demo"x\\ntestorg\\n\\n', desc: "project name with quote" },
+    { input: 'testproj\\ntestorg\\nbad-lang\\n', desc: "unsupported language" }
   ];
 
   cases.forEach(({ input, desc }) => {
@@ -489,6 +488,11 @@ test("ai-collaboration-installer init rejects invalid input", () => {
       fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
+});
+
+test("collaborator.json does not contain license field", () => {
+  const collaborator = JSON.parse(read("collaborator.json"));
+  assert.ok(!("license" in collaborator), "license field should not exist in collaborator.json");
 });
 
 test("collaborator.json excludes deprecated codex prompt paths", () => {
