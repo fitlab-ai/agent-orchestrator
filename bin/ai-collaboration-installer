@@ -64,6 +64,16 @@ cmd_init() {
     exit 1
   fi
 
+  # auto-update: pull latest templates before init
+  if [ -d "$INSTALL_DIR/.git" ]; then
+    info "Updating templates to latest version..."
+    if git -C "$INSTALL_DIR" pull --quiet 2>/dev/null; then
+      ok "Templates updated."
+    else
+      err "Failed to update templates (network issue?). Using local version."
+    fi
+  fi
+
   if [ -f "collaborator.json" ]; then
     err "This project already has a collaborator.json."
     err "Use /update-ai-collaboration in your AI TUI to update."
