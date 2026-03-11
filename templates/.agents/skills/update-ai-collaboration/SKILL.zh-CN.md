@@ -29,7 +29,28 @@ description: >
 
 ## 步骤 3：确定更新范围并分类文件
 
+### 3.0 同步文件注册表
+
+读取模板源的 `lib/defaults.json`，将其文件列表与项目 `collaborator.json` 的对应列表进行对比，
+自动追加新增的条目：
+
+1. 遍历 `defaults.json` 中 `files.managed` 的每个条目：
+   如果该条目**不在**项目 `collaborator.json` 的 `managed`、`merged`、`ejected` 任何一个列表中，
+   追加到项目的 `files.managed`。
+2. 遍历 `defaults.json` 中 `files.merged` 的每个条目：
+   如果该条目**不在**项目 `collaborator.json` 的 `managed`、`merged`、`ejected` 任何一个列表中，
+   追加到项目的 `files.merged`。
+3. 已在 `files.ejected` 中的条目不动（用户已明确接管，优先级最高）。
+4. 项目 `collaborator.json` 中额外添加的自定义条目保留不动（只增不删）。
+
+如果有新增条目，立即更新内存中的文件列表，后续步骤使用更新后的列表。
+在最终报告中列出所有新增的条目，以便用户知晓。
+
+### 3.1 模块过滤
+
 只处理 `modules` 中列出的模块。
+
+### 3.2 文件分类
 
 **文件分类优先级**（高 → 低）：
 1. `files.ejected` 中列出的路径 → **ejected**（用户完全拥有，不触碰）

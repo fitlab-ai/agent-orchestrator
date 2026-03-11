@@ -32,7 +32,31 @@ project's own files.
 
 ## Step 3: Determine update scope and classify files
 
+### 3.0 Sync file registry
+
+Read `lib/defaults.json` from the template source and compare its file lists
+against the project's `collaborator.json`, automatically appending new entries:
+
+1. For each entry in `defaults.json`'s `files.managed`:
+   if it does NOT appear in the project's `managed`, `merged`, or `ejected` lists,
+   append it to the project's `files.managed`.
+2. For each entry in `defaults.json`'s `files.merged`:
+   if it does NOT appear in the project's `managed`, `merged`, or `ejected` lists,
+   append it to the project's `files.merged`.
+3. Entries already in `files.ejected` are never touched (user has full ownership,
+   highest priority).
+4. Custom entries added by the project to `collaborator.json` are kept as-is
+   (add-only, never remove).
+
+If new entries were added, update the in-memory file lists immediately so that
+subsequent steps use the updated lists.
+List all newly added entries in the final report so the user is aware.
+
+### 3.1 Module filtering
+
 Only process files belonging to modules listed in `collaborator.json.modules`.
+
+### 3.2 File classification
 
 **File classification priority** (high → low):
 1. Paths listed in `files.ejected` → **ejected** (user fully owns, do not touch)
