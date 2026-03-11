@@ -7,7 +7,7 @@
 ```bash
 # 安装依赖：无需安装，仅使用 Node.js 内置模块
 
-# 构建项目：无需构建，项目由 Shell 脚本和模板文件组成
+# 构建项目：无需构建，项目由 Node.js CLI 和模板文件组成
 
 # 运行测试
 node --test tests/*.test.js
@@ -17,7 +17,7 @@ node --test tests/*.test.js
 
 ## 编码规范（必须遵守）
 
-- Shell 脚本保持 POSIX sh 兼容，使用 `set -e` 进行错误处理
+- `install.sh` 保持 POSIX sh 兼容，使用 `set -e` 进行错误处理
 - 模板文件使用 `{{project}}` 和 `{{org}}` 作为渲染占位符
 - Markdown 文件提供双语版本（英文为主 + 中文翻译）
 
@@ -35,8 +35,7 @@ node --test tests/*.test.js
 
 ```
 ├── bin/                           # CLI 可执行文件
-│   ├── ai-collaboration-installer # 主 CLI（Shell 脚本）
-│   └── aci                        # 快捷命令包装
+│   └── cli.js                     # 主 CLI（Node.js）
 ├── templates/                     # 模板源文件（镜像项目目录结构）
 ├── tests/                         # 测试（Node.js 内置测试运行器）
 ├── install.sh                     # 引导安装脚本

@@ -30,7 +30,7 @@ git clone git@github.com:fitlab-ai/ai-collaboration-installer.git
 
 # 安装依赖：无需安装，仅使用 Node.js 内置模块
 
-# 构建：无需构建，项目由 Shell 脚本和模板文件组成
+# 构建：无需构建，项目由 Node.js CLI 和模板文件组成
 
 # 运行测试
 node --test tests/*.test.js
@@ -67,7 +67,7 @@ node --test tests/*.test.js
 
 ### 代码风格
 
-- Shell 脚本保持 POSIX sh 兼容，使用 `set -e` 进行错误处理
+- `install.sh` 保持 POSIX sh 兼容，使用 `set -e` 进行错误处理
 - 模板文件使用 `{{project}}` 和 `{{org}}` 作为渲染占位符
 - Markdown 文件提供双语版本（英文为主 + 中文翻译）
 

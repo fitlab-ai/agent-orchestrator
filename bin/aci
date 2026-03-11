@@ -1,3 +1,0 @@
-#!/bin/sh
-# Shorthand for ai-collaboration-installer
-exec "$(dirname "$0")/ai-collaboration-installer" "$@"

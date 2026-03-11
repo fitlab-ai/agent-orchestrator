@@ -33,7 +33,7 @@ git status --short
 
 更新以下文件中的版本号：
 
-1. `bin/ai-collaboration-installer` 中的 `VERSION="X.Y.Z"`
+1. `package.json` 中的 `"version": "X.Y.Z"`
 2. `collaborator.json` 中的 `"version": "X.Y.Z"`
 
 使用搜索确认旧版本号无遗漏，使用编辑工具更新。

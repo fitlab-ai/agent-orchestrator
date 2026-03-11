@@ -300,21 +300,14 @@ test("init-project files have been removed", () => {
 
 test("bootstrap CLI files exist", () => {
   assert.ok(exists("install.sh"), "install.sh should exist");
-  assert.ok(exists("bin/ai-collaboration-installer"), "bin/ai-collaboration-installer (shell) should exist");
   assert.ok(exists("bin/cli.js"), "bin/cli.js (node) should exist");
 
   const installSh = read("install.sh");
   assert.match(installSh, /git clone/);
   assert.match(installSh, /\.ai-collaboration-installer/);
 
-  const shellCli = read("bin/ai-collaboration-installer");
-  assert.match(shellCli, /ai-collaboration-installer init/);
-
   const nodeCli = read("bin/cli.js");
   assert.match(nodeCli, /ai-collaboration-installer/);
-
-  const shellStats = fs.statSync(filePath("bin/ai-collaboration-installer"));
-  assert.ok(shellStats.mode & 0o111, "bin/ai-collaboration-installer should be executable");
 
   const nodeStats = fs.statSync(filePath("bin/cli.js"));
   assert.ok(nodeStats.mode & 0o111, "bin/cli.js should be executable");
