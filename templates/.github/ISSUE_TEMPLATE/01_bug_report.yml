@@ -1,79 +1,149 @@
-name: Bug Report
-description: Report a bug or unexpected behavior.
-title: "[Bug]: "
-labels: ["bug"]
+name: 🐛 问题报告 / Bug Report
+description: 报告项目中的错误或问题 / Report bugs or issues in the project
+labels:
+  - "type: bug"
+  - "status: waiting-for-triage"
+type: Bug
 body:
   - type: markdown
     attributes:
       value: |
-        Thank you for reporting a bug. Please fill out the form below to help us investigate.
+        ## 感谢您提交问题报告！/ Thank you for submitting a bug report!
 
-  - type: textarea
-    id: description
+        请尽可能详细地描述问题，这将帮助我们更快地定位和修复问题。
+        Please describe the issue in as much detail as possible to help us locate and fix it faster.
+
+  - type: input
+    id: summary
     attributes:
-      label: Bug Description
-      description: A clear and concise description of the bug.
-      placeholder: Describe the bug...
+      label: 问题摘要 / Issue Summary
+      description: 用一句话简要描述这个问题 / Briefly describe this bug in one sentence
+      placeholder: |
+        例如：执行某个操作后回调未触发
+        Example: Callback not triggered after executing a specific operation
     validations:
       required: true
 
-  - type: textarea
-    id: steps
+  - type: input
+    id: version
     attributes:
-      label: Steps to Reproduce
-      description: Steps to reproduce the behavior.
+      label: 版本信息 / Version Information
+      description: 您使用的是哪个版本？/ Which version are you using?
+      placeholder: "例如 / e.g.: v1.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: runtime
+    attributes:
+      label: 运行环境 / Runtime Environment
+      description: 您使用的运行环境版本 / Your runtime environment version
+      placeholder: "例如 / e.g.: Node.js 20.x, Python 3.12, JDK 17"
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统 / Operating System
+      description: 您使用的操作系统 / Your operating system
+      options:
+        - "Windows 11"
+        - "Windows 10"
+        - "macOS (Intel)"
+        - "macOS (Apple Silicon)"
+        - "Ubuntu/Debian"
+        - "Other Linux"
+        - "其他 (请在下方说明) / Other (please specify below)"
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么？/ What happened?
+      description: |
+        详细描述问题的现象
+        Describe the bug phenomenon in detail
       placeholder: |
-        1. Go to '...'
-        2. Run '...'
-        3. See error
+        告诉我们您看到了什么！
+        Tell us what you saw!
+
+        例如 / Example:
+        - 执行某个操作后，未得到预期的结果
+        - After executing a specific operation, the expected result was not obtained
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: Expected Behavior
-      description: What you expected to happen.
-    validations:
-      required: true
-
-  - type: textarea
-    id: actual
-    attributes:
-      label: Actual Behavior
-      description: What actually happened.
-    validations:
-      required: true
-
-  - type: dropdown
-    id: severity
-    attributes:
-      label: Severity
-      options:
-        - Low - cosmetic or minor inconvenience
-        - Medium - feature partially broken
-        - High - feature completely broken
-        - Critical - data loss or security issue
-    validations:
-      required: true
-
-  - type: textarea
-    id: environment
-    attributes:
-      label: Environment
-      description: Any relevant environment details (OS, version, etc.).
+      label: 期望的行为 / Expected Behavior
+      description: |
+        描述您期望发生什么
+        Describe what you expected to happen
       placeholder: |
-        - OS: macOS 15.x / Ubuntu 24.04 / Windows 11
-        - Version: x.y.z
+        告诉我们您期望看到什么！
+        Tell us what you expected to see!
+
+        例如 / Example:
+        - 操作应该成功完成并返回正确的结果
+        - The operation should complete successfully and return the correct result
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 重现步骤 / Steps to Reproduce
+      description: |
+        如何重现这个问题？
+        How to reproduce this issue?
+      placeholder: |
+        1. 安装依赖 / Install dependencies
+        2. 配置 '...' / Configure '...'
+        3. 运行 '...' / Run '...'
+        4. 看到错误 / See error
+    validations:
+      required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: Logs / Screenshots
-      description: Paste any relevant logs, error messages, or screenshots.
+      label: 相关日志 / Relevant Logs
+      description: |
+        请复制粘贴任何相关的日志输出、错误信息或控制台输出
+        Please copy and paste any relevant log output, error messages, or console output
+
+        这将自动格式化为代码块，无需使用反引号
+        This will be automatically formatted as code block, no need for backticks
+      render: shell
 
   - type: textarea
-    id: additional
+    id: additional-context
     attributes:
-      label: Additional Context
-      description: Any other context about the problem.
+      label: 额外信息 / Additional Context
+      description: |
+        添加任何其他有助于解决问题的信息，如截图、相关链接等
+        Add any other information that might help solve the issue, such as screenshots, related links, etc.
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: 确认事项 / Confirmations
+      description: |
+        提交前请确认以下事项
+        Please confirm the following before submitting
+      options:
+        - label: |
+            我已经搜索了现有的issues，确认这不是重复问题
+            I have searched existing issues and confirmed this is not a duplicate
+          required: true
+        - label: |
+            我已经阅读了项目文档和 FAQ
+            I have read the project documentation and FAQ
+          required: true
+        - label: |
+            我提供的信息准确完整
+            The information I provided is accurate and complete
+          required: true
+        - label: |
+            我愿意协助测试问题修复 (可选)
+            I'm willing to help test the bug fix (optional)
+          required: false

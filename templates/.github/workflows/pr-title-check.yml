@@ -1,24 +1,20 @@
-# Validates PR titles follow Conventional Commits format.
-# See: https://www.conventionalcommits.org/
-
 name: PR Title Check
 
 on:
   pull_request_target:
-    types: [opened, edited, synchronize, reopened]
+    types: [opened, edited, synchronize]
 
 permissions:
-  pull-requests: read
+  pull-requests: write
+  statuses: write
 
 jobs:
-  validate-pr-title:
-    name: Validate PR Title
+  validate:
     runs-on: ubuntu-latest
     steps:
-      - uses: amannn/action-semantic-pull-request@v5
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: amannn/action-semantic-pull-request@v6.1.1
         with:
+          # 允许的提交类型
           types: |
             feat
             fix
@@ -31,7 +27,16 @@ jobs:
             build
             ci
             revert
-          subjectPattern: ^.{5,100}$
-          subjectPatternError: |
-            PR title subject must be between 5 and 100 characters.
+
+          # 不限制 scope，允许任意模块名
+          # requireScope: false - scope 是可选的
+
+          # 标题描述长度 5-100 字符
+          subjectPattern: '^.{5,100}$'
+          subjectPatternError: '标题描述长度应在 5-100 字符之间'
+
+          # 支持 WIP 前缀标记进行中的工作
           wip: true
+
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
