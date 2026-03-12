@@ -71,6 +71,10 @@ test("ai-collaboration-installer init generates seed files in a temp directory",
       "skill should be installed"
     );
     assert.ok(
+      fs.existsSync(path.join(tmpDir, ".agents/skills/update-ai-collaboration/sync-templates.js")),
+      "skill sync script should be installed"
+    );
+    assert.ok(
       fs.existsSync(path.join(tmpDir, ".claude/commands/update-ai-collaboration.md")),
       "claude command should be installed"
     );
@@ -188,6 +192,9 @@ test("ai-collaboration-installer update refreshes seed files and syncs file regi
     assert.match(skill, /aci update/);
     assert.doesNotMatch(skill, /\{\{project\}\}/);
     assert.doesNotMatch(skill, /\{\{org\}\}/);
+    assert.ok(
+      fs.existsSync(path.join(tmpDir, ".agents", "skills", "update-ai-collaboration", "sync-templates.js"))
+    );
 
     assert.ok(
       fs.existsSync(path.join(tmpDir, ".claude", "commands", "update-ai-collaboration.md"))

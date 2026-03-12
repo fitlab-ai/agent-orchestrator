@@ -9,16 +9,54 @@
  * The report includes `merged.pending` so the AI knows what to process.
  *
  * Usage:
- *   node lib/sync-templates.js [project-root]
+ *   node .agents/skills/update-ai-collaboration/sync-templates.js [project-root]
  *
  * Output: JSON report to stdout.
  */
 'use strict';
 
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { execSync } = require('node:child_process');
-const { resolveTemplateDir, resolveInstallDir } = require('./paths');
+
+function findInstallerRoot(startDir) {
+  let current = path.resolve(startDir);
+
+  while (true) {
+    if (
+      fs.existsSync(path.join(current, 'package.json')) &&
+      fs.existsSync(path.join(current, 'lib', 'paths.js'))
+    ) {
+      return current;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+
+  const homeInstall = path.join(os.homedir(), '.ai-collaboration-installer');
+  if (
+    fs.existsSync(path.join(homeInstall, 'package.json')) &&
+    fs.existsSync(path.join(homeInstall, 'lib', 'paths.js'))
+  ) {
+    return homeInstall;
+  }
+
+  return null;
+}
+
+const installerRoot = findInstallerRoot(__dirname);
+if (!installerRoot) {
+  throw new Error('Unable to locate ai-collaboration-installer shared modules.');
+}
+
+const { resolveTemplateDir, resolveInstallDir } = require(path.join(installerRoot, 'lib', 'paths.js'));
+const versionPath = path.join(installerRoot, 'lib', 'version.js');
+const defaultsPath = path.join(installerRoot, 'lib', 'defaults.json');
 
 // ─── Helpers ──────────────────────────────────────────────────────────────
 
@@ -65,7 +103,7 @@ function matchesAny(rel, patterns) {
   return patterns.some(p => norm(p) === n || globMatch(p, n));
 }
 
-/** Replace {{project}} and {{org}} in text */
+/** Replace project and org placeholders in text */
 function renderContent(text, vars) {
   return text
     .replace(/\{\{project\}\}/g, vars.project)
@@ -139,6 +177,22 @@ function gitUrl(dir) {
   } catch { return null; }
 }
 
+function readDefaults() {
+  if (!fs.existsSync(defaultsPath)) {
+    return null;
+  }
+
+  return JSON.parse(fs.readFileSync(defaultsPath, 'utf8'));
+}
+
+function readVersion() {
+  try {
+    return require(versionPath).VERSION;
+  } catch {
+    return null;
+  }
+}
+
 // ─── Language selection ───────────────────────────────────────────────────
 
 /**
@@ -205,7 +259,7 @@ function syncTemplates(projectRoot) {
       }).trim();
     } catch { /* ignore */ }
   } else {
-    try { sha = require('./version').VERSION; } catch { /* ignore */ }
+    sha = readVersion() || sha;
   }
 
   const { project, org, language: lang = 'en', modules = [] } = cfg;
@@ -227,9 +281,8 @@ function syncTemplates(projectRoot) {
   };
 
   // ── Step 3.0: registry sync ───────────────────────────────────────────
-  const defPath = path.join(__dirname, 'defaults.json');
-  if (fs.existsSync(defPath)) {
-    const defs = JSON.parse(fs.readFileSync(defPath, 'utf8'));
+  const defs = readDefaults();
+  if (defs) {
     const known = new Set([...managed, ...merged, ...ejected]);
     for (const e of (defs.files.managed || [])) {
       if (!known.has(e)) { managed.push(e); known.add(e); report.registryAdded.push({ entry: e, list: 'managed' }); }

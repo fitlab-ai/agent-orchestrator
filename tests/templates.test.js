@@ -19,6 +19,7 @@ test("required template files were migrated into templates/", () => {
     "templates/.agents/README.md",
     "templates/.agents/QUICKSTART.md",
     "templates/.agents/skills/update-ai-collaboration/SKILL.md",
+    "templates/.agents/skills/update-ai-collaboration/sync-templates.js",
     "templates/.ai-workspace/README.md",
     "templates/.ai-workspace/README.zh-CN.md",
     "templates/.claude/CLAUDE.md",
@@ -90,6 +91,7 @@ test("update-ai-collaboration template copies stay in sync with working files", 
 
   const syncFiles = [
     [".agents/skills/update-ai-collaboration/SKILL.md", "templates/.agents/skills/update-ai-collaboration/SKILL.md"],
+    [".agents/skills/update-ai-collaboration/sync-templates.js", "templates/.agents/skills/update-ai-collaboration/sync-templates.js"],
     ...buildCommandSyncFiles(project)
   ];
 

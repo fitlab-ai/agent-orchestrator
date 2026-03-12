@@ -25,7 +25,7 @@ description: >
 Execute the following command to handle all deterministic steps at once:
 
 ```bash
-node ~/.ai-collaboration-installer/lib/sync-templates.js
+node .agents/skills/update-ai-collaboration/sync-templates.js
 ```
 
 The script reads `collaborator.json` (including `templateSource`, default `templates/`) and automatically performs:

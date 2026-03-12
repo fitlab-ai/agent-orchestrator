@@ -21,7 +21,7 @@ description: >
 执行以下命令，一次性处理所有确定性步骤：
 
 ```bash
-node ~/.ai-collaboration-installer/lib/sync-templates.js
+node .agents/skills/update-ai-collaboration/sync-templates.js
 ```
 
 脚本读取 `collaborator.json`（含 `templateSource`，默认 `templates/`），自动完成：
