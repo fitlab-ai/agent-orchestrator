@@ -25,7 +25,7 @@
    - `2024` -> `2024-2026`
 
 ### 分支命名
-使用项目前缀：`collaborator-feature-xxx`、`collaborator-bugfix-yyy`
+使用项目前缀：`{{project}}-feature-xxx`、`{{project}}-bugfix-yyy`
 
 ## 项目结构
 

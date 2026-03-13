@@ -9,9 +9,9 @@
 我们使用 [Git](https://git-scm.com/) 作为版本控制工具，项目开发模式遵从多版本的 `Git-Flow` 模式：
 
 - `main` 分支为主干开发分支，所有特性都从该分支检出并合入
-- `collaborator-feature-*` 分支为特性开发分支
-- `collaborator-{$majorVersion}.{$minorVersion}.x` 为指定版本分支
-- `collaborator-bugfix-*` 分支为问题修复分支
+- `{{project}}-feature-*` 分支为特性开发分支
+- `{{project}}-{$majorVersion}.{$minorVersion}.x` 为指定版本分支
+- `{{project}}-bugfix-*` 分支为问题修复分支
 - 所有问题修复或者功能增强，均需要找到合适的最低版本分支进行处理，然后逐级分支往上合入，最终合入 `main` 分支
 
 ## 环境配置
@@ -45,11 +45,11 @@ git clone <repository-url>
 
 - 为每个功能或问题修复创建一个新的分支，避免在主分支（如 `main`）上直接开发。
 - 分支命名应简洁明了，描述分支的主要目的。
-  - 分支以 `collaborator-` 开头。
-  - 特性分支以 `collaborator-feature-` 开头，功能增强分支以 `collaborator-enhancement-` 开头，任务型分支以 `collaborator-task-` 开头，问题修复分支以 `collaborator-bugfix-` 开头。
+  - 分支以 `{{project}}-` 开头。
+  - 特性分支以 `{{project}}-feature-` 开头，功能增强分支以 `{{project}}-enhancement-` 开头，任务型分支以 `{{project}}-task-` 开头，问题修复分支以 `{{project}}-bugfix-` 开头。
   - 使用短划线 `-` 来分隔单词。
-  - 版本分支最后跟两个版本号和一个 `x` 字母，例如：`collaborator-1.0.x`。
-  - 发布分支后面跟三个版本号，例如：`collaborator-1.0.0`。
+  - 版本分支最后跟两个版本号和一个 `x` 字母，例如：`{{project}}-1.0.x`。
+  - 发布分支后面跟三个版本号，例如：`{{project}}-1.0.0`。
 
 ### 版本分支合并规则
 
@@ -58,9 +58,9 @@ git clone <repository-url>
 
 ## 标签管理
 
-- 每个标签的名字和发布分支的名字需要保持一致，例如：`collaborator-1.0.0`。
+- 每个标签的名字和发布分支的名字需要保持一致，例如：`{{project}}-1.0.0`。
 - 纯数字版本的分支需要以 `v` 开头，例如：`v0.1.0`。
-- 候选版本以特殊词组结尾，例如：`collaborator-1.0.0-alpha1`。
+- 候选版本以特殊词组结尾，例如：`{{project}}-1.0.0-alpha1`。
 - 当标签被打出后，对应的发布分支应当删除。
 - 所有的 Issue 和 PR 都需要至少包含两种标签：`in: {$module}` 和 `type: {$type}`。
 

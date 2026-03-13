@@ -1,129 +1,131 @@
-# 安全政策
+# Security Policy
 
-## 支持的版本
+[中文版](SECURITY.zh-CN.md)
 
-请参考下表了解当前支持安全更新的版本。
+## Supported Versions
 
-| 版本     | 支持状态              |
+Please use the following table to understand which versions are currently supported with security updates.
+
+| Version  | Support Status        |
 | -------- | --------------------- |
-| v1.0.x   | 支持中                |
-| < v1.0.0 | 不再支持              |
+| v0.1.x   | Supported             |
+| < v0.1.0 | Not Supported         |
 
-## 报告漏洞
+## Reporting Vulnerabilities
 
-我们非常重视安全问题。如果您发现安全漏洞，请按照以下步骤报告：
+We take security issues very seriously. If you discover a security vulnerability, please follow these steps to report it:
 
-### 如何报告
+### How to Report
 
-**请勿在公开的 GitHub Issue 中报告安全漏洞。**
+**Please do not report security vulnerabilities in public GitHub issues.**
 
-请通过以下方式私下报告：
+Instead, please report privately through the following methods:
 
-1. **GitHub Security Advisory**（推荐）
-   - 进入项目的 "Security" 标签页
-   - 点击 "Report a vulnerability"
-   - 填写安全公告表单
+1. **GitHub Security Advisory** (Recommended)
+   - Go to the project's "Security" tab
+   - Click "Report a vulnerability"
+   - Fill out the security advisory form
 
-### 报告内容
+### Report Content
 
-请在报告中包含以下信息：
+Please include the following information in your report:
 
-- **漏洞类型**：简要描述漏洞性质
-- **影响范围**：受影响的组件、版本或功能
-- **复现步骤**：详细的漏洞复现步骤
-- **概念验证**：如有可能，提供 PoC 代码或截图
-- **影响评估**：潜在的安全影响和风险等级
-- **修复建议**：如有修复建议，请一并提供
+- **Vulnerability Type**: Briefly describe the nature of the vulnerability
+- **Impact Scope**: Affected components, versions, or features
+- **Reproduction Steps**: Detailed steps on how to reproduce the vulnerability
+- **Proof of Concept**: If possible, provide PoC code or screenshots
+- **Impact Assessment**: Potential security impact and risk level
+- **Suggested Fix**: If you have fix suggestions, please provide them
 
-### 响应时间
+### Response Timeline
 
-我们承诺按照以下时间线响应安全报告：
+We commit to responding to security reports according to the following timeline:
 
-- **确认回复**：24 小时内
-- **初步评估**：72 小时内
-- **详细分析**：7 个工作日内
-- **修复发布**：根据严重程度，1-30 天
+- **Acknowledgment**: Within 24 hours
+- **Initial Assessment**: Within 72 hours
+- **Detailed Analysis**: Within 7 business days
+- **Fix Release**: 1-30 days depending on severity
 
-### 漏洞严重程度
+### Vulnerability Severity
 
-我们使用以下标准评估漏洞严重程度：
+We use the following criteria to assess vulnerability severity:
 
-#### 严重（Critical）
-- 远程代码执行
-- 认证绕过
-- 未授权访问敏感数据
+#### Critical
+- Remote Code Execution
+- Authentication bypass
+- Unauthorized access to sensitive data
 
-#### 高危（High）
-- 跨站脚本攻击（XSS）
-- 权限提升
-- 敏感数据泄露
+#### High
+- Cross-Site Scripting (XSS)
+- Privilege escalation
+- Sensitive data exposure
 
-#### 中危（Medium）
-- 信息泄露
-- 拒绝服务（DoS）
-- 弱加密
+#### Medium
+- Information disclosure
+- Denial of Service (DoS)
+- Weak cryptography
 
-#### 低危（Low）
-- 配置问题
-- 信息收集类漏洞
+#### Low
+- Configuration issues
+- Information gathering vulnerabilities
 
-### 处理流程
+### Handling Process
 
-1. **接收报告**：我们收到您的报告并确认
-2. **漏洞验证**：安全团队验证漏洞的存在性和影响
-3. **影响评估**：评估漏洞严重程度和影响范围
-4. **修复开发**：开发并测试修复方案
-5. **协调发布**：与报告者协调披露时间
-6. **公开披露**：发布安全更新和公告
+1. **Report Reception**: We receive your report and acknowledge it
+2. **Vulnerability Verification**: Our security team verifies the vulnerability's existence and impact
+3. **Impact Assessment**: Assess vulnerability severity and impact scope
+4. **Fix Development**: Develop and test fix solutions
+5. **Coordinated Release**: Coordinate disclosure timing with reporter
+6. **Public Disclosure**: Release security updates and announcements
 
-### 负责任披露
+### Responsible Disclosure
 
-我们遵循负责任披露原则：
+We follow responsible disclosure principles:
 
-- 我们将在修复漏洞后公开披露
-- 请在修复发布前不要公开讨论该漏洞
-- 我们会在安全公告中适当感谢报告者（除非您希望保持匿名）
+- We will publicly disclose after fixing the vulnerability
+- Please do not publicly discuss the vulnerability before the fix is released
+- We will appropriately thank reporters in security announcements (unless you prefer to remain anonymous)
 
-### 安全更新通知
+### Security Update Notifications
 
-要接收安全更新通知，请：
+To receive security update notifications, please:
 
-1. **Watch 本仓库** 并启用安全警报
-2. **订阅 Releases** 以获取新版本通知
+1. **Watch this Repository** and enable security alerts
+2. **Subscribe to Releases** to get new version notifications
 
-### 安全最佳实践
+### Security Best Practices
 
-使用本项目时，我们建议遵循以下安全最佳实践：
+When using this project, we recommend following these security best practices:
 
-- 始终使用最新的受支持版本
-- 定期更新依赖
-- 启用适当的日志记录和监控
-- 实施最小权限原则
-- 定期进行安全审计
+- Always use the latest supported version
+- Regularly update dependencies
+- Enable appropriate logging and monitoring
+- Implement the principle of least privilege
+- Conduct regular security audits
 
-### 适用范围
+### Scope
 
-本安全政策适用于：
+This security policy applies to:
 
-- 本 GitHub 仓库中的所有代码
-- 官方发布版本
+- All code in this GitHub repository
+- Official releases
 
-本安全政策不适用于：
+This security policy does NOT apply to:
 
-- 第三方插件或扩展
-- 用户配置错误
+- Third-party plugins or extensions
+- User configuration errors
 
-### 致谢
+### Acknowledgments
 
-我们感谢以下研究人员对项目安全的贡献：
+We thank the following researchers for their contributions to project security:
 
 <!--
-致谢名单将在此处更新
-- [研究人员姓名] - 发现并报告了 [漏洞类型]
+Acknowledgment list will be updated here
+- [Researcher Name] - Discovered and reported [Vulnerability Type]
 -->
 
 ---
 
-**注意**：本安全政策可能会定期更新，请定期查看最新版本。
+**Note**: This security policy may be updated regularly. Please check the latest version periodically.
 
-**最后更新**：2026 年 3 月
+**Last Updated**: March 2026

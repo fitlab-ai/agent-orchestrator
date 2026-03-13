@@ -183,7 +183,7 @@ test("ai-collaboration-installer update refreshes seed files and syncs file regi
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-update-"));
   const cli = filePath("bin/cli.js");
   const config = {
-    version: "1.0.0",
+    version: "0.1.0",
     project: "seedproj",
     org: "seedorg",
     language: "zh-CN",

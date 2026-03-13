@@ -46,7 +46,7 @@ node --test tests/*.test.js
 2. 更新格式：`2024-2025` -> `2024-2026`（假设当前年份为 2026）
 
 ### 分支命名
-使用项目前缀：`collaborator-feature-xxx`、`collaborator-bugfix-yyy`
+使用项目前缀：`ai-collaboration-installer-feature-xxx`、`ai-collaboration-installer-bugfix-yyy`
 
 ## 测试要求
 

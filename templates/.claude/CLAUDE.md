@@ -33,7 +33,7 @@ When modifying any file with a copyright header, update the year:
 2. Update format: `2024-2025` -> `2024-2026` (assuming current year is 2026)
 
 ### Branch Naming
-Use project prefix: `collaborator-feature-xxx`, `collaborator-bugfix-yyy`
+Use project prefix: `{{project}}-feature-xxx`, `{{project}}-bugfix-yyy`
 
 ## Testing
 

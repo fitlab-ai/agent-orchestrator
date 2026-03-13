@@ -9,9 +9,9 @@ This guide provides detailed development guidance for contributors, including br
 We use [Git](https://git-scm.com/) for version control, following a multi-version Git-Flow model:
 
 - `main` branch is the primary development branch; all features branch from and merge into it
-- `collaborator-feature-*` branches for feature development
-- `collaborator-{majorVersion}.{minorVersion}.x` for version branches
-- `collaborator-bugfix-*` branches for bug fixes
+- `{{project}}-feature-*` branches for feature development
+- `{{project}}-{majorVersion}.{minorVersion}.x` for version branches
+- `{{project}}-bugfix-*` branches for bug fixes
 - All bug fixes or enhancements must start from the lowest applicable version branch and merge upward to `main`
 
 ## Environment Setup
@@ -45,11 +45,11 @@ See the project's `README.md` for more details on configuring the development en
 
 - Create a new branch for each feature or bug fix; never develop directly on `main`.
 - Branch naming should be concise and describe the branch's purpose.
-  - Branches start with `collaborator-`.
-  - Feature branches: `collaborator-feature-*`, enhancements: `collaborator-enhancement-*`, tasks: `collaborator-task-*`, bug fixes: `collaborator-bugfix-*`.
+  - Branches start with `{{project}}-`.
+  - Feature branches: `{{project}}-feature-*`, enhancements: `{{project}}-enhancement-*`, tasks: `{{project}}-task-*`, bug fixes: `{{project}}-bugfix-*`.
   - Use hyphens `-` to separate words.
-  - Version branches end with two version numbers and `x`: `collaborator-1.0.x`.
-  - Release branches end with three version numbers: `collaborator-1.0.0`.
+  - Version branches end with two version numbers and `x`: `{{project}}-1.0.x`.
+  - Release branches end with three version numbers: `{{project}}-1.0.0`.
 
 ### Version Branch Merge Rules
 
@@ -58,9 +58,9 @@ See the project's `README.md` for more details on configuring the development en
 
 ## Tag Management
 
-- Tag names must match release branch names, e.g. `collaborator-1.0.0`.
+- Tag names must match release branch names, e.g. `{{project}}-1.0.0`.
 - Purely numeric versions use a `v` prefix, e.g. `v0.1.0`.
-- Release candidates use special suffixes, e.g. `collaborator-1.0.0-alpha1`.
+- Release candidates use special suffixes, e.g. `{{project}}-1.0.0-alpha1`.
 - After a tag is created, the corresponding release branch should be deleted.
 - All Issues and PRs must have at least two labels: `in: {module}` and `type: {type}`.
 

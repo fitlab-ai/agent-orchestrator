@@ -29,7 +29,7 @@ node --test tests/*.test.js
    - `2024` -> `2024-2026`
 
 ### 分支命名
-使用项目前缀：`collaborator-feature-xxx`、`collaborator-bugfix-yyy`
+使用项目前缀：`ai-collaboration-installer-feature-xxx`、`ai-collaboration-installer-bugfix-yyy`
 
 ## 项目结构
 

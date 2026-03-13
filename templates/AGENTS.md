@@ -25,7 +25,7 @@ When modifying any file with a copyright header, you must update the copyright y
    - `2024` -> `2024-2026`
 
 ### Branch Naming
-Use project prefix: `collaborator-feature-xxx`, `collaborator-bugfix-yyy`
+Use project prefix: `{{project}}-feature-xxx`, `{{project}}-bugfix-yyy`
 
 ## Project Structure
 
