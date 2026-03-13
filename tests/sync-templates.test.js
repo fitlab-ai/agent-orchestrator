@@ -5,7 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 
-import { loadFreshCjs } from "./helpers.js";
+import { loadFreshEsm } from "./helpers.js";
 
 function writeFile(root, relativePath, content) {
   const fullPath = path.join(root, relativePath);
@@ -21,7 +21,7 @@ function normalize(targetPath) {
   return targetPath.replace(/\\/g, "/");
 }
 
-test("syncTemplates respects templateSource and stays idempotent", () => {
+test("syncTemplates respects templateSource and stays idempotent", async () => {
   const originalHomedir = os.homedir;
   const originalExecSync = childProcess.execSync;
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-"));
@@ -66,7 +66,7 @@ test("syncTemplates respects templateSource and stays idempotent", () => {
       throw new Error(`Unexpected command: ${command}`);
     };
 
-    const { syncTemplates } = loadFreshCjs(".agents/skills/update-ai-collaboration/scripts/sync-templates.cjs");
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-ai-collaboration/scripts/sync-templates.js");
 
     const firstReport = syncTemplates(projectRoot);
     const afterFirstRun = fs.readFileSync(path.join(projectRoot, "collaborator.json"), "utf8");
@@ -110,7 +110,7 @@ test("syncTemplates respects templateSource and stays idempotent", () => {
   }
 });
 
-test("syncTemplates runs git pull and reports the install SHA when clone metadata exists", () => {
+test("syncTemplates runs git pull and reports the install SHA when clone metadata exists", async () => {
   const originalHomedir = os.homedir;
   const originalExecSync = childProcess.execSync;
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-home-"));
@@ -156,7 +156,7 @@ test("syncTemplates runs git pull and reports the install SHA when clone metadat
       throw new Error(`Unexpected command: ${command}`);
     };
 
-    const { syncTemplates } = loadFreshCjs(".agents/skills/update-ai-collaboration/scripts/sync-templates.cjs");
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-ai-collaboration/scripts/sync-templates.js");
     const report = syncTemplates(projectRoot);
 
     assert.equal(report.templateSha, "abc123");

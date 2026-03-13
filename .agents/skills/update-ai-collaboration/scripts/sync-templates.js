@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * sync-templates.cjs — Deterministic template sync for managed & ejected files.
+ * sync-templates.js — Deterministic template sync for managed & ejected files.
  *
  * Handles SKILL steps: 2 (git pull), 3.0 (registry sync), 4 (managed),
  * 6 (ejected), 7 (collaborator.json update).
@@ -9,16 +9,16 @@
  * The report includes `merged.pending` so the AI knows what to process.
  *
  * Usage:
- *   node .agents/skills/update-ai-collaboration/scripts/sync-templates.cjs [project-root]
+ *   node .agents/skills/update-ai-collaboration/scripts/sync-templates.js [project-root]
  *
  * Output: JSON report to stdout.
  */
-'use strict';
 
-const fs = require('node:fs');
-const os = require('node:os');
-const path = require('node:path');
-const { execSync } = require('node:child_process');
+import childProcess from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 function findInstallerRoot(startDir) {
   let current = path.resolve(startDir);
@@ -49,24 +49,20 @@ function findInstallerRoot(startDir) {
   return null;
 }
 
-const installerRoot = findInstallerRoot(__dirname);
+const scriptDir = fileURLToPath(new URL('.', import.meta.url));
+const installerRoot = findInstallerRoot(scriptDir);
 if (!installerRoot) {
   throw new Error('Unable to locate ai-collaboration-installer shared modules.');
 }
 
-const { resolveTemplateDir, resolveInstallDir } = require(path.join(installerRoot, 'lib', 'paths.js'));
-const versionPath = path.join(installerRoot, 'lib', 'version.js');
+const { resolveTemplateDir, resolveInstallDir } = await import(
+  pathToFileURL(path.join(installerRoot, 'lib', 'paths.js')).href
+);
 const defaultsPath = path.join(installerRoot, 'lib', 'defaults.json');
+const packageJsonPath = path.join(installerRoot, 'package.json');
 
-// ─── Helpers ──────────────────────────────────────────────────────────────
-
-/** Normalize path separators to forward slash (cross-platform) */
 function norm(p) { return p.replace(/\\/g, '/'); }
 
-/**
- * Glob matcher for patterns in collaborator.json.
- * Supports: *, **, ?
- */
 function globMatch(pattern, filePath) {
   const p = norm(pattern), f = norm(filePath);
   const globstarDir = '__GLOBSTAR_DIR__';
@@ -86,7 +82,6 @@ function globMatch(pattern, filePath) {
   return new RegExp('^' + re + '$').test(f);
 }
 
-/** Recursively list all files under a directory */
 function walkDir(dir) {
   if (!fs.existsSync(dir)) return [];
   const out = [];
@@ -97,25 +92,21 @@ function walkDir(dir) {
   return out;
 }
 
-/** Check if relPath matches any entry in patterns (exact or glob) */
 function matchesAny(rel, patterns) {
   const n = norm(rel);
   return patterns.some(p => norm(p) === n || globMatch(p, n));
 }
 
-/** Replace project and org placeholders in text */
 function renderContent(text, vars) {
   return text
     .replace(/\{\{project\}\}/g, vars.project)
     .replace(/\{\{org\}\}/g, vars.org);
 }
 
-/** Replace _project_ in file/dir names */
 function renderPathname(p, project) {
   return p.replace(/_project_/g, project);
 }
 
-/** Resolve template root from collaborator.json.templateSource */
 function resolveProjectTemplateDir(projectRoot, templateSource) {
   const fallbackRoot = resolveTemplateDir();
 
@@ -147,7 +138,6 @@ function resolveProjectTemplateDir(projectRoot, templateSource) {
   return null;
 }
 
-/** Heuristic: binary if null byte found in first 8KB */
 function isBinary(fp) {
   const fd = fs.openSync(fp, 'r');
   const buf = Buffer.alloc(8192);
@@ -158,20 +148,18 @@ function isBinary(fp) {
   return false;
 }
 
-/** Map file path → module name (for module filtering) */
 function fileModule(rel) {
   const p = norm(rel);
   if (p.startsWith('.github/')) return 'github';
   if (p.startsWith('.agents/') || p.startsWith('.claude/') ||
       p.startsWith('.gemini/') || p.startsWith('.opencode/') ||
       p.startsWith('.codex/') || p === 'AGENTS.md') return 'ai';
-  return null; // common — always included
+  return null;
 }
 
-/** Get git remote origin URL, or null */
 function gitUrl(dir) {
   try {
-    return execSync('git remote get-url origin', {
+    return childProcess.execSync('git remote get-url origin', {
       cwd: dir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
     }).trim();
   } catch { return null; }
@@ -187,39 +175,30 @@ function readDefaults() {
 
 function readVersion() {
   try {
-    return require(versionPath).VERSION;
+    return JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')).version;
   } catch {
     return null;
   }
 }
 
-// ─── Language selection ───────────────────────────────────────────────────
-
-/**
- * Given template-relative paths, return Map<targetRel, templateRel>
- * with the correct language variant for each unique target.
- */
 function langSelect(rels, lang, allSet, project) {
   const sel = new Map();
 
   if (lang === 'zh-CN') {
-    // Pass 1: collect zh-CN variants (highest priority)
     for (const r of rels) {
       if (!r.includes('.zh-CN.')) continue;
       const target = norm(renderPathname(r.replace(/\.zh-CN\./, '.'), project));
       sel.set(target, r);
     }
-    // Pass 2: fill in English-only (no zh-CN counterpart)
     for (const r of rels) {
       if (r.includes('.zh-CN.')) continue;
       const target = norm(renderPathname(r, project));
-      if (sel.has(target)) continue; // zh-CN already chosen
+      if (sel.has(target)) continue;
       const ext = path.extname(r), base = r.slice(0, -ext.length);
-      if (allSet.has(norm(base + '.zh-CN' + ext))) continue; // zh-CN exists elsewhere
+      if (allSet.has(norm(base + '.zh-CN' + ext))) continue;
       sel.set(target, r);
     }
   } else {
-    // en: skip all zh-CN files
     for (const r of rels) {
       if (r.includes('.zh-CN.')) continue;
       sel.set(norm(renderPathname(r, project)), r);
@@ -229,10 +208,7 @@ function langSelect(rels, lang, allSet, project) {
   return sel;
 }
 
-// ─── Core ─────────────────────────────────────────────────────────────────
-
 function syncTemplates(projectRoot) {
-  // ── Step 1: read config ───────────────────────────────────────────────
   const cfgPath = path.join(projectRoot, 'collaborator.json');
   if (!fs.existsSync(cfgPath)) {
     return { error: 'No collaborator.json in project root.' };
@@ -245,16 +221,15 @@ function syncTemplates(projectRoot) {
   }
   const installDir = resolveInstallDir();
 
-  // ── Step 2: git pull + SHA ────────────────────────────────────────────
   const hasGit = fs.existsSync(path.join(installDir, '.git'));
   if (hasGit) {
-    try { execSync('git pull --quiet', { cwd: installDir, stdio: 'pipe' }); } catch { /* network */ }
+    try { childProcess.execSync('git pull --quiet', { cwd: installDir, stdio: 'pipe' }); } catch { /* network */ }
   }
 
   let sha = 'unknown';
   if (hasGit) {
     try {
-      sha = execSync('git rev-parse --short HEAD', {
+      sha = childProcess.execSync('git rev-parse --short HEAD', {
         cwd: installDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
       }).trim();
     } catch { /* ignore */ }
@@ -280,7 +255,6 @@ function syncTemplates(projectRoot) {
     selfUpdate: false
   };
 
-  // ── Step 3.0: registry sync ───────────────────────────────────────────
   const defs = readDefaults();
   if (defs) {
     const known = new Set([...managed, ...merged, ...ejected]);
@@ -292,12 +266,10 @@ function syncTemplates(projectRoot) {
     }
   }
 
-  // ── Build template file index ─────────────────────────────────────────
   const allRels = walkDir(templateRoot).map(f => norm(path.relative(templateRoot, f)));
   const allSet = new Set(allRels);
   const modSet = new Set(modules);
 
-  // ── Step 4: process managed files ─────────────────────────────────────
   for (const entry of managed) {
     const isDir = entry.endsWith('/');
     let entryRels;
@@ -307,7 +279,6 @@ function syncTemplates(projectRoot) {
       if (!fs.existsSync(dir)) continue;
       entryRels = walkDir(dir).map(f => norm(path.relative(templateRoot, f)));
     } else {
-      // Single file: collect it + possible zh-CN variant
       entryRels = [];
       const n = norm(entry);
       if (allSet.has(n)) entryRels.push(n);
@@ -318,20 +289,17 @@ function syncTemplates(projectRoot) {
     }
 
     for (const [tgt, src] of langSelect(entryRels, lang, allSet, project)) {
-      // Module filter
       const mod = fileModule(tgt);
       if (mod !== null && !modSet.has(mod)) {
         report.managed.skippedModule.push(tgt);
         continue;
       }
 
-      // 4.0: exclude merged / ejected
       if (matchesAny(tgt, merged) || matchesAny(tgt, ejected)) {
         report.managed.skippedMerged.push(tgt);
         continue;
       }
 
-      // Read template, render placeholders
       const srcFull = path.join(templateRoot, src);
       const dstFull = path.join(projectRoot, tgt);
       const bin = isBinary(srcFull);
@@ -339,7 +307,6 @@ function syncTemplates(projectRoot) {
         ? fs.readFileSync(srcFull)
         : renderContent(fs.readFileSync(srcFull, 'utf8'), vars);
 
-      // Compare with existing
       const exists = fs.existsSync(dstFull);
       if (exists) {
         const cur = bin ? fs.readFileSync(dstFull) : fs.readFileSync(dstFull, 'utf8');
@@ -349,7 +316,6 @@ function syncTemplates(projectRoot) {
         }
       }
 
-      // Write
       const dir = path.dirname(dstFull);
       if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
       fs.writeFileSync(dstFull, content);
@@ -361,7 +327,6 @@ function syncTemplates(projectRoot) {
     }
   }
 
-  // ── Step 6: process ejected files ─────────────────────────────────────
   for (const entry of ejected) {
     const dstFull = path.join(projectRoot, entry);
     if (fs.existsSync(dstFull)) {
@@ -369,7 +334,6 @@ function syncTemplates(projectRoot) {
       continue;
     }
 
-    // First-time: render from template (with language selection)
     let src = norm(entry);
     if (lang === 'zh-CN') {
       const ext = path.extname(entry), base = entry.slice(0, -ext.length);
@@ -385,11 +349,9 @@ function syncTemplates(projectRoot) {
     report.ejected.created.push(entry);
   }
 
-  // ── Enumerate merged files for AI ─────────────────────────────────────
   const mergedMap = new Map();
   for (const entry of merged) {
     if (entry.includes('*')) {
-      // Glob: find matching template files
       const hits = allRels.filter(r => {
         const t = norm(renderPathname(
           r.includes('.zh-CN.') ? r.replace(/\.zh-CN\./, '.') : r, project
@@ -400,7 +362,6 @@ function syncTemplates(projectRoot) {
         if (!mergedMap.has(t)) mergedMap.set(t, s);
       }
     } else {
-      // Exact path
       const rels = [];
       const n = norm(entry);
       if (allSet.has(n)) rels.push(n);
@@ -416,7 +377,6 @@ function syncTemplates(projectRoot) {
     ([target, template]) => ({ target, template })
   );
 
-  // ── Step 7: update collaborator.json ──────────────────────────────────
   const projUrl = gitUrl(projectRoot);
   const instUrl = gitUrl(installDir);
   report.selfUpdate = !!(projUrl && instUrl && projUrl === instUrl);
@@ -442,13 +402,12 @@ function syncTemplates(projectRoot) {
   return report;
 }
 
-// ─── CLI entry ────────────────────────────────────────────────────────────
-
-if (require.main === module) {
+const entryPath = process.argv[1] ? path.resolve(process.argv[1]) : null;
+if (entryPath === fileURLToPath(import.meta.url)) {
   const root = path.resolve(process.argv[2] || process.cwd());
   const result = syncTemplates(root);
   process.stdout.write(JSON.stringify(result, null, 2) + '\n');
   if (result.error) process.exitCode = 1;
 }
 
-module.exports = { syncTemplates };
+export { syncTemplates };

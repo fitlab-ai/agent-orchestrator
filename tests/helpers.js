@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
-import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-const require = createRequire(import.meta.url);
 const rootDir = fileURLToPath(new URL("..", import.meta.url));
 
 function filePath(relativePath) {
@@ -66,12 +64,6 @@ function buildCommandSyncFiles(project) {
 
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-function loadFreshCjs(relativePath) {
-  const resolved = require.resolve(filePath(relativePath));
-  delete require.cache[resolved];
-  return require(resolved);
 }
 
 async function loadFreshEsm(relativePath) {
@@ -213,7 +205,6 @@ export {
   langTemplate,
   listFilesRecursive,
   listSkillNames,
-  loadFreshCjs,
   loadFreshEsm,
   read,
   renderPlaceholders,
