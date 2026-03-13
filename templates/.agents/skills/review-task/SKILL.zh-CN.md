@@ -93,12 +93,29 @@ date "+%Y-%m-%d %H:%M:%S"
 
 根据审查结果输出：
 
-**如果通过**：
+**如果通过且无问题**（Major = 0 且 Minor = 0）：
+```
+任务 {task-id} 代码审查完成。结论：通过。
+- 阻塞项：0 | 主要问题：0 | 次要问题：0
+
+下一步 - 提交代码：
+  - Claude Code / OpenCode：/commit
+  - Gemini CLI：/{{project}}:commit
+  - Codex CLI：$commit
+```
+
+**如果通过但有问题**（Major > 0 或 Minor > 0）：
 ```
 任务 {task-id} 代码审查完成。结论：通过。
 - 阻塞项：0 | 主要问题：{n} | 次要问题：{n}
+- 审查报告：.ai-workspace/active/{task-id}/{review-artifact}
 
-下一步 - 提交代码：
+下一步 - 修复问题后提交（推荐）：
+  - Claude Code / OpenCode：/refine-task {task-id}
+  - Gemini CLI：/{{project}}:refine-task {task-id}
+  - Codex CLI：$refine-task {task-id}
+
+或直接提交（跳过修复）：
   - Claude Code / OpenCode：/commit
   - Gemini CLI：/{{project}}:commit
   - Codex CLI：$commit

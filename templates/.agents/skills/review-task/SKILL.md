@@ -95,12 +95,29 @@ Update `.ai-workspace/active/{task-id}/task.md`:
 
 Output based on review result:
 
-**If approved**:
+**If approved with no issues** (Major = 0 and Minor = 0):
+```
+Code review complete for task {task-id}. Verdict: Approved.
+- Blockers: 0 | Major: 0 | Minor: 0
+
+Next step - commit changes:
+  - Claude Code / OpenCode: /commit
+  - Gemini CLI: /{{project}}:commit
+  - Codex CLI: $commit
+```
+
+**If approved with issues** (Major > 0 or Minor > 0):
 ```
 Code review complete for task {task-id}. Verdict: Approved.
 - Blockers: 0 | Major: {n} | Minor: {n}
+- Report: .ai-workspace/active/{task-id}/{review-artifact}
 
-Next step - commit changes:
+Next step - fix issues then commit (recommended):
+  - Claude Code / OpenCode: /refine-task {task-id}
+  - Gemini CLI: /{{project}}:refine-task {task-id}
+  - Codex CLI: $refine-task {task-id}
+
+Or commit directly (skip fixes):
   - Claude Code / OpenCode: /commit
   - Gemini CLI: /{{project}}:commit
   - Codex CLI: $commit
