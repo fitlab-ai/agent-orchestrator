@@ -1,7 +1,5 @@
 #!/usr/bin/env node
-'use strict';
-
-const { VERSION } = require('../lib/version');
+import { VERSION } from '../lib/version.js';
 
 // Node.js version check
 const major = parseInt(process.versions.node.split('.')[0], 10);
@@ -36,16 +34,16 @@ const command = process.argv[2] || '';
 
 switch (command) {
   case 'init': {
-    const { cmdInit } = require('../lib/init');
-    cmdInit().catch((e) => {
+    const { cmdInit } = await import('../lib/init.js');
+    await cmdInit().catch((e) => {
       process.stderr.write(`Error: ${e.message}\n`);
       process.exitCode = 1;
     });
     break;
   }
   case 'update': {
-    const { cmdUpdate } = require('../lib/update');
-    cmdUpdate().catch((e) => {
+    const { cmdUpdate } = await import('../lib/update.js');
+    await cmdUpdate().catch((e) => {
       process.stderr.write(`Error: ${e.message}\n`);
       process.exitCode = 1;
     });

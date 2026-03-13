@@ -1,7 +1,7 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
 
-const { read } = require("./helpers");
+import { read } from "./helpers.js";
 
 test("collaborator.json declares templates as the template source", () => {
   const collaborator = JSON.parse(read("collaborator.json"));

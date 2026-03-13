@@ -1,8 +1,11 @@
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const rootDir = path.resolve(__dirname, "..");
+const require = createRequire(import.meta.url);
+const rootDir = fileURLToPath(new URL("..", import.meta.url));
 
 function filePath(relativePath) {
   return path.join(rootDir, relativePath);
@@ -65,10 +68,16 @@ function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-function loadFresh(relativePath) {
+function loadFreshCjs(relativePath) {
   const resolved = require.resolve(filePath(relativePath));
   delete require.cache[resolved];
   return require(resolved);
+}
+
+async function loadFreshEsm(relativePath) {
+  const moduleUrl = pathToFileURL(filePath(relativePath));
+  moduleUrl.searchParams.set("v", `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+  return import(moduleUrl.href);
 }
 
 function assertContainsPatterns(relativePath, patterns) {
@@ -194,7 +203,7 @@ const commandSpecs = {
   }
 };
 
-module.exports = {
+export {
   assertContainsPatterns,
   buildCommandSyncFiles,
   commandSpecs,
@@ -204,7 +213,8 @@ module.exports = {
   langTemplate,
   listFilesRecursive,
   listSkillNames,
-  loadFresh,
+  loadFreshCjs,
+  loadFreshEsm,
   read,
   renderPlaceholders,
   skillDocPaths

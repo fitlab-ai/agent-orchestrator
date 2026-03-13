@@ -1,14 +1,14 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
 
-const {
+import {
   assertContainsPatterns,
   commandSpecs,
   escapeRegExp,
   listSkillNames,
   read,
   skillDocPaths
-} = require("./helpers");
+} from "./helpers.js";
 
 test("update-ai-collaboration instructions point to templates rendering", () => {
   const updateSkill = read(".agents/skills/update-ai-collaboration/SKILL.md");

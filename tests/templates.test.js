@@ -1,14 +1,14 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
+import test from "node:test";
+import assert from "node:assert/strict";
 
-const {
+import {
   buildCommandSyncFiles,
   exists,
   langTemplate,
   listFilesRecursive,
   read,
   renderPlaceholders
-} = require("./helpers");
+} from "./helpers.js";
 
 test("required template files were migrated into templates/", () => {
   const requiredFiles = [

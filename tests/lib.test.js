@@ -1,10 +1,12 @@
-const test = require("node:test");
-const assert = require("node:assert/strict");
-const fs = require("node:fs");
-const path = require("node:path");
-const os = require("node:os");
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+import os from "node:os";
+import readline from "node:readline";
 
-const { filePath, loadFresh, renderPlaceholders } = require("./helpers");
+import { filePath, loadFreshEsm, renderPlaceholders } from "./helpers.js";
+import * as paths from "../lib/paths.js";
 
 test("paths detect clone installs when bundled templates live under HOME", () => {
   const originalHomedir = os.homedir;
@@ -15,8 +17,6 @@ test("paths detect clone installs when bundled templates live under HOME", () =>
     fs.mkdirSync(path.join(installDir, "templates"), { recursive: true });
 
     os.homedir = () => tmpDir;
-    const paths = loadFresh("lib/paths.js");
-
     assert.equal(paths.resolveInstallDir(), installDir);
     assert.equal(paths.resolveTemplateDir(), filePath("templates"));
     assert.equal(paths.isCloneInstall(), false);
@@ -24,9 +24,8 @@ test("paths detect clone installs when bundled templates live under HOME", () =>
     fs.rmSync(path.join(installDir, "templates"), { recursive: true, force: true });
     fs.symlinkSync(filePath("templates"), path.join(installDir, "templates"), "dir");
 
-    const clonePaths = loadFresh("lib/paths.js");
-    assert.equal(clonePaths.resolveTemplateDir(), filePath("templates"));
-    assert.equal(clonePaths.isCloneInstall(), true);
+    assert.equal(paths.resolveTemplateDir(), filePath("templates"));
+    assert.equal(paths.isCloneInstall(), true);
   } finally {
     os.homedir = originalHomedir;
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -43,7 +42,6 @@ test("renderPlaceholders only replaces double-brace placeholders", () => {
 });
 
 test("prompt does not recreate readline after close", async () => {
-  const readline = require("node:readline");
   const originalCreateInterface = readline.createInterface;
   const originalStdoutWrite = process.stdout.write;
   let createCount = 0;
@@ -67,7 +65,7 @@ test("prompt does not recreate readline after close", async () => {
   process.stdout.write = () => true;
 
   try {
-    const promptModule = loadFresh("lib/prompt.js");
+    const promptModule = await loadFreshEsm("lib/prompt.js");
     const firstPrompt = promptModule.prompt("Project name", "demo");
 
     promptModule.closePrompt();
