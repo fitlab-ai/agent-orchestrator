@@ -4,7 +4,7 @@
   "org": "fitlab-ai",
   "language": "zh-CN",
   "templateSource": "templates/",
-  "templateVersion": "9660f1b",
+  "templateVersion": "07afbe5",
   "modules": [
     "ai",
     "github"

@@ -84,7 +84,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - 在工作流进度中标记 code-review 为已完成，并注明实际轮次（如果任务模板支持）
 - **追加**到 `## Activity Log`（不要覆盖之前的记录）：
   ```
-  - {yyyy-MM-dd HH:mm:ss} — **Code Review (Round {N})** by {agent} — Verdict: {Approved/Changes Requested/Rejected}, Blockers: {n}, Major: {n}, Minor: {n} → {artifact-filename}
+  - {yyyy-MM-dd HH:mm:ss} — **Code Review (Round {N})** by {agent} — 结论：{已批准/需要修改/拒绝}，阻塞项：{n}，主要问题：{n}，次要问题：{n} → {artifact-filename}
   ```
 
 ### 6. 告知用户
@@ -93,12 +93,29 @@ date "+%Y-%m-%d %H:%M:%S"
 
 根据审查结果输出：
 
-**如果通过**：
+**如果通过且无问题**（Major = 0 且 Minor = 0）：
+```
+任务 {task-id} 代码审查完成。结论：通过。
+- 阻塞项：0 | 主要问题：0 | 次要问题：0
+
+下一步 - 提交代码：
+  - Claude Code / OpenCode：/commit
+  - Gemini CLI：/ai-collaboration-installer:commit
+  - Codex CLI：$commit
+```
+
+**如果通过但有问题**（Major > 0 或 Minor > 0）：
 ```
 任务 {task-id} 代码审查完成。结论：通过。
 - 阻塞项：0 | 主要问题：{n} | 次要问题：{n}
+- 审查报告：.ai-workspace/active/{task-id}/{review-artifact}
 
-下一步 - 提交代码：
+下一步 - 修复问题后提交（推荐）：
+  - Claude Code / OpenCode：/refine-task {task-id}
+  - Gemini CLI：/ai-collaboration-installer:refine-task {task-id}
+  - Codex CLI：$refine-task {task-id}
+
+或直接提交（跳过修复）：
   - Claude Code / OpenCode：/commit
   - Gemini CLI：/ai-collaboration-installer:commit
   - Codex CLI：$commit
@@ -141,7 +158,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - **审查者**：{审查者名称}
 - **审查时间**：{时间戳}
 - **审查范围**：{文件数量和主要模块}
-- **总体结论**：{Approved / Changes Requested / Rejected}
+- **总体结论**：{已批准 / 需要修改 / 拒绝}
 
 ## 发现的问题
 
