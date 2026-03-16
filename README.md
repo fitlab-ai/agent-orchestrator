@@ -21,25 +21,25 @@ agent-orchestrator provides standardized configuration for AI TUI tools (Claude 
 
 ### 1. Install agent-orchestrator
 
-**Option A — Shell script (recommended)**
+**Option A — npm (recommended)**
+
+```bash
+npm install -g @fitlab-ai/agent-orchestrator
+npx @fitlab-ai/agent-orchestrator init
+```
+
+**Option B — Shell script**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fitlab-ai/agent-orchestrator/main/install.sh | sh
 ```
 
-**Option B — Install from source**
+**Option C — Install from source**
 
 ```bash
 git clone https://github.com/fitlab-ai/agent-orchestrator.git
 cd agent-orchestrator
 sh install.sh
-```
-
-**Option C — npm**
-
-```bash
-npm install -g @fitlab-ai/agent-orchestrator
-npx @fitlab-ai/agent-orchestrator init
 ```
 
 ### 2. Initialize a new project

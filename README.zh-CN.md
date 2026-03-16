@@ -21,25 +21,25 @@ agent-orchestrator 为 AI TUI 工具（Claude Code、Codex、Gemini CLI、OpenCo
 
 ### 1. 安装 agent-orchestrator
 
-**方式 A — Shell 脚本（推荐）**
+**方式 A — npm（推荐）**
+
+```bash
+npm install -g @fitlab-ai/agent-orchestrator
+npx @fitlab-ai/agent-orchestrator init
+```
+
+**方式 B — Shell 脚本**
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/fitlab-ai/agent-orchestrator/main/install.sh | sh
 ```
 
-**方式 B — 源码安装**
+**方式 C — 源码安装**
 
 ```bash
 git clone https://github.com/fitlab-ai/agent-orchestrator.git
 cd agent-orchestrator
 sh install.sh
-```
-
-**方式 C — npm**
-
-```bash
-npm install -g @fitlab-ai/agent-orchestrator
-npx @fitlab-ai/agent-orchestrator init
 ```
 
 ### 2. 初始化新项目
