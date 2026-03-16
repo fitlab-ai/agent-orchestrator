@@ -5,35 +5,9 @@ on:
     tags:
       - "v*"
 
-permissions:
-  contents: write
-
 jobs:
-  github-release:
-    name: Create GitHub Release
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Run tests
-        run: npm test
-
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: gh release create "$GITHUB_REF_NAME" --generate-notes --verify-tag
-
   npm-publish:
     name: Publish to npm
-    needs: github-release
     runs-on: ubuntu-latest
     permissions:
       contents: read

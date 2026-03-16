@@ -23,14 +23,10 @@ test("package metadata supports scoped npm publishing", () => {
   );
 });
 
-test("release workflow publishes to npm after GitHub Release succeeds", () => {
+test("release workflow publishes to npm on tag push", () => {
   const workflow = read(".github/workflows/release.yml");
 
-  assert.match(workflow, /permissions:\s+contents: write/);
-  assert.doesNotMatch(workflow, /permissions:\s+contents: write\s+id-token: write/);
-  assert.match(workflow, /github-release:/);
   assert.match(workflow, /npm-publish:/);
-  assert.match(workflow, /needs: github-release/);
   assert.match(workflow, /registry-url: https:\/\/registry\.npmjs\.org/);
   assert.match(workflow, /run: npm test/);
   assert.match(workflow, /package\.json version \$PACKAGE_VERSION does not match tag \$GITHUB_REF_NAME/);
