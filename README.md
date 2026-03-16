@@ -92,7 +92,7 @@ my-project/
 ├── CONTRIBUTING.md        # Development guide
 ├── SECURITY.md            # Security policy (English)
 ├── SECURITY.zh-CN.md      # Security policy (Chinese)
-└── .aorc.json      # Central configuration
+└── .aorc.json             # Central configuration
 ```
 
 ### Built-in AI Skills

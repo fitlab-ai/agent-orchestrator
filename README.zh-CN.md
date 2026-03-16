@@ -92,7 +92,7 @@ my-project/
 ├── CONTRIBUTING.md        # 开发指南
 ├── SECURITY.md            # 安全政策（英文）
 ├── SECURITY.zh-CN.md      # 安全政策（中文）
-└── .aorc.json      # 中央配置文件
+└── .aorc.json             # 中央配置文件
 ```
 
 ### 内置 AI 技能
