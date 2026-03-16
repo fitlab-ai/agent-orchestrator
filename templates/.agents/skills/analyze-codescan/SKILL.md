@@ -30,7 +30,7 @@ Extract key information:
 
 Check if a task for this alert already exists. If not, create:
 
-Directory: `.ai-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
+Directory: `.agent-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
 
 Task metadata:
 ```yaml
@@ -62,7 +62,7 @@ tool: <tool-name>
 
 ### 5. Output Analysis Document
 
-Create `.ai-workspace/active/{task-id}/analysis.md`:
+Create `.agent-workspace/active/{task-id}/analysis.md`:
 
 ```markdown
 # Code Scanning Alert Analysis Report

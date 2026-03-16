@@ -21,8 +21,8 @@ description: >
 ### 1. Verify Prerequisites
 
 Check required files:
-- `.ai-workspace/active/{task-id}/task.md` - Task file
-- `.ai-workspace/active/{task-id}/plan.md` - Technical plan
+- `.agent-workspace/active/{task-id}/task.md` - Task file
+- `.agent-workspace/active/{task-id}/plan.md` - Technical plan
 
 Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022`
 
@@ -30,7 +30,7 @@ If either file is missing, prompt the user to complete the prerequisite step fir
 
 ### 1.5 Determine the Implementation Round
 
-Scan `.ai-workspace/active/{task-id}/` for implementation report files:
+Scan `.agent-workspace/active/{task-id}/` for implementation report files:
 - If neither `implementation.md` nor `implementation-r*.md` exists -> this is Round 1 and must create `implementation.md`
 - If `implementation.md` exists and no `implementation-r*.md` exists -> this is Round 2 and must create `implementation-r2.md`
 - If `implementation-r{N}.md` exists -> this is Round N+1 and must create `implementation-r{N+1}.md`
@@ -84,7 +84,7 @@ Ensure all tests pass. If tests fail, fix the issues before proceeding.
 
 ### 5. Output Implementation Report
 
-Create `.ai-workspace/active/{task-id}/{implementation-artifact}`.
+Create `.agent-workspace/active/{task-id}/{implementation-artifact}`.
 
 Requirements:
 - Do not overwrite any existing implementation report
@@ -99,7 +99,7 @@ Get the current time:
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-Update `.ai-workspace/active/{task-id}/task.md`:
+Update `.agent-workspace/active/{task-id}/task.md`:
 - `current_step`: implementation
 - `assigned_to`: {current AI agent}
 - `updated_at`: {current time}
@@ -124,7 +124,7 @@ Summary:
 - Tests passed: {count}/{total}
 
 Output file:
-- Implementation report: .ai-workspace/active/{task-id}/{implementation-artifact} (Round {implementation-round})
+- Implementation report: .agent-workspace/active/{task-id}/{implementation-artifact} (Round {implementation-round})
 
 Next step - code review:
   - Claude Code / OpenCode: /review-task {task-id}
@@ -195,7 +195,7 @@ Next step - code review:
 ## Completion Checklist
 
 - [ ] Completed all code implementation
-- [ ] Created implementation report `.ai-workspace/active/{task-id}/{implementation-artifact}`
+- [ ] Created implementation report `.agent-workspace/active/{task-id}/{implementation-artifact}`
 - [ ] All tests pass
 - [ ] Updated `current_step` to implementation in task.md
 - [ ] Updated `updated_at` to current time in task.md

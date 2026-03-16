@@ -29,7 +29,7 @@ gh api repos/{owner}/{repo}/code-scanning/alerts/<alert-number>
 
 检查是否已存在该告警的任务。如果不存在，创建：
 
-目录：`.ai-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
+目录：`.agent-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
 
 任务元数据：
 ```yaml
@@ -61,7 +61,7 @@ tool: <tool-name>
 
 ### 5. 输出分析文档
 
-创建 `.ai-workspace/active/{task-id}/analysis.md`：
+创建 `.agent-workspace/active/{task-id}/analysis.md`：
 
 ```markdown
 # Code Scanning 告警分析报告

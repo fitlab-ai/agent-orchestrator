@@ -137,4 +137,4 @@ steps:
       - Task file
     outputs:
       - Pull request
-      - Completed task file in .ai-workspace/completed/
+      - Completed task file in .agent-workspace/completed/

@@ -37,7 +37,7 @@ This dual-config approach ensures every AI tool receives appropriate project con
     code-review.yaml            # Code review workflow
     refactoring.yaml            # Refactoring workflow
 
-.ai-workspace/                  # Runtime workspace (git-ignored)
+.agent-workspace/               # Runtime workspace (git-ignored)
   active/                       # Currently active tasks
   blocked/                      # Blocked tasks
   completed/                    # Completed tasks
@@ -95,7 +95,7 @@ Each AI tool has different strengths. Use them accordingly:
 ## Quick Start
 
 1. **Read the quick start guide**: See `QUICKSTART.md` for step-by-step instructions.
-2. **Create a task**: Copy `.agents/templates/task.md` to `.ai-workspace/active/`.
+2. **Create a task**: Copy `.agents/templates/task.md` to `.agent-workspace/active/`.
 3. **Assign to an AI**: Update the `assigned_to` field in the task metadata.
 4. **Run the workflow**: Follow the appropriate workflow in `.agents/workflows/`.
 5. **Hand off**: When switching AIs, create a handoff document from the template.
@@ -108,7 +108,7 @@ No. Claude Code reads from `.claude/CLAUDE.md`, and all other tools read from `A
 
 ### Q: How do tasks get passed between AI tools?
 
-Through handoff documents stored in `.ai-workspace/`. Each handoff includes context, progress, and next steps so the receiving AI can continue seamlessly.
+Through handoff documents stored in `.agent-workspace/`. Each handoff includes context, progress, and next steps so the receiving AI can continue seamlessly.
 
 ### Q: What if an AI tool doesn't support AGENTS.md?
 
@@ -120,4 +120,4 @@ It's not recommended. The workflow model is sequential -- one AI per phase. Para
 
 ### Q: Where are runtime files stored?
 
-In `.ai-workspace/`, which is git-ignored. Only templates and workflow definitions in `.agents/` are version-controlled.
+In `.agent-workspace/`, which is git-ignored. Only templates and workflow definitions in `.agents/` are version-controlled.

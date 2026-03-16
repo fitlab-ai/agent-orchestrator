@@ -57,7 +57,7 @@ node --test tests/*.test.js
 使用搜索确认旧版本号（包含可能的 prerelease 后缀）无遗漏，使用编辑工具更新。
 
 **排除以下目录的版本替换**：
-- `.agents/`、`.ai-workspace/`、`.claude/`、`.codex/`、`.gemini/`、`.opencode/`（AI 工具配置）
+- `.agents/`、`.agent-workspace/`、`.claude/`、`.codex/`、`.gemini/`、`.opencode/`（AI 工具配置）
 
 ### 步骤 5：重新生成内联产物
 

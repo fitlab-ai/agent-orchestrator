@@ -86,7 +86,7 @@ Get the current time:
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-If there is an active task for this work, update `.ai-workspace/active/{task-id}/task.md`:
+If there is an active task for this work, update `.agent-workspace/active/{task-id}/task.md`:
 - `pr_number`: {pr-number}
 - `updated_at`: {current time}
 - **Append** to `## Activity Log` (do NOT overwrite previous entries):

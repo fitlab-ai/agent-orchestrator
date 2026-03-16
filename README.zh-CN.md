@@ -76,7 +76,7 @@ my-project/
 │   ├── skills/            # 30+ 内置 AI 技能
 │   ├── workflows/         # 结构化开发工作流
 │   └── templates/         # 任务与产物模板
-├── .ai-workspace/         # 任务工作区（已被 git 忽略）
+├── .agent-workspace/      # 任务工作区（已被 git 忽略）
 ├── .claude/               # Claude Code 配置与命令
 ├── .gemini/               # Gemini CLI 配置与命令
 ├── .opencode/             # OpenCode 配置与命令

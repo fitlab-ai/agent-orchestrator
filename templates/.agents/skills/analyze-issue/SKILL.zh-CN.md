@@ -30,7 +30,7 @@ gh issue view <issue-number> --json number,title,body,labels
 
 ### 2. 检查已有任务
 
-搜索 `.ai-workspace/active/` 中是否已有链接到此 Issue 的任务。
+搜索 `.agent-workspace/active/` 中是否已有链接到此 Issue 的任务。
 - 如果找到，询问用户是重新分析还是继续使用现有分析
 - 如果未找到，创建新任务
 
@@ -40,7 +40,7 @@ gh issue view <issue-number> --json number,title,body,labels
 date +%Y%m%d-%H%M%S
 ```
 
-- 创建目录：`.ai-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
+- 创建目录：`.agent-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
 - 使用 `.agents/templates/task.md` 模板创建 `task.md`
 
 任务元数据：
@@ -70,7 +70,7 @@ assigned_to: ai
 
 ### 5. 输出分析文档
 
-创建 `.ai-workspace/active/{task-id}/analysis.md`：
+创建 `.agent-workspace/active/{task-id}/analysis.md`：
 
 ```markdown
 # 需求分析报告
@@ -109,7 +109,7 @@ assigned_to: ai
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-更新 `.ai-workspace/active/{task-id}/task.md`：
+更新 `.agent-workspace/active/{task-id}/task.md`：
 - `current_step`：requirement-analysis
 - `assigned_to`：ai
 - `updated_at`：{当前时间}
@@ -133,8 +133,8 @@ Issue #{number} 分析完成。
 - 工作流：{workflow}
 
 产出文件：
-- 任务文件：.ai-workspace/active/{task-id}/task.md
-- 分析报告：.ai-workspace/active/{task-id}/analysis.md
+- 任务文件：.agent-workspace/active/{task-id}/task.md
+- 分析报告：.agent-workspace/active/{task-id}/analysis.md
 
 下一步 - 审查分析报告，然后设计技术方案：
   - Claude Code / OpenCode：/plan-task {task-id}
@@ -144,8 +144,8 @@ Issue #{number} 分析完成。
 
 ## 完成检查清单
 
-- [ ] 创建了任务文件 `.ai-workspace/active/{task-id}/task.md`
-- [ ] 创建了分析文档 `.ai-workspace/active/{task-id}/analysis.md`
+- [ ] 创建了任务文件 `.agent-workspace/active/{task-id}/task.md`
+- [ ] 创建了分析文档 `.agent-workspace/active/{task-id}/analysis.md`
 - [ ] 在 task.md 中记录了 issue_number
 - [ ] 更新了 `current_step` 为 requirement-analysis
 - [ ] 更新了 `updated_at` 为当前时间

@@ -150,7 +150,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 This project supports Claude Code, Codex, Gemini CLI, OpenCode.
 
 - `.agents/` - Shared collaboration config
-- `.ai-workspace/` - Task workspace (git-ignored)
+- `.agent-workspace/` - Task workspace (git-ignored)
 
 **Collaboration guide**: `.agents/README.md`
 

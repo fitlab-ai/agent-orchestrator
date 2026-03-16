@@ -14,9 +14,9 @@ description: >
 ### 1. 验证任务存在
 
 按优先顺序搜索任务：
-- `.ai-workspace/active/{task-id}/task.md`
-- `.ai-workspace/completed/{task-id}/task.md`
-- `.ai-workspace/blocked/{task-id}/task.md`
+- `.agent-workspace/active/{task-id}/task.md`
+- `.agent-workspace/completed/{task-id}/task.md`
+- `.agent-workspace/blocked/{task-id}/task.md`
 
 注意：`{task-id}` 格式为 `TASK-{yyyyMMdd-HHmmss}`，例如 `TASK-20260306-143022`
 
@@ -73,10 +73,10 @@ description: >
 
 ### 相关文档
 
-- 任务：`.ai-workspace/{status}/{task-id}/task.md`
-- 分析：`.ai-workspace/{status}/{task-id}/analysis.md`
-- 方案：`.ai-workspace/{status}/{task-id}/plan.md`
-- 实现：`.ai-workspace/{status}/{task-id}/implementation.md`
+- 任务：`.agent-workspace/{status}/{task-id}/task.md`
+- 分析：`.agent-workspace/{status}/{task-id}/analysis.md`
+- 方案：`.agent-workspace/{status}/{task-id}/plan.md`
+- 实现：`.agent-workspace/{status}/{task-id}/implementation.md`
 
 ---
 *由 AI 自动生成 - [任务管理](.agents/README.md)*

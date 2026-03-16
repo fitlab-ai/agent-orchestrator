@@ -20,7 +20,7 @@ description: >
 ### 1. Verify Prerequisites
 
 Check required files:
-- `.ai-workspace/active/{task-id}/task.md` - Task file
+- `.agent-workspace/active/{task-id}/task.md` - Task file
 - At least one review artifact: `review.md` or `review-r{N}.md`
 
 Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022`
@@ -79,7 +79,7 @@ Ensure all tests still pass after fixes.
 
 ### 6. Create Refinement Report
 
-Update `.ai-workspace/active/{task-id}/{implementation-artifact}` and append the fix section.
+Update `.agent-workspace/active/{task-id}/{implementation-artifact}` and append the fix section.
 
 Use this heading for the appended section:
 `## Fix Log (for {review-artifact})`
@@ -92,7 +92,7 @@ Get the current time:
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-Update `.ai-workspace/active/{task-id}/task.md`:
+Update `.agent-workspace/active/{task-id}/task.md`:
 - `current_step`: refinement
 - `assigned_to`: {current AI agent}
 - `updated_at`: {current time}

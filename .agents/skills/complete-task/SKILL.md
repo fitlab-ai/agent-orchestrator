@@ -17,7 +17,7 @@ description: >
 
 ### 1. 验证任务存在
 
-检查任务是否存在于 `.ai-workspace/active/{task-id}/`。
+检查任务是否存在于 `.agent-workspace/active/{task-id}/`。
 
 注意：`{task-id}` 格式为 `TASK-{yyyyMMdd-HHmmss}`，例如 `TASK-20260306-143022`
 
@@ -49,7 +49,7 @@ Please complete the missing steps first, or use --force to override.
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-更新 `.ai-workspace/active/{task-id}/task.md`：
+更新 `.agent-workspace/active/{task-id}/task.md`：
 - `status`：completed
 - `completed_at`：{当前时间戳}
 - `updated_at`：{当前时间戳}
@@ -64,13 +64,13 @@ date "+%Y-%m-%d %H:%M:%S"
 将任务目录从 active 移动到 completed：
 
 ```bash
-mv .ai-workspace/active/{task-id} .ai-workspace/completed/{task-id}
+mv .agent-workspace/active/{task-id} .agent-workspace/completed/{task-id}
 ```
 
 ### 5. 验证归档
 
 ```bash
-ls .ai-workspace/completed/{task-id}/task.md
+ls .agent-workspace/completed/{task-id}/task.md
 ```
 
 确认任务目录已成功移动。
@@ -97,7 +97,7 @@ ls .ai-workspace/completed/{task-id}/task.md
 任务信息：
 - 标题：{title}
 - 完成时间：{timestamp}
-- 归档路径：.ai-workspace/completed/{task-id}/
+- 归档路径：.agent-workspace/completed/{task-id}/
 
 交付物：
 - {关键产出列表：修改的文件、添加的测试等}
@@ -107,7 +107,7 @@ ls .ai-workspace/completed/{task-id}/task.md
 
 - [ ] 验证了所有工作流步骤已完成
 - [ ] 更新了 task.md 的完成状态和时间戳
-- [ ] 将任务目录移动到 `.ai-workspace/completed/`
+- [ ] 将任务目录移动到 `.agent-workspace/completed/`
 - [ ] 验证了归档成功
 - [ ] 告知了用户完成情况
 
@@ -121,7 +121,7 @@ ls .ai-workspace/completed/{task-id}/task.md
 
 2. **回滚**：如果任务被错误归档：
    ```bash
-   mv .ai-workspace/completed/{task-id} .ai-workspace/active/{task-id}
+   mv .agent-workspace/completed/{task-id} .agent-workspace/active/{task-id}
    ```
    然后将 task.md 中的状态改回 `active`。
 

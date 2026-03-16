@@ -52,7 +52,7 @@ description: >
 date +%Y%m%d-%H%M%S
 ```
 
-- 创建任务目录：`.ai-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
+- 创建任务目录：`.agent-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
 - 使用 `.agents/templates/task.md` 模板创建任务文件：`task.md`
 
 **重要**：
@@ -88,7 +88,7 @@ assigned_to: {当前 AI 代理}
 
 ### 4. 输出分析文档
 
-创建 `.ai-workspace/active/{task-id}/analysis.md`，包含以下部分：
+创建 `.agent-workspace/active/{task-id}/analysis.md`，包含以下部分：
 
 ## 输出模板
 
@@ -133,7 +133,7 @@ assigned_to: {当前 AI 代理}
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-更新 `.ai-workspace/active/{task-id}/task.md`：
+更新 `.agent-workspace/active/{task-id}/task.md`：
 - `current_step`：requirement-analysis
 - `assigned_to`：{当前 AI 代理}
 - `updated_at`：{当前时间}
@@ -159,8 +159,8 @@ date "+%Y-%m-%d %H:%M:%S"
 - 工作流：{workflow}
 
 产出文件：
-- 任务文件：.ai-workspace/active/{task-id}/task.md
-- 分析报告：.ai-workspace/active/{task-id}/analysis.md
+- 任务文件：.agent-workspace/active/{task-id}/task.md
+- 分析报告：.agent-workspace/active/{task-id}/analysis.md
 
 下一步 - 审查分析报告，然后设计技术方案：
   - Claude Code / OpenCode：/plan-task {task-id}
@@ -170,8 +170,8 @@ date "+%Y-%m-%d %H:%M:%S"
 
 ## 完成检查清单
 
-- [ ] 创建了任务文件 `.ai-workspace/active/{task-id}/task.md`
-- [ ] 创建了分析文档 `.ai-workspace/active/{task-id}/analysis.md`
+- [ ] 创建了任务文件 `.agent-workspace/active/{task-id}/task.md`
+- [ ] 创建了分析文档 `.agent-workspace/active/{task-id}/analysis.md`
 - [ ] 更新了 task.md 中的 `current_step` 为 requirement-analysis
 - [ ] 更新了 task.md 中的 `updated_at` 为当前时间
 - [ ] 更新了 task.md 中的 `assigned_to`

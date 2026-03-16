@@ -55,6 +55,6 @@
 
 ## References
 
-- Task file: `.ai-workspace/active/task-XXX.md`
+- Task file: `.agent-workspace/active/task-XXX.md`
 - Related docs: [links or file paths]
 - Related issues: #XXX

@@ -54,7 +54,7 @@ Get the current timestamp:
 date +%Y%m%d-%H%M%S
 ```
 
-- Create task directory: `.ai-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
+- Create task directory: `.agent-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
 - Use `.agents/templates/task.md` template to create task file: `task.md`
 
 **Important**:
@@ -90,7 +90,7 @@ Follow the `requirement-analysis` step in `.agents/workflows/feature-development
 
 ### 4. Output Analysis Document
 
-Create `.ai-workspace/active/{task-id}/analysis.md` with these sections:
+Create `.agent-workspace/active/{task-id}/analysis.md` with these sections:
 
 ## Output Template
 
@@ -135,7 +135,7 @@ Get the current time:
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-Update `.ai-workspace/active/{task-id}/task.md`:
+Update `.agent-workspace/active/{task-id}/task.md`:
 - `current_step`: requirement-analysis
 - `assigned_to`: {current AI agent}
 - `updated_at`: {current time}
@@ -161,8 +161,8 @@ Task info:
 - Workflow: {workflow}
 
 Output files:
-- Task file: .ai-workspace/active/{task-id}/task.md
-- Analysis: .ai-workspace/active/{task-id}/analysis.md
+- Task file: .agent-workspace/active/{task-id}/task.md
+- Analysis: .agent-workspace/active/{task-id}/analysis.md
 
 Next step - review the analysis, then design the technical plan:
   - Claude Code / OpenCode: /plan-task {task-id}
@@ -172,8 +172,8 @@ Next step - review the analysis, then design the technical plan:
 
 ## Completion Checklist
 
-- [ ] Created task file `.ai-workspace/active/{task-id}/task.md`
-- [ ] Created analysis document `.ai-workspace/active/{task-id}/analysis.md`
+- [ ] Created task file `.agent-workspace/active/{task-id}/task.md`
+- [ ] Created analysis document `.agent-workspace/active/{task-id}/analysis.md`
 - [ ] Updated `current_step` to requirement-analysis in task.md
 - [ ] Updated `updated_at` to current time in task.md
 - [ ] Updated `assigned_to` in task.md

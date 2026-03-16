@@ -1,8 +1,8 @@
-# AI workspace (temporary task data)
-.ai-workspace/active/
-.ai-workspace/blocked/
-.ai-workspace/completed/
-.ai-workspace/logs/
+# Agent workspace (temporary task data)
+.agent-workspace/active/
+.agent-workspace/blocked/
+.agent-workspace/completed/
+.agent-workspace/logs/
 
 # Claude Code local settings
 .claude/settings.local.json

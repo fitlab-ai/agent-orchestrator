@@ -31,7 +31,7 @@ Extract: issue number, title, description, labels.
 
 ### 2. Check for Existing Task
 
-Search `.ai-workspace/active/` for a task already linked to this issue.
+Search `.agent-workspace/active/` for a task already linked to this issue.
 - If found, ask user whether to re-analyze or continue with existing analysis
 - If not found, create a new task
 
@@ -41,7 +41,7 @@ Search `.ai-workspace/active/` for a task already linked to this issue.
 date +%Y%m%d-%H%M%S
 ```
 
-- Create directory: `.ai-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
+- Create directory: `.agent-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
 - Use `.agents/templates/task.md` template to create `task.md`
 
 Task metadata:
@@ -71,7 +71,7 @@ Follow the `requirement-analysis` step in `.agents/workflows/feature-development
 
 ### 5. Output Analysis Document
 
-Create `.ai-workspace/active/{task-id}/analysis.md`:
+Create `.agent-workspace/active/{task-id}/analysis.md`:
 
 ```markdown
 # Requirement Analysis Report
@@ -110,7 +110,7 @@ Get the current time:
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-Update `.ai-workspace/active/{task-id}/task.md`:
+Update `.agent-workspace/active/{task-id}/task.md`:
 - `current_step`: requirement-analysis
 - `assigned_to`: ai
 - `updated_at`: {current time}
@@ -134,8 +134,8 @@ Task info:
 - Workflow: {workflow}
 
 Output files:
-- Task file: .ai-workspace/active/{task-id}/task.md
-- Analysis: .ai-workspace/active/{task-id}/analysis.md
+- Task file: .agent-workspace/active/{task-id}/task.md
+- Analysis: .agent-workspace/active/{task-id}/analysis.md
 
 Next step - review the analysis, then design the technical plan:
   - Claude Code / OpenCode: /plan-task {task-id}
@@ -145,8 +145,8 @@ Next step - review the analysis, then design the technical plan:
 
 ## Completion Checklist
 
-- [ ] Created task file `.ai-workspace/active/{task-id}/task.md`
-- [ ] Created analysis document `.ai-workspace/active/{task-id}/analysis.md`
+- [ ] Created task file `.agent-workspace/active/{task-id}/task.md`
+- [ ] Created analysis document `.agent-workspace/active/{task-id}/analysis.md`
 - [ ] Recorded issue_number in task.md
 - [ ] Updated `current_step` to requirement-analysis
 - [ ] Updated `updated_at` to current time

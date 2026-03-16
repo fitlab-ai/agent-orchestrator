@@ -20,8 +20,8 @@ description: >
 ### 1. Verify Prerequisites
 
 Check required files:
-- `.ai-workspace/active/{task-id}/task.md` - Task file
-- `.ai-workspace/active/{task-id}/analysis.md` - Requirement analysis
+- `.agent-workspace/active/{task-id}/task.md` - Task file
+- `.agent-workspace/active/{task-id}/analysis.md` - Requirement analysis
 
 Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022`
 
@@ -63,7 +63,7 @@ Follow the `technical-design` step in `.agents/workflows/feature-development.yam
 
 ### 5. Output Plan Document
 
-Create `.ai-workspace/active/{task-id}/plan.md`.
+Create `.agent-workspace/active/{task-id}/plan.md`.
 
 ### 6. Update Task Status
 
@@ -73,7 +73,7 @@ Get the current time:
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-Update `.ai-workspace/active/{task-id}/task.md`:
+Update `.agent-workspace/active/{task-id}/task.md`:
 - `current_step`: technical-design
 - `assigned_to`: {current AI agent}
 - `updated_at`: {current time}
@@ -99,7 +99,7 @@ Plan summary:
 - Estimated complexity: {assessment}
 
 Output file:
-- Technical plan: .ai-workspace/active/{task-id}/plan.md
+- Technical plan: .agent-workspace/active/{task-id}/plan.md
 
 IMPORTANT: Human review checkpoint.
 Please review the technical plan before proceeding to implementation.
@@ -181,7 +181,7 @@ Next step - implement the task:
 
 - [ ] Read and understood requirement analysis
 - [ ] Considered alternative solutions
-- [ ] Created plan document `.ai-workspace/active/{task-id}/plan.md`
+- [ ] Created plan document `.agent-workspace/active/{task-id}/plan.md`
 - [ ] Updated `current_step` to technical-design in task.md
 - [ ] Updated `updated_at` to current time in task.md
 - [ ] Marked plan.md as completed in task.md

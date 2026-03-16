@@ -27,11 +27,11 @@ Extract key information:
 
 ### 2. Create Task Directory and File
 
-Check if a task for this alert already exists in `.ai-workspace/active/`.
+Check if a task for this alert already exists in `.agent-workspace/active/`.
 - If found, ask user whether to re-analyze
 - If not found, create a new task
 
-Create directory: `.ai-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
+Create directory: `.agent-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
 
 Task metadata must include:
 ```yaml
@@ -64,7 +64,7 @@ ghsa_id: <GHSA-ID>
 
 ### 5. Output Analysis Document
 
-Create `.ai-workspace/active/{task-id}/analysis.md`:
+Create `.agent-workspace/active/{task-id}/analysis.md`:
 
 ```markdown
 # Security Alert Analysis Report
@@ -157,8 +157,8 @@ Task info:
 - Risk level: {High/Medium/Low}
 
 Output files:
-- Task: .ai-workspace/active/{task-id}/task.md
-- Analysis: .ai-workspace/active/{task-id}/analysis.md
+- Task: .agent-workspace/active/{task-id}/task.md
+- Analysis: .agent-workspace/active/{task-id}/analysis.md
 
 Next step:
 - To fix:

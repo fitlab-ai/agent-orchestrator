@@ -40,7 +40,7 @@ const DEFAULTS = {
       ".agents/skills/",
       ".agents/templates/",
       ".agents/workflows/",
-      ".ai-workspace/README.md",
+      ".agent-workspace/README.md",
       ".claude/commands/",
       ".editorconfig",
       ".gemini/commands/",

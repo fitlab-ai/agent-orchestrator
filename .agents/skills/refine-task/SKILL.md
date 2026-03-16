@@ -18,7 +18,7 @@ description: >
 ### 1. 验证前置条件
 
 检查必要文件：
-- `.ai-workspace/active/{task-id}/task.md` - 任务文件
+- `.agent-workspace/active/{task-id}/task.md` - 任务文件
 - 至少一个审查产物：`review.md` 或 `review-r{N}.md`
 
 注意：`{task-id}` 格式为 `TASK-{yyyyMMdd-HHmmss}`，例如 `TASK-20260306-143022`
@@ -77,7 +77,7 @@ description: >
 
 ### 6. 创建修复报告
 
-更新 `.ai-workspace/active/{task-id}/{implementation-artifact}`，追加修复部分。
+更新 `.agent-workspace/active/{task-id}/{implementation-artifact}`，追加修复部分。
 
 追加部分的标题使用：
 `## 修复记录（针对 {review-artifact}）`
@@ -90,7 +90,7 @@ description: >
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-更新 `.ai-workspace/active/{task-id}/task.md`：
+更新 `.agent-workspace/active/{task-id}/task.md`：
 - `current_step`：refinement
 - `assigned_to`：{当前 AI 代理}
 - `updated_at`：{当前时间}

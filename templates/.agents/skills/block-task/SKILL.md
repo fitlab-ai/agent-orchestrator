@@ -25,7 +25,7 @@ description: >
 
 ### 1. Verify Task Exists
 
-Check that the task exists in `.ai-workspace/active/{task-id}/`.
+Check that the task exists in `.agent-workspace/active/{task-id}/`.
 
 Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022`
 
@@ -47,7 +47,7 @@ Get the current time:
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-Update `.ai-workspace/active/{task-id}/task.md`:
+Update `.agent-workspace/active/{task-id}/task.md`:
 - `status`: blocked
 - `blocked_at`: {current timestamp}
 - `updated_at`: {current timestamp}
@@ -61,13 +61,13 @@ Add a blocking information section to task.md.
 ### 4. Move Task to Blocked Directory
 
 ```bash
-mv .ai-workspace/active/{task-id} .ai-workspace/blocked/{task-id}
+mv .agent-workspace/active/{task-id} .agent-workspace/blocked/{task-id}
 ```
 
 ### 5. Verify Move
 
 ```bash
-ls .ai-workspace/blocked/{task-id}/task.md
+ls .agent-workspace/blocked/{task-id}/task.md
 ```
 
 ### 6. Sync to Issue (Optional)
@@ -91,10 +91,10 @@ Task {task-id} marked as blocked.
 
 Blocking reason: {summary}
 Required to unblock: {what's needed}
-Archived to: .ai-workspace/blocked/{task-id}/
+Archived to: .agent-workspace/blocked/{task-id}/
 
 To unblock when the issue is resolved:
-  mv .ai-workspace/blocked/{task-id} .ai-workspace/active/{task-id}
+  mv .agent-workspace/blocked/{task-id} .agent-workspace/active/{task-id}
   # Then update task.md: status -> active, remove blocked_at
 ```
 
@@ -131,7 +131,7 @@ Blocking information section to add to task.md:
 
 - [ ] Analyzed and documented the blocking reason
 - [ ] Updated task.md with blocked status and blocking information
-- [ ] Moved task directory to `.ai-workspace/blocked/`
+- [ ] Moved task directory to `.agent-workspace/blocked/`
 - [ ] Verified move succeeded
 - [ ] Informed user how to unblock
 
@@ -141,7 +141,7 @@ When the blocking issue is resolved:
 
 ```bash
 # 1. Move back to active
-mv .ai-workspace/blocked/{task-id} .ai-workspace/active/{task-id}
+mv .agent-workspace/blocked/{task-id} .agent-workspace/active/{task-id}
 
 # 2. Update task.md: set status to active, update timestamps
 # 3. Resume from where you left off (check current_step)

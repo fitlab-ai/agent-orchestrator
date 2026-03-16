@@ -165,7 +165,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 本项目支持 Claude Code、Codex、Gemini CLI、OpenCode。
 
 - `.agents/` - 共享协作配置
-- `.ai-workspace/` - 任务工作区（已被 git ignore）
+- `.agent-workspace/` - 任务工作区（已被 git ignore）
 
 **协作指南**：`.agents/README.md`
 

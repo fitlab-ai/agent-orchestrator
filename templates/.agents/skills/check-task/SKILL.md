@@ -19,9 +19,9 @@ description: >
 ### 1. Find Task
 
 Search for the task in this priority order:
-1. `.ai-workspace/active/{task-id}/task.md`
-2. `.ai-workspace/blocked/{task-id}/task.md`
-3. `.ai-workspace/completed/{task-id}/task.md`
+1. `.agent-workspace/active/{task-id}/task.md`
+2. `.agent-workspace/blocked/{task-id}/task.md`
+3. `.agent-workspace/completed/{task-id}/task.md`
 
 Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022`
 

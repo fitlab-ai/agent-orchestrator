@@ -18,8 +18,8 @@ description: >
 ### 1. 验证前置条件
 
 检查必要文件：
-- `.ai-workspace/active/{task-id}/task.md` - 任务文件
-- `.ai-workspace/active/{task-id}/analysis.md` - 需求分析
+- `.agent-workspace/active/{task-id}/task.md` - 任务文件
+- `.agent-workspace/active/{task-id}/analysis.md` - 需求分析
 
 注意：`{task-id}` 格式为 `TASK-{yyyyMMdd-HHmmss}`，例如 `TASK-20260306-143022`
 
@@ -61,7 +61,7 @@ description: >
 
 ### 5. 输出计划文档
 
-创建 `.ai-workspace/active/{task-id}/plan.md`。
+创建 `.agent-workspace/active/{task-id}/plan.md`。
 
 ### 6. 更新任务状态
 
@@ -71,7 +71,7 @@ description: >
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-更新 `.ai-workspace/active/{task-id}/task.md`：
+更新 `.agent-workspace/active/{task-id}/task.md`：
 - `current_step`：technical-design
 - `assigned_to`：{当前 AI 代理}
 - `updated_at`：{当前时间}
@@ -97,7 +97,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - 预估复杂度：{评估}
 
 产出文件：
-- 技术方案：.ai-workspace/active/{task-id}/plan.md
+- 技术方案：.agent-workspace/active/{task-id}/plan.md
 
 重要：人工审查检查点。
 请在继续实现之前审查技术方案。
@@ -179,7 +179,7 @@ date "+%Y-%m-%d %H:%M:%S"
 
 - [ ] 阅读并理解了需求分析
 - [ ] 考虑了备选方案
-- [ ] 创建了计划文档 `.ai-workspace/active/{task-id}/plan.md`
+- [ ] 创建了计划文档 `.agent-workspace/active/{task-id}/plan.md`
 - [ ] 更新了 task.md 中的 `current_step` 为 technical-design
 - [ ] 更新了 task.md 中的 `updated_at` 为当前时间
 - [ ] 在 task.md 中标记了 plan.md 为已完成

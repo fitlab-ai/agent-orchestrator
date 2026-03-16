@@ -76,7 +76,7 @@ my-project/
 │   ├── skills/            # 30+ built-in AI skills
 │   ├── workflows/         # Structured development workflows
 │   └── templates/         # Task & artifact templates
-├── .ai-workspace/         # Task workspace (git-ignored)
+├── .agent-workspace/      # Task workspace (git-ignored)
 ├── .claude/               # Claude Code config & commands
 ├── .gemini/               # Gemini CLI config & commands
 ├── .opencode/             # OpenCode config & commands
