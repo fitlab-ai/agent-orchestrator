@@ -1,5 +1,5 @@
 ---
-name: update-ai-collaboration
+name: update-agent-orchestrator
 description: >
   Update the current project's AI collaboration infrastructure
   and project governance to match the latest agent-orchestrator
@@ -25,7 +25,7 @@ description: >
 Execute the following command to handle all deterministic steps at once:
 
 ```bash
-node .agents/skills/update-ai-collaboration/scripts/sync-templates.js
+node .agents/skills/update-agent-orchestrator/scripts/sync-templates.js
 ```
 
 The script reads `.aorc.json` (including `templateSource`, default `templates/`) and automatically performs:
@@ -108,13 +108,13 @@ pause and investigate.
 ### Self-update detection
 
 Check whether `git diff` includes changes to
-`.agents/skills/update-ai-collaboration/SKILL.md`.
+`.agents/skills/update-agent-orchestrator/SKILL.md`.
 If this file was modified during the current update, append the following
 warning to the end of the report:
 
 ```
-⚠ The update-ai-collaboration skill itself was updated.
-  Please run /update-ai-collaboration again to ensure all new logic takes effect.
+⚠ The update-agent-orchestrator skill itself was updated.
+  Please run /update-agent-orchestrator again to ensure all new logic takes effect.
 ```
 
 > **Rationale**: The current execution used the old skill logic; the new version

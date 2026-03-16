@@ -9,7 +9,7 @@
  * The report includes `merged.pending` so the AI knows what to process.
  *
  * Usage:
- *   node .agents/skills/update-ai-collaboration/scripts/sync-templates.js [project-root]
+ *   node .agents/skills/update-agent-orchestrator/scripts/sync-templates.js [project-root]
  *
  * Output: JSON report to stdout.
  */

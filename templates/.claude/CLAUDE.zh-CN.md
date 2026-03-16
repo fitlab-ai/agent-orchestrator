@@ -84,6 +84,8 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 | 编辑文件 | `Edit` | `sed`、`awk` |
 | 创建文件 | `Write` | `echo >`、`cat <<EOF` |
 
+**Bash 仅用于**：Git 操作、构建/测试、系统信息查询
+
 ## Slash Commands
 
 ### 开发相关
@@ -105,6 +107,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 /refine-task <task-id>      # 处理审查反馈
 ```
 
+### PR 与同步
+```bash
+/sync-issue <number>        # 同步进度到 Issue
+/sync-pr <number>           # 同步进度到 PR
+```
+
 ### 测试与发布
 ```bash
 /test                       # 运行测试
@@ -121,6 +129,13 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 /close-codescan             # 关闭 Code Scanning 告警
 ```
 
+### 工具
+```bash
+/refine-title               # 重构 Issue/PR 标题
+/upgrade-dependency         # 升级依赖
+/update-agent-orchestrator  # 更新 AI 协作配置
+```
+
 ## 语言规范
 
 | 场景 | 语言 |
@@ -129,6 +144,15 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 | Git commit message | 英文 (Conventional Commits) |
 | 项目文档 | 英文（主） + 中文翻译 |
 | AI 回复 | 跟随用户输入语言 |
+
+## 多 AI 协作
+
+本项目支持 Claude Code、Codex、Gemini CLI、OpenCode。
+
+- `.agents/` - 共享协作配置
+- `.ai-workspace/` - 任务工作区（已被 git ignore）
+
+**协作指南**：`.agents/README.md`
 
 ## 安全注意事项
 

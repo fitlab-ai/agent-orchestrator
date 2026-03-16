@@ -1,5 +1,5 @@
 ---
-name: update-ai-collaboration
+name: update-agent-orchestrator
 description: >
   更新当前项目的 AI 协作基础设施和项目治理配置，使其与最新的 agent-orchestrator 模板保持一致。
   智能合并模板变更，同时保留项目特定的定制内容。
@@ -21,7 +21,7 @@ description: >
 执行以下命令，一次性处理所有确定性步骤：
 
 ```bash
-node .agents/skills/update-ai-collaboration/scripts/sync-templates.js
+node .agents/skills/update-agent-orchestrator/scripts/sync-templates.js
 ```
 
 脚本读取 `.aorc.json`（含 `templateSource`，默认 `templates/`），自动完成：
@@ -99,12 +99,12 @@ node .agents/skills/update-ai-collaboration/scripts/sync-templates.js
 
 ### 自身更新检测
 
-检查 `git diff` 中是否包含 `.agents/skills/update-ai-collaboration/SKILL.md` 的变更。
+检查 `git diff` 中是否包含 `.agents/skills/update-agent-orchestrator/SKILL.md` 的变更。
 如果该文件在本次更新中被修改，在报告末尾输出以下警告：
 
 ```
-⚠ update-ai-collaboration 技能自身已更新。
-  建议再次执行 /update-ai-collaboration 以确保所有新逻辑生效。
+⚠ update-agent-orchestrator 技能自身已更新。
+  建议再次执行 /update-agent-orchestrator 以确保所有新逻辑生效。
 ```
 
 > **原因**：本次执行使用的是旧版技能逻辑，新版技能可能包含额外的处理步骤。

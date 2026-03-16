@@ -18,21 +18,21 @@ test("required template files were migrated into templates/", () => {
     "templates/.agents/templates/task.md",
     "templates/.agents/README.md",
     "templates/.agents/QUICKSTART.md",
-    "templates/.agents/skills/update-ai-collaboration/SKILL.md",
-    "templates/.agents/skills/update-ai-collaboration/scripts/package.json",
-    "templates/.agents/skills/update-ai-collaboration/scripts/sync-templates.js",
+    "templates/.agents/skills/update-agent-orchestrator/SKILL.md",
+    "templates/.agents/skills/update-agent-orchestrator/scripts/package.json",
+    "templates/.agents/skills/update-agent-orchestrator/scripts/sync-templates.js",
     "templates/.ai-workspace/README.md",
     "templates/.ai-workspace/README.zh-CN.md",
     "templates/.claude/CLAUDE.md",
     "templates/.claude/project-rules.md",
     "templates/.claude/settings.json",
-    "templates/.claude/commands/update-ai-collaboration.md",
+    "templates/.claude/commands/update-agent-orchestrator.md",
     "templates/.codex/README.md",
     "templates/.gemini/settings.json",
-    "templates/.gemini/commands/_project_/update-ai-collaboration.toml",
+    "templates/.gemini/commands/_project_/update-agent-orchestrator.toml",
     "templates/.opencode/README.md",
     "templates/.opencode/COMMAND_STYLE_GUIDE.md",
-    "templates/.opencode/commands/update-ai-collaboration.md",
+    "templates/.opencode/commands/update-agent-orchestrator.md",
     "templates/.github/ISSUE_TEMPLATE/01_bug_report.yml",
     "templates/.github/workflows/pr-title-check.yml",
     "templates/.github/PULL_REQUEST_TEMPLATE.md",
@@ -84,16 +84,16 @@ test("init-project files have been removed", () => {
   });
 });
 
-test("update-ai-collaboration template copies stay in sync with working files", () => {
+test("update-agent-orchestrator template copies stay in sync with working files", () => {
   const collaborator = JSON.parse(read(".aorc.json"));
   const project = collaborator.project;
   const org = collaborator.org;
   const lang = collaborator.language;
 
   const syncFiles = [
-    [".agents/skills/update-ai-collaboration/SKILL.md", "templates/.agents/skills/update-ai-collaboration/SKILL.md"],
-    [".agents/skills/update-ai-collaboration/scripts/package.json", "templates/.agents/skills/update-ai-collaboration/scripts/package.json"],
-    [".agents/skills/update-ai-collaboration/scripts/sync-templates.js", "templates/.agents/skills/update-ai-collaboration/scripts/sync-templates.js"],
+    [".agents/skills/update-agent-orchestrator/SKILL.md", "templates/.agents/skills/update-agent-orchestrator/SKILL.md"],
+    [".agents/skills/update-agent-orchestrator/scripts/package.json", "templates/.agents/skills/update-agent-orchestrator/scripts/package.json"],
+    [".agents/skills/update-agent-orchestrator/scripts/sync-templates.js", "templates/.agents/skills/update-agent-orchestrator/scripts/sync-templates.js"],
     ...buildCommandSyncFiles(project)
   ];
 
@@ -111,12 +111,12 @@ test("README documents the bootstrap installation flow", () => {
 
   assert.match(readme, /install\.sh/);
   assert.match(readme, /ao init/);
-  assert.match(readme, /update-ai-collaboration/);
+  assert.match(readme, /update-agent-orchestrator/);
   assert.match(readme, /npm install -g/);
   assert.match(readme, /Install from source/);
   assert.match(readmeZh, /install\.sh/);
   assert.match(readmeZh, /ao init/);
-  assert.match(readmeZh, /update-ai-collaboration/);
+  assert.match(readmeZh, /update-agent-orchestrator/);
   assert.match(readmeZh, /npm install -g/);
   assert.match(readmeZh, /源码安装/);
 });

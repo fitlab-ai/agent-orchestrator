@@ -10,9 +10,9 @@ import {
   skillDocPaths
 } from "./helpers.js";
 
-test("update-ai-collaboration instructions point to templates rendering", () => {
-  const updateSkill = read(".agents/skills/update-ai-collaboration/SKILL.md");
-  const geminiUpdate = read(".gemini/commands/agent-orchestrator/update-ai-collaboration.toml");
+test("update-agent-orchestrator instructions point to templates rendering", () => {
+  const updateSkill = read(".agents/skills/update-agent-orchestrator/SKILL.md");
+  const geminiUpdate = read(".gemini/commands/agent-orchestrator/update-agent-orchestrator.toml");
 
   assert.match(updateSkill, /templateSource/);
   assert.match(updateSkill, /templates\//);

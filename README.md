@@ -49,20 +49,20 @@ ao init
 # or: agent-orchestrator init
 ```
 
-The CLI will interactively collect project info (name, org, language, etc.), install the `update-ai-collaboration` seed command for all AI TUIs, and generate `.aorc.json`.
+The CLI will interactively collect project info (name, org, language, etc.), install the `update-agent-orchestrator` seed command for all AI TUIs, and generate `.aorc.json`.
 
 > **Tip:** `ao` is a shorthand for `agent-orchestrator`. Both commands are equivalent.
 
 ### 3. Render the full infrastructure
 
-Open the project in any AI TUI and run `update-ai-collaboration`:
+Open the project in any AI TUI and run `update-agent-orchestrator`:
 
 | TUI | Command |
 |-----|---------|
-| Claude Code | `/update-ai-collaboration` |
-| Codex | `$update-ai-collaboration` |
-| Gemini CLI | `/{{project}}:update-ai-collaboration` |
-| OpenCode | `/update-ai-collaboration` |
+| Claude Code | `/update-agent-orchestrator` |
+| Codex | `$update-agent-orchestrator` |
+| Gemini CLI | `/{{project}}:update-agent-orchestrator` |
+| OpenCode | `/update-agent-orchestrator` |
 
 This pulls the latest templates and renders all files. Use the same command for future updates — it automatically handles both first-time setup and incremental updates.
 

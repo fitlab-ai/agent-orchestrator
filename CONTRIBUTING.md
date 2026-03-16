@@ -75,7 +75,7 @@ npm test
 ### 构建架构
 
 - `src/sync-templates.js` 是开发源码，保留可读的源码结构和对 `lib/` 数据文件的标准读取方式。
-- `templates/.agents/skills/update-ai-collaboration/scripts/sync-templates.js` 是构建产物，发布时会把默认配置和版本号内联为常量。
+- `templates/.agents/skills/update-agent-orchestrator/scripts/sync-templates.js` 是构建产物，发布时会把默认配置和版本号内联为常量。
 - 之所以需要这层构建，是因为 `sync-templates.js` 会被复制到用户项目中运行，届时不能再依赖 installer 仓库里的 `lib/` 目录。
 - 修改 `src/`、`lib/defaults.json` 或相关版本信息后，应执行 `npm run build` 重新生成产物，不要直接手工编辑 `templates/` 下的生成文件。
 

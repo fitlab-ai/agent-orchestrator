@@ -49,20 +49,20 @@ ao init
 # 或: agent-orchestrator init
 ```
 
-CLI 会交互式收集项目信息（名称、组织、语言等），安装 `update-ai-collaboration` 种子命令到所有 AI TUI，并生成 `.aorc.json`。
+CLI 会交互式收集项目信息（名称、组织、语言等），安装 `update-agent-orchestrator` 种子命令到所有 AI TUI，并生成 `.aorc.json`。
 
 > **提示：** `ao` 是 `agent-orchestrator` 的简写命令，两者完全等价。
 
 ### 3. 渲染完整基础设施
 
-在任意 AI TUI 中执行 `update-ai-collaboration`：
+在任意 AI TUI 中执行 `update-agent-orchestrator`：
 
 | TUI | 命令 |
 |-----|------|
-| Claude Code | `/update-ai-collaboration` |
-| Codex | `$update-ai-collaboration` |
-| Gemini CLI | `/{{project}}:update-ai-collaboration` |
-| OpenCode | `/update-ai-collaboration` |
+| Claude Code | `/update-agent-orchestrator` |
+| Codex | `$update-agent-orchestrator` |
+| Gemini CLI | `/{{project}}:update-agent-orchestrator` |
+| OpenCode | `/update-agent-orchestrator` |
 
 该命令会拉取最新模板并渲染所有文件。后续更新使用同一命令——自动处理首次安装和增量更新。
 

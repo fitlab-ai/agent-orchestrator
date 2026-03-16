@@ -13,7 +13,7 @@ if (major < 18) {
 const USAGE = `agent-orchestrator - bootstrap AI collaboration infrastructure
 
 Usage:
-  agent-orchestrator init        Initialize a new project with update-ai-collaboration seed command
+  agent-orchestrator init        Initialize a new project with update-agent-orchestrator seed command
   agent-orchestrator update      Update seed files and sync file registry for an existing project
   agent-orchestrator version     Show version
   agent-orchestrator help        Show this help message

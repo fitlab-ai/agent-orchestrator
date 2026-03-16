@@ -30,7 +30,7 @@ node --test tests/*.test.js
 │   └── *.md                       # 根级模板文件
 ├── tests/                         # 测试（Node.js 内置测试运行器）
 ├── install.sh                     # 引导安装脚本
-├── .aorc.json              # 项目配置
+├── .aorc.json                     # 项目配置
 └── package.json                   # npm 测试脚本定义
 ```
 
@@ -148,7 +148,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ```bash
 /refine-title               # 重构 Issue/PR 标题
 /upgrade-dependency         # 升级依赖
-/update-ai-collaboration    # 更新 AI 协作配置
+/update-agent-orchestrator  # 更新 AI 协作配置
 ```
 
 ## 语言规范

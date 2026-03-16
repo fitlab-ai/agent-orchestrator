@@ -70,8 +70,8 @@ node scripts/build-inline.js
 - 如果命令失败，停止发布流程并先修复构建问题
 - 构建完成后，将产物同步到工作副本，保持两处一致：
   ```bash
-  cp templates/.agents/skills/update-ai-collaboration/scripts/sync-templates.js \
-     .agents/skills/update-ai-collaboration/scripts/sync-templates.js
+  cp templates/.agents/skills/update-agent-orchestrator/scripts/sync-templates.js \
+     .agents/skills/update-agent-orchestrator/scripts/sync-templates.js
   ```
 
 ### 步骤 6：创建发布提交

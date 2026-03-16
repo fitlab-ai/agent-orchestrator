@@ -66,7 +66,7 @@ test("syncTemplates respects templateSource and stays idempotent", async () => {
       throw new Error(`Unexpected command: ${command}`);
     };
 
-    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-ai-collaboration/scripts/sync-templates.js");
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-orchestrator/scripts/sync-templates.js");
 
     const firstReport = syncTemplates(projectRoot);
     const afterFirstRun = fs.readFileSync(path.join(projectRoot, ".aorc.json"), "utf8");
@@ -158,7 +158,7 @@ test("syncTemplates runs git pull and reports the install SHA when clone metadat
       throw new Error(`Unexpected command: ${command}`);
     };
 
-    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-ai-collaboration/scripts/sync-templates.js");
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-orchestrator/scripts/sync-templates.js");
     const report = syncTemplates(projectRoot);
 
     assert.equal(report.templateSha, "abc123");
@@ -209,7 +209,7 @@ test("syncTemplates outputs both SECURITY language variants for zh-CN merged fil
       throw new Error(`Unexpected command: ${command}`);
     };
 
-    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-ai-collaboration/scripts/sync-templates.js");
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-orchestrator/scripts/sync-templates.js");
     const report = syncTemplates(projectRoot);
 
     assert.deepEqual(report.merged.pending, [
@@ -260,7 +260,7 @@ test("syncTemplates outputs both SECURITY language variants for en merged files"
       throw new Error(`Unexpected command: ${command}`);
     };
 
-    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-ai-collaboration/scripts/sync-templates.js");
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-orchestrator/scripts/sync-templates.js");
     const report = syncTemplates(projectRoot);
 
     assert.deepEqual(report.merged.pending, [
@@ -322,7 +322,7 @@ test("syncTemplates removes stale managed files but preserves merged, ejected, a
       throw new Error(`Unexpected command: ${command}`);
     };
 
-    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-ai-collaboration/scripts/sync-templates.js");
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-orchestrator/scripts/sync-templates.js");
 
     const firstReport = syncTemplates(projectRoot);
     const secondReport = syncTemplates(projectRoot);
@@ -385,7 +385,7 @@ test("syncTemplates preserves stale files that match merged glob patterns", asyn
       throw new Error(`Unexpected command: ${command}`);
     };
 
-    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-ai-collaboration/scripts/sync-templates.js");
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-orchestrator/scripts/sync-templates.js");
     const report = syncTemplates(projectRoot);
 
     assert.equal(fs.readFileSync(path.join(projectRoot, "docs/stale/note.md"), "utf8"), "keep merged glob\n");

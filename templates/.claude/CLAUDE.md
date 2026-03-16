@@ -133,7 +133,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ```bash
 /refine-title               # Reformat Issue/PR title
 /upgrade-dependency         # Upgrade dependency
-/update-ai-collaboration             # Update AI collaboration config
+/update-agent-orchestrator  # Update AI collaboration config
 ```
 
 ## Language Conventions
