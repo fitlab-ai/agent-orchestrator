@@ -1,5 +1,11 @@
 # Agent Orchestrator
 
+[![npm version](https://img.shields.io/npm/v/@fitlab-ai/agent-orchestrator)](https://www.npmjs.com/package/@fitlab-ai/agent-orchestrator)
+[![npm downloads](https://img.shields.io/npm/dm/@fitlab-ai/agent-orchestrator)](https://www.npmjs.com/package/@fitlab-ai/agent-orchestrator)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](License.txt)
+[![Node.js >= 18](https://img.shields.io/badge/Node.js-%3E%3D18-brightgreen?logo=node.js)](https://nodejs.org/)
+[![GitHub release](https://img.shields.io/github/v/release/fitlab-ai/agent-orchestrator)](https://github.com/fitlab-ai/agent-orchestrator/releases)
+
 A template and skill repository for initializing and maintaining AI multi-tool collaboration infrastructure and project governance across software projects.
 
 [中文版](README.zh-CN.md)
