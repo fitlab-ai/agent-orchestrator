@@ -11,7 +11,7 @@ description: >
 
 ## 执行流程
 
-### 0. 解析参数
+### 1. 解析参数
 
 识别用户提供的参数：
 - 纯数字（如 `123`）或 `#` + 数字（如 `#123`）-> 视为 issue number
@@ -20,12 +20,12 @@ description: >
 如果参数是 issue number：
 - 遍历 `.agent-workspace/active/`、`.agent-workspace/blocked/`、`.agent-workspace/completed/` 下所有任务目录
 - 读取每个 `task.md` 的 `issue_number` 字段并匹配目标编号
-- 找到匹配任务后，记录对应 `{task-id}` 和任务目录，然后继续执行步骤 1
+- 找到匹配任务后，记录对应 `{task-id}` 和任务目录，然后继续执行步骤 2
 - 如果没有找到，提示 `No task found associated with Issue #{issue-number}`
 
-如果参数是 task-id，继续执行步骤 1 的现有逻辑。
+如果参数是 task-id，继续执行步骤 2 的现有逻辑。
 
-### 1. 验证任务存在
+### 2. 验证任务存在
 
 对于 `task-id` 路径，按优先顺序搜索任务：
 - `.agent-workspace/active/{task-id}/task.md`
@@ -34,16 +34,16 @@ description: >
 
 注意：`{task-id}` 格式为 `TASK-{yyyyMMdd-HHmmss}`，例如 `TASK-20260306-143022`
 
-如果步骤 0 已通过 issue number 找到匹配任务，则直接使用该任务目录继续后续步骤，无需再次扫描。
+如果步骤 1 已通过 issue number 找到匹配任务，则直接使用该任务目录继续后续步骤，无需再次扫描。
 
-### 2. 读取任务信息
+### 3. 读取任务信息
 
 从 task.md 中提取：
 - `issue_number`（必需 —— 如果缺失，提示用户）
 - 任务标题、描述、状态
 - `current_step`、`created_at`、`updated_at`
 
-### 3. 读取上下文文件
+### 4. 读取上下文文件
 
 检查并读取（如存在）：
 - `analysis.md` - 需求分析
@@ -51,7 +51,7 @@ description: >
 - `implementation.md` - 实现报告
 - `review.md` - 审查报告
 
-### 4. 探测交付状态
+### 5. 探测交付状态
 
 依次执行以下探测；任一步失败时，降级到“模式 C：开发中”，不要编造无法确认的信息。
 
@@ -110,9 +110,9 @@ gh issue view {issue-number} --json state
 
 优先级必须为 `模式 A > 模式 B > 模式 C`。即使存在 PR，只要 commit 已在受保护分支上，也按“已完成”处理。
 
-### 5. 同步 Labels
+### 6. 同步 Labels
 
-基于步骤 4 的探测结果同步 Issue labels。
+基于步骤 5 的探测结果同步 Issue labels。
 
 **a) 检查 label 体系是否已初始化**
 
@@ -202,7 +202,7 @@ gh issue edit {issue-number} --add-label "in: {module}"
 
 5. **只添加，不移除**现有的 `in:` labels
 
-### 6. 同步 Development
+### 7. 同步 Development
 
 如果 task.md 包含 `pr_number`，确保 PR body 关联当前 Issue。
 
@@ -231,7 +231,7 @@ EOF
 
 5. 如果 task.md 不包含 `pr_number`，记录为 `Development: N/A`
 
-### 7. 同步 Milestone
+### 8. 同步 Milestone
 
 根据 Issue 当前状态、任务显式配置和分支策略，为 Issue 关联线里程碑。
 
@@ -305,7 +305,7 @@ gh api "repos/$repo/issues/{issue-number}" -X PATCH -F milestone={milestone-numb
 - `Milestone: {target} (assigned)` 或
 - `Milestone: General Backlog (fallback)`
 
-### 8. 生成进度摘要
+### 9. 生成进度摘要
 
 生成面向**项目经理和利益相关者**的清晰进度摘要：
 
@@ -434,7 +434,7 @@ gh api "repos/$repo/issues/{issue-number}" -X PATCH -F milestone={milestone-numb
 - **逻辑清晰**：按时间顺序呈现进展
 - **可读性强**：使用通俗语言，避免行话
 
-### 9. 发布到 Issue
+### 10. 发布到 Issue
 
 ```bash
 gh issue comment {issue-number} --body "$(cat <<'EOF'
@@ -443,7 +443,7 @@ EOF
 )"
 ```
 
-### 10. 更新任务状态
+### 11. 更新任务状态
 
 获取当前时间：
 
@@ -457,7 +457,7 @@ date "+%Y-%m-%d %H:%M:%S"
   - {yyyy-MM-dd HH:mm:ss} — **Sync to Issue** by {agent} — Progress synced to Issue #{issue-number}
   ```
 
-### 11. 告知用户
+### 12. 告知用户
 
 ```
 进度已同步到 Issue #{issue-number}。

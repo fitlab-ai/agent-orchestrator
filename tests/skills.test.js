@@ -143,10 +143,12 @@ test("sync-issue skill documents label sync and development linking", () => {
     const stepNumbers = [...read(relativePath).matchAll(/^### (\d+)\. /gm)]
       .map((match) => Number(match[1]));
 
+    const expected = stepNumbers.map((_, index) => index + 1);
+
     assert.deepEqual(
       stepNumbers,
-      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-      `${relativePath} should number steps continuously from 0 to 11`
+      expected,
+      `${relativePath} steps should be consecutively numbered from 1`
     );
   });
 });

@@ -26,7 +26,7 @@ description: >
 
 如果任一文件缺失，提示用户先完成前置步骤。
 
-### 1.5 确定实现轮次
+### 2. 确定实现轮次
 
 扫描 `.agent-workspace/active/{task-id}/` 目录中的实现报告文件：
 - 如果不存在 `implementation.md` 且不存在 `implementation-r*.md` → 本轮为第 1 轮，产出 `implementation.md`
@@ -39,7 +39,7 @@ description: >
 
 注意：仅在审查结论为“拒绝”后重新执行时才会进入多轮。正常首次实现始终产出 `implementation.md`。
 
-### 2. 阅读技术方案
+### 3. 阅读技术方案
 
 仔细阅读 `plan.md` 以理解：
 - 技术方法和解决策略
@@ -48,7 +48,7 @@ description: >
 - 测试策略
 - 任何约束或风险
 
-### 3. 执行代码实现
+### 4. 执行代码实现
 
 遵循 `.agents/workflows/feature-development.yaml` 中的 `implementation` 步骤：
 
@@ -65,7 +65,7 @@ description: >
 3. **持续测试**：每完成一个步骤后运行测试
 4. **保持简单**：不过度设计，不添加计划外的功能
 
-### 4. 运行测试验证
+### 5. 运行测试验证
 
 执行项目的测试命令。参考 `test` 技能获取项目特定的测试命令：
 
@@ -80,7 +80,7 @@ description: >
 
 确保所有测试通过。如果测试失败，在继续之前修复问题。
 
-### 5. 输出实现报告
+### 6. 输出实现报告
 
 创建 `.agent-workspace/active/{task-id}/{implementation-artifact}`。
 
@@ -89,7 +89,7 @@ description: >
 - 在报告中明确记录本轮轮次编号和实际产物文件名
 - 如果本轮是重实现，说明其触发原因（例如上一轮审查结论为 Rejected）
 
-### 6. 更新任务状态
+### 7. 更新任务状态
 
 获取当前时间：
 
@@ -108,7 +108,7 @@ date "+%Y-%m-%d %H:%M:%S"
   - {yyyy-MM-dd HH:mm:ss} — **Implementation (Round {N})** by {agent} — Code implemented, {n} files modified, {n} tests passed → {artifact-filename}
   ```
 
-### 7. 告知用户
+### 8. 告知用户
 
 > **重要**：以下「下一步」中列出的所有 TUI 命令格式必须完整输出，不要只展示当前 AI 代理对应的格式。
 

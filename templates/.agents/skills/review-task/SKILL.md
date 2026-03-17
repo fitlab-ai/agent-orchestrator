@@ -26,7 +26,7 @@ Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022
 
 If either requirement is missing, prompt the user to complete the prerequisite step first.
 
-### 1.5 Determine the Review Round
+### 2. Determine the Review Round
 
 Scan `.agent-workspace/active/{task-id}/` for review artifacts:
 - If neither `review.md` nor `review-r*.md` exists -> this is Round 1 and must create `review.md`
@@ -37,7 +37,7 @@ Record:
 - `{review-round}`: the current review round
 - `{review-artifact}`: the review report filename for this round
 
-### 2. Read Implementation Report
+### 3. Read Implementation Report
 
 Scan the task directory for implementation reports (`implementation.md`, `implementation-r{N}.md`) and read the highest-round artifact to understand:
 - List of modified files
@@ -45,7 +45,7 @@ Scan the task directory for implementation reports (`implementation.md`, `implem
 - Test situation
 - Items the implementer flagged for attention
 
-### 3. Execute Code Review
+### 4. Execute Code Review
 
 Follow the `code-review` step in `.agents/workflows/feature-development.yaml`:
 
@@ -66,11 +66,11 @@ Follow the `code-review` step in `.agents/workflows/feature-development.yaml`:
 
 Also review the `git diff` to see all changes in context.
 
-### 4. Output Review Report
+### 5. Output Review Report
 
 Create `.agent-workspace/active/{task-id}/{review-artifact}`.
 
-### 5. Update Task Status
+### 6. Update Task Status
 
 Get the current time:
 
@@ -89,7 +89,7 @@ Update `.agent-workspace/active/{task-id}/task.md`:
   - {yyyy-MM-dd HH:mm:ss} — **Code Review (Round {N})** by {agent} — Verdict: {Approved/Changes Requested/Rejected}, Blockers: {n}, Major: {n}, Minor: {n} → {artifact-filename}
   ```
 
-### 6. Inform User
+### 7. Inform User
 
 > **IMPORTANT**: All TUI command formats listed below must be output in full. Do not show only the format for the current AI agent.
 

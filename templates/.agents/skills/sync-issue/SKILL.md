@@ -12,7 +12,7 @@ Sync task progress to its associated GitHub Issue. Argument: task-id or issue-nu
 
 ## Execution Flow
 
-### 0. Parse Argument
+### 1. Parse Argument
 
 Determine the provided argument:
 - A plain number (`123`) or `#` + number (`#123`) -> treat it as an issue number
@@ -21,12 +21,12 @@ Determine the provided argument:
 If the argument is an issue number:
 - Traverse task directories under `.agent-workspace/active/`, `.agent-workspace/blocked/`, and `.agent-workspace/completed/`
 - Read the `issue_number` field from each `task.md` and match it against the target number
-- When a matching task is found, record the corresponding `{task-id}` and task directory, then continue to step 1
+- When a matching task is found, record the corresponding `{task-id}` and task directory, then continue to step 2
 - If no match is found, prompt `No task found associated with Issue #{issue-number}`
 
-If the argument is a task-id, continue with the existing step 1 logic.
+If the argument is a task-id, continue with the existing step 2 logic.
 
-### 1. Verify Task Exists
+### 2. Verify Task Exists
 
 For the `task-id` path, search for the task in priority order:
 - `.agent-workspace/active/{task-id}/task.md`
@@ -35,16 +35,16 @@ For the `task-id` path, search for the task in priority order:
 
 Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022`
 
-If step 0 already resolved an issue number to a matching task, use that task directory directly and continue without rescanning.
+If step 1 already resolved an issue number to a matching task, use that task directory directly and continue without rescanning.
 
-### 2. Read Task Information
+### 3. Read Task Information
 
 From task.md, extract:
 - `issue_number` (required - if missing, prompt user)
 - Task title, description, status
 - `current_step`, `created_at`, `updated_at`
 
-### 3. Read Context Files
+### 4. Read Context Files
 
 Check and read (if they exist):
 - `analysis.md` - Requirement analysis
@@ -52,7 +52,7 @@ Check and read (if they exist):
 - `implementation.md` - Implementation report
 - `review.md` - Review report
 
-### 4. Detect Delivery Status
+### 5. Detect Delivery Status
 
 Run the following checks in order; if any step fails, fall back to "Mode C: In Development" and do not invent unverified information.
 
@@ -111,9 +111,9 @@ Choose the summary mode using the following priority:
 
 Priority must be `Mode A > Mode B > Mode C`. Even if a PR exists, if the commit is already on a protected branch, treat it as completed.
 
-### 5. Sync Labels
+### 6. Sync Labels
 
-Sync Issue labels based on the delivery status detected in step 4.
+Sync Issue labels based on the delivery status detected in step 5.
 
 **a) Check whether the label system is initialized**
 
@@ -203,7 +203,7 @@ gh issue edit {issue-number} --add-label "in: {module}"
 
 5. **Only add labels; never remove** existing `in:` labels
 
-### 6. Sync Development
+### 7. Sync Development
 
 If task.md contains `pr_number`, ensure the PR body links the current Issue.
 
@@ -232,7 +232,7 @@ EOF
 
 5. If task.md does not contain `pr_number`, record `Development: N/A`
 
-### 7. Sync Milestone
+### 8. Sync Milestone
 
 Assign a line milestone to the Issue based on the existing Issue state, explicit task configuration, and branch policy.
 
@@ -306,7 +306,7 @@ Record one of:
 - `Milestone: {target} (assigned)` or
 - `Milestone: General Backlog (fallback)`
 
-### 8. Generate Progress Summary
+### 9. Generate Progress Summary
 
 Generate a clear progress summary oriented toward **project managers and stakeholders**:
 
@@ -435,7 +435,7 @@ Requirements:
 - **Logically clear**: Chronological progress flow
 - **Human-readable**: Use plain language, not jargon
 
-### 9. Post to Issue
+### 10. Post to Issue
 
 ```bash
 gh issue comment {issue-number} --body "$(cat <<'EOF'
@@ -444,7 +444,7 @@ EOF
 )"
 ```
 
-### 10. Update Task Status
+### 11. Update Task Status
 
 Get the current time:
 
@@ -458,7 +458,7 @@ Add or update `last_synced_at` field in task.md to `{current time}`.
   - {yyyy-MM-dd HH:mm:ss} — **Sync to Issue** by {agent} — Progress synced to Issue #{issue-number}
   ```
 
-### 11. Inform User
+### 12. Inform User
 
 ```
 Progress synced to Issue #{issue-number}.

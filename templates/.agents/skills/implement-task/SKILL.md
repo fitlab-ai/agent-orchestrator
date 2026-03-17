@@ -28,7 +28,7 @@ Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022
 
 If either file is missing, prompt the user to complete the prerequisite step first.
 
-### 1.5 Determine the Implementation Round
+### 2. Determine the Implementation Round
 
 Scan `.agent-workspace/active/{task-id}/` for implementation report files:
 - If neither `implementation.md` nor `implementation-r*.md` exists -> this is Round 1 and must create `implementation.md`
@@ -41,7 +41,7 @@ Record:
 
 Note: multi-round implementation should only happen after a review verdict of Rejected. A normal first implementation always creates `implementation.md`.
 
-### 2. Read Technical Plan
+### 3. Read Technical Plan
 
 Carefully read `plan.md` to understand:
 - Technical approach and solution strategy
@@ -50,7 +50,7 @@ Carefully read `plan.md` to understand:
 - Test strategy
 - Any constraints or risks
 
-### 3. Execute Code Implementation
+### 4. Execute Code Implementation
 
 Follow the `implementation` step in `.agents/workflows/feature-development.yaml`:
 
@@ -67,7 +67,7 @@ Follow the `implementation` step in `.agents/workflows/feature-development.yaml`
 3. **Test continuously**: Run tests after completing each step
 4. **Keep it simple**: Do not over-engineer or add unplanned features
 
-### 4. Run Test Verification
+### 5. Run Test Verification
 
 Execute the project's test command. Reference the `test` skill for the project-specific test command:
 
@@ -82,7 +82,7 @@ Execute the project's test command. Reference the `test` skill for the project-s
 
 Ensure all tests pass. If tests fail, fix the issues before proceeding.
 
-### 5. Output Implementation Report
+### 6. Output Implementation Report
 
 Create `.agent-workspace/active/{task-id}/{implementation-artifact}`.
 
@@ -91,7 +91,7 @@ Requirements:
 - Record the actual round number and artifact filename in the report
 - If this is a re-implementation round, explain what triggered it
 
-### 6. Update Task Status
+### 7. Update Task Status
 
 Get the current time:
 
@@ -110,7 +110,7 @@ Update `.agent-workspace/active/{task-id}/task.md`:
   - {yyyy-MM-dd HH:mm:ss} — **Implementation (Round {N})** by {agent} — Code implemented, {n} files modified, {n} tests passed → {artifact-filename}
   ```
 
-### 7. Inform User
+### 8. Inform User
 
 > **IMPORTANT**: All TUI command formats listed below must be output in full. Do not show only the format for the current AI agent.
 

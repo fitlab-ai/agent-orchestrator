@@ -24,7 +24,7 @@ description: >
 
 如果任一文件缺失，提示用户先完成前置步骤。
 
-### 1.5 确定审查轮次
+### 2. 确定审查轮次
 
 扫描 `.agent-workspace/active/{task-id}/` 目录中的审查产物文件：
 - 如果不存在 `review.md` 且不存在 `review-r*.md` → 本轮为第 1 轮，产出 `review.md`
@@ -35,7 +35,7 @@ description: >
 - `{review-round}`：本轮审查轮次
 - `{review-artifact}`：本轮审查报告文件名
 
-### 2. 阅读实现报告
+### 3. 阅读实现报告
 
 扫描任务目录中的实现报告文件（`implementation.md`、`implementation-r{N}.md`），读取最高轮次的文件以理解：
 - 修改的文件列表
@@ -43,7 +43,7 @@ description: >
 - 测试情况
 - 实现者标记的需关注事项
 
-### 3. 执行代码审查
+### 4. 执行代码审查
 
 遵循 `.agents/workflows/feature-development.yaml` 中的 `code-review` 步骤：
 
@@ -64,11 +64,11 @@ description: >
 
 同时审查 `git diff` 以查看所有变更的上下文。
 
-### 4. 输出审查报告
+### 5. 输出审查报告
 
 创建 `.agent-workspace/active/{task-id}/{review-artifact}`。
 
-### 5. 更新任务状态
+### 6. 更新任务状态
 
 获取当前时间：
 
@@ -87,7 +87,7 @@ date "+%Y-%m-%d %H:%M:%S"
   - {yyyy-MM-dd HH:mm:ss} — **Code Review (Round {N})** by {agent} — 结论：{已批准/需要修改/拒绝}，阻塞项：{n}，主要问题：{n}，次要问题：{n} → {artifact-filename}
   ```
 
-### 6. 告知用户
+### 7. 告知用户
 
 > **重要**：以下「下一步」中列出的所有 TUI 命令格式必须完整输出，不要只展示当前 AI 代理对应的格式。
 

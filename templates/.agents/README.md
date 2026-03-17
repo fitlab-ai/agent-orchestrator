@@ -100,6 +100,16 @@ Each AI tool has different strengths. Use them accordingly:
 4. **Run the workflow**: Follow the appropriate workflow in `.agents/workflows/`.
 5. **Hand off**: When switching AIs, create a handoff document from the template.
 
+## Skill Authoring Conventions
+
+When writing or updating `.agents/skills/*/SKILL.md` files and their templates, keep step numbering consistent:
+
+1. Use consecutive integers for top-level steps: `1.`, `2.`, `3.`.
+2. Use nested numbering only for child actions that belong to a parent step: `1.1`, `1.2`, `2.1`.
+3. Use `a`, `b`, and `c` markers for branches, conditions, or alternative paths within the same step.
+4. Do not use intermediate numbers such as `1.5` or `2.5`; if a new standalone step is needed, renumber the following top-level steps.
+5. When renumbering, update every in-document step reference so the instructions remain accurate.
+
 ## FAQ
 
 ### Q: Do I need to configure every AI tool separately?
