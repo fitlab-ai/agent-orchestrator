@@ -145,6 +145,7 @@ const commandSpecs = {
     en: "Task description: $ARGUMENTS",
     zh: "任务描述：$ARGUMENTS"
   },
+  "init-labels": {},
   "implement-task": {
     usage: "<task-id>",
     en: "Implement task $1.",

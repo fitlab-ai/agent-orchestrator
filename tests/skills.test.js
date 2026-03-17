@@ -21,6 +21,36 @@ test("update-agent-orchestrator instructions point to templates rendering", () =
   assert.match(geminiUpdate, /SKILL\.md/);
 });
 
+test("init-labels skill documents label bootstrap flow and command discovery", () => {
+  [
+    ".agents/skills/init-labels/SKILL.md",
+    "templates/.agents/skills/init-labels/SKILL.md",
+    "templates/.agents/skills/init-labels/SKILL.zh-CN.md"
+  ].forEach((relativePath) => {
+    assertContainsPatterns(relativePath, [
+      /gh label create .*--force/,
+      /type: bug/,
+      /status: waiting-for-triage/,
+      /status: in-progress/,
+      /status: waiting-for-internal-feedback/,
+      /good first issue/,
+      /dependencies/,
+      /in: core/,
+      /theme:/,
+      /question/,
+      /wontfix/
+    ]);
+  });
+
+  assert.match(read("templates/.claude/CLAUDE.md"), /\/init-labels\s+# Initialize GitHub Labels/);
+  assert.match(read("templates/.claude/CLAUDE.zh-CN.md"), /\/init-labels\s+# 初始化 GitHub Labels/);
+  assert.match(read(".claude/CLAUDE.md"), /\/init-labels\s+# 初始化 GitHub Labels/);
+  assert.match(read("templates/.gemini/commands/_project_/init-labels.toml"), /\{\{project\}\}/);
+  assert.match(read("templates/.gemini/commands/_project_/init-labels.zh-CN.toml"), /\{\{project\}\}/);
+  assert.doesNotMatch(read(".gemini/commands/agent-orchestrator/init-labels.toml"), /\{\{project\}\}/);
+  assert.match(read(".gemini/commands/agent-orchestrator/init-labels.toml"), /agent-orchestrator/);
+});
+
 test("skill command templates use thin adapter bodies", () => {
   const skills = listSkillNames();
 

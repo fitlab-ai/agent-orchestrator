@@ -131,6 +131,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ### 工具
 ```bash
+/init-labels                # 初始化 GitHub Labels
 /refine-title               # 重构 Issue/PR 标题
 /upgrade-dependency         # 升级依赖
 /update-agent-orchestrator  # 更新 AI 协作配置

@@ -131,6 +131,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ### Tools
 ```bash
+/init-labels                # Initialize GitHub Labels
 /refine-title               # Reformat Issue/PR title
 /upgrade-dependency         # Upgrade dependency
 /update-agent-orchestrator  # Update AI collaboration config
