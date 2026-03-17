@@ -94,7 +94,128 @@ gh issue view {issue-number} --json state
 
 优先级必须为 `模式 A > 模式 B > 模式 C`。即使存在 PR，只要 commit 已在受保护分支上，也按“已完成”处理。
 
-### 5. 生成进度摘要
+### 5. 同步 Labels
+
+基于步骤 4 的探测结果同步 Issue labels。
+
+**a) 检查 label 体系是否已初始化**
+
+执行：
+
+```bash
+gh label list --search "type:" --limit 1 --json name --jq 'length'
+```
+
+判断规则：
+- 返回 `0` -> 说明标准 label 体系缺失。先执行 `init-labels` 技能（幂等），然后重新执行本步骤
+- 返回非 `0` -> 继续后续 label 同步
+
+**b) 同步 type label**
+
+根据 task.md 的 `type` 字段按下表映射：
+
+| task.md type | GitHub label |
+|---|---|
+| bug | `type: bug` |
+| feature | `type: feature` |
+| enhancement | `type: enhancement` |
+| documentation | `type: documentation` |
+| dependency-upgrade | `type: dependency-upgrade` |
+| task | `type: task` |
+| 其他（含 refactoring 等） | 跳过 |
+
+如果映射到具体 label，执行：
+
+```bash
+gh issue edit {issue-number} --add-label "{type-label}"
+```
+
+未映射到标准 type label 时跳过，不创建新 label。
+
+**c) 同步 status label**
+
+先读取 Issue 上已有的 `status:` labels：
+
+```bash
+gh issue view {issue-number} --json labels --jq '.labels[].name | select(startswith("status:"))'
+```
+
+对每个已有的 `status:` label 执行移除：
+
+```bash
+gh issue edit {issue-number} --remove-label "{status-label}"
+```
+
+然后按以下优先级决定是否添加新的 `status:` label：
+
+| 条件 | 动作 |
+|---|---|
+| 任务位于 `blocked/` 目录 | 添加 `status: blocked` |
+| 模式 A：已完成 | 不添加新的 status label |
+| 模式 B：PR 已 MERGED | 不添加新的 status label |
+| 模式 B：PR OPEN | 添加 `status: in-progress` |
+| 模式 C + `current_step` ∈ {`requirement-analysis`, `technical-design`} | 添加 `status: pending-design-work` |
+| 模式 C + `current_step` ∈ {`implementation`, `code-review`, `refinement`} | 添加 `status: in-progress` |
+
+如果需要添加新 label，执行：
+
+```bash
+gh issue edit {issue-number} --add-label "{status-label}"
+```
+
+**d) 同步 in: label**
+
+从 `implementation.md`（优先）或 `analysis.md` 中提取受影响文件路径：
+- 优先读取 `## 修改文件` / `## 新建文件` 中的文件列表
+- 如果实现报告不存在，则回退到分析报告中的受影响文件列表
+
+对每个文件路径：
+1. 取第一级目录作为模块名
+2. 去重
+3. 检查仓库中是否存在对应 label：
+
+```bash
+gh label list --search "in: {module}" --limit 10 --json name --jq '.[].name'
+```
+
+4. 只有存在精确匹配的 `in: {module}` label 时才执行：
+
+```bash
+gh issue edit {issue-number} --add-label "in: {module}"
+```
+
+5. **只添加，不移除**现有的 `in:` labels
+
+### 6. 同步 Development
+
+如果 task.md 包含 `pr_number`，确保 PR body 关联当前 Issue。
+
+1. 读取 PR body：
+
+```bash
+gh pr view {pr-number} --json body --jq '.body // ""'
+```
+
+2. 检查 body 是否已经包含以下任一关键词：
+- `Closes #{issue-number}`
+- `Fixes #{issue-number}`
+- `Resolves #{issue-number}`
+
+3. 如果已存在任一关键词，跳过更新
+4. 如果不存在，在 body 末尾追加：
+
+```bash
+gh pr edit {pr-number} --body "$(cat <<'EOF'
+{existing-body}
+
+Closes #{issue-number}
+EOF
+)"
+```
+
+5. 如果 task.md 不包含 `pr_number`，记录为 `Development: N/A`
+
+### 7. 生成进度摘要
 
 生成面向**项目经理和利益相关者**的清晰进度摘要：
 
@@ -223,7 +344,7 @@ gh issue view {issue-number} --json state
 - **逻辑清晰**：按时间顺序呈现进展
 - **可读性强**：使用通俗语言，避免行话
 
-### 6. 发布到 Issue
+### 8. 发布到 Issue
 
 ```bash
 gh issue comment {issue-number} --body "$(cat <<'EOF'
@@ -232,7 +353,7 @@ EOF
 )"
 ```
 
-### 7. 更新任务状态
+### 9. 更新任务状态
 
 获取当前时间：
 
@@ -246,7 +367,7 @@ date "+%Y-%m-%d %H:%M:%S"
   - {yyyy-MM-dd HH:mm:ss} — **Sync to Issue** by {agent} — Progress synced to Issue #{issue-number}
   ```
 
-### 8. 告知用户
+### 10. 告知用户
 
 ```
 进度已同步到 Issue #{issue-number}。
@@ -254,7 +375,9 @@ date "+%Y-%m-%d %H:%M:%S"
 已同步内容：
 - 已完成步骤：{数量}
 - 当前状态：{状态}
-- 下一步：{描述}
+- Labels：type={type-label 或 skipped}，status={status-label 或 cleared}，in:={新增数量}
+- Development：{已追加 Closes 关联 / 已存在关联 / 无 PR，跳过}
+- 下一步：{描述或 N/A}
 
 查看：https://github.com/{owner}/{repo}/issues/{issue-number}
 ```

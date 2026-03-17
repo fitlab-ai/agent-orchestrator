@@ -51,6 +51,38 @@ test("init-labels skill documents label bootstrap flow and command discovery", (
   assert.match(read(".gemini/commands/agent-orchestrator/init-labels.toml"), /agent-orchestrator/);
 });
 
+test("sync-issue skill documents label sync and development linking", () => {
+  skillDocPaths("sync-issue").forEach((relativePath) => {
+    assertContainsPatterns(relativePath, [
+      /gh label list --search "type:"/,
+      /init-labels/,
+      /--add-label/,
+      /--remove-label/,
+      /type: bug/,
+      /type: feature/,
+      /status: blocked/,
+      /status: in-progress/,
+      /status: pending-design-work/,
+      /current_step` ∈ \{`implementation`, `code-review`, `refinement`\}/,
+      /gh issue edit \{issue-number\} --add-label "in: \{module\}"/,
+      /gh pr view \{pr-number\}/,
+      /gh pr edit \{pr-number\}/,
+      /Closes #\{issue-number\}/,
+      /Fixes #\{issue-number\}/,
+      /Resolves #\{issue-number\}/
+    ]);
+
+    const stepNumbers = [...read(relativePath).matchAll(/^### (\d+)\. /gm)]
+      .map((match) => Number(match[1]));
+
+    assert.deepEqual(
+      stepNumbers,
+      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+      `${relativePath} should number steps continuously from 1 to 10`
+    );
+  });
+});
+
 test("skill command templates use thin adapter bodies", () => {
   const skills = listSkillNames();
 

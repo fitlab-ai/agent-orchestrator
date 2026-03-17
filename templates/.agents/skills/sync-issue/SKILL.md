@@ -95,7 +95,128 @@ Choose the summary mode using the following priority:
 
 Priority must be `Mode A > Mode B > Mode C`. Even if a PR exists, if the commit is already on a protected branch, treat it as completed.
 
-### 5. Generate Progress Summary
+### 5. Sync Labels
+
+Sync Issue labels based on the delivery status detected in step 4.
+
+**a) Check whether the label system is initialized**
+
+Run:
+
+```bash
+gh label list --search "type:" --limit 1 --json name --jq 'length'
+```
+
+Decision rules:
+- Returns `0` -> the standard label set is missing. Run the `init-labels` skill first (idempotent), then rerun this step
+- Returns non-`0` -> continue with label synchronization
+
+**b) Sync the type label**
+
+Map the `type` field from task.md using the following table:
+
+| task.md type | GitHub label |
+|---|---|
+| bug | `type: bug` |
+| feature | `type: feature` |
+| enhancement | `type: enhancement` |
+| documentation | `type: documentation` |
+| dependency-upgrade | `type: dependency-upgrade` |
+| task | `type: task` |
+| anything else (including refactoring) | skip |
+
+When the type maps to a standard label, run:
+
+```bash
+gh issue edit {issue-number} --add-label "{type-label}"
+```
+
+If the type is unmapped, skip it and do not create a new label.
+
+**c) Sync the status label**
+
+First read the existing `status:` labels on the Issue:
+
+```bash
+gh issue view {issue-number} --json labels --jq '.labels[].name | select(startswith("status:"))'
+```
+
+Remove each existing `status:` label:
+
+```bash
+gh issue edit {issue-number} --remove-label "{status-label}"
+```
+
+Then decide whether to add a new `status:` label using the following priority:
+
+| Condition | Action |
+|---|---|
+| Task is under `blocked/` | add `status: blocked` |
+| Mode A: Completed | add no new status label |
+| Mode B: PR is `MERGED` | add no new status label |
+| Mode B: PR is `OPEN` | add `status: in-progress` |
+| Mode C + `current_step` ∈ {`requirement-analysis`, `technical-design`} | add `status: pending-design-work` |
+| Mode C + `current_step` ∈ {`implementation`, `code-review`, `refinement`} | add `status: in-progress` |
+
+If a new status label is needed, run:
+
+```bash
+gh issue edit {issue-number} --add-label "{status-label}"
+```
+
+**d) Sync the in: labels**
+
+Extract affected file paths from `implementation.md` first, or fall back to `analysis.md`:
+- Prefer the file lists under `## Modified Files` / `## New Files`
+- If the implementation report does not exist, use the affected file list from the analysis report
+
+For each file path:
+1. Take the first directory segment as the module name
+2. Deduplicate modules
+3. Check whether the corresponding label exists in the repository:
+
+```bash
+gh label list --search "in: {module}" --limit 10 --json name --jq '.[].name'
+```
+
+4. Only when an exact `in: {module}` label exists, run:
+
+```bash
+gh issue edit {issue-number} --add-label "in: {module}"
+```
+
+5. **Only add labels; never remove** existing `in:` labels
+
+### 6. Sync Development
+
+If task.md contains `pr_number`, ensure the PR body links the current Issue.
+
+1. Read the PR body:
+
+```bash
+gh pr view {pr-number} --json body --jq '.body // ""'
+```
+
+2. Check whether the body already contains any of:
+- `Closes #{issue-number}`
+- `Fixes #{issue-number}`
+- `Resolves #{issue-number}`
+
+3. If any keyword already exists, skip the update
+4. Otherwise append this text to the end of the body:
+
+```bash
+gh pr edit {pr-number} --body "$(cat <<'EOF'
+{existing-body}
+
+Closes #{issue-number}
+EOF
+)"
+```
+
+5. If task.md does not contain `pr_number`, record `Development: N/A`
+
+### 7. Generate Progress Summary
 
 Generate a clear progress summary oriented toward **project managers and stakeholders**:
 
@@ -224,7 +345,7 @@ Requirements:
 - **Logically clear**: Chronological progress flow
 - **Human-readable**: Use plain language, not jargon
 
-### 6. Post to Issue
+### 8. Post to Issue
 
 ```bash
 gh issue comment {issue-number} --body "$(cat <<'EOF'
@@ -233,7 +354,7 @@ EOF
 )"
 ```
 
-### 7. Update Task Status
+### 9. Update Task Status
 
 Get the current time:
 
@@ -247,7 +368,7 @@ Add or update `last_synced_at` field in task.md to `{current time}`.
   - {yyyy-MM-dd HH:mm:ss} — **Sync to Issue** by {agent} — Progress synced to Issue #{issue-number}
   ```
 
-### 8. Inform User
+### 10. Inform User
 
 ```
 Progress synced to Issue #{issue-number}.
@@ -255,7 +376,9 @@ Progress synced to Issue #{issue-number}.
 Synced content:
 - Completed steps: {count}
 - Current status: {status}
-- Next step: {description}
+- Labels: type={type-label or skipped}, status={status-label or cleared}, in:={count added}
+- Development: {Closes keyword appended / already linked / skipped because no PR}
+- Next step: {description or N/A}
 
 View: https://github.com/{owner}/{repo}/issues/{issue-number}
 ```
