@@ -43,7 +43,7 @@ test("init-labels skill documents label bootstrap flow and command discovery", (
       /theme:/,
       /question/,
       /wontfix/,
-      /gh auth status/
+      /gh auth token/
     ]);
   });
 

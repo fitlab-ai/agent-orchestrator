@@ -15,7 +15,7 @@ description: >
 
 确认以下条件成立：
 - 已安装 `gh`
-- `gh auth status` 执行成功
+- `gh auth token` 执行成功
 - `gh repo view --json nameWithOwner` 可以访问当前仓库
 
 如果任一条件失败，停止并输出对应错误。

@@ -25,7 +25,7 @@ fi
 # ---------- select clone method ----------
 # Priority: gh CLI > SSH > HTTPS
 select_repo_url() {
-  if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
+  if command -v gh >/dev/null 2>&1 && gh auth token >/dev/null 2>&1; then
     # gh is authenticated — let it handle the clone directly
     echo "gh"
     return

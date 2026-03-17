@@ -15,7 +15,7 @@ Initialize the repository's standard GitHub Milestones taxonomy.
 
 Confirm that:
 - `gh` is installed
-- `gh auth status` succeeds
+- `gh auth token` succeeds
 - `gh repo view --json nameWithOwner` can access the current repository
 
 If any prerequisite fails, stop and report the matching error.
