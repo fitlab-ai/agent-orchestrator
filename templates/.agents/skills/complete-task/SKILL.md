@@ -79,15 +79,17 @@ Confirm the task directory was successfully moved.
 
 ### 6. Sync to Issue (Optional)
 
-If the task has an `issue_number` field, optionally sync the completion status:
+Check whether `task.md` includes an `issue_number` field whose value is neither empty nor `N/A`. If not, **skip this step and output nothing**.
+
+If a valid `issue_number` exists, optionally sync the completion status:
 
 > **IMPORTANT**: All TUI command formats listed below must be output in full. Do not show only the format for the current AI agent.
 
 ```
 (Optional) Sync completion status to the GitHub Issue:
-  - Claude Code / OpenCode: /sync-issue {task-id}
-  - Gemini CLI: /{{project}}:sync-issue {task-id}
-  - Codex CLI: $sync-issue {task-id}
+  - Claude Code / OpenCode: /sync-issue {issue_number}
+  - Gemini CLI: /{{project}}:sync-issue {issue_number}
+  - Codex CLI: $sync-issue {issue_number}
 ```
 
 ### 7. Inform User

@@ -77,15 +77,17 @@ ls .agent-workspace/completed/{task-id}/task.md
 
 ### 6. 同步到 Issue（可选）
 
-如果任务有 `issue_number` 字段，可选择同步完成状态：
+检查 `task.md` 中是否存在 `issue_number` 字段，且其值不为空也不为 `N/A`。如果没有，**跳过此步骤，不输出任何内容**。
+
+如果存在有效的 `issue_number`，可选择同步完成状态：
 
 > **重要**：以下列出的所有 TUI 命令格式必须完整输出，不要只展示当前 AI 代理对应的格式。
 
 ```
 （可选）同步完成状态到 GitHub Issue：
-  - Claude Code / OpenCode：/sync-issue {task-id}
-  - Gemini CLI：/{{project}}:sync-issue {task-id}
-  - Codex CLI：$sync-issue {task-id}
+  - Claude Code / OpenCode：/sync-issue {issue_number}
+  - Gemini CLI：/{{project}}:sync-issue {issue_number}
+  - Codex CLI：$sync-issue {issue_number}
 ```
 
 ### 7. 告知用户

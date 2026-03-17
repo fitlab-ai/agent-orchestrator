@@ -3,23 +3,39 @@ name: sync-issue
 description: >
   Sync task progress to the corresponding GitHub Issue as a comment.
   Triggered when the user requests syncing progress to an Issue.
-  Argument: task-id.
+  Argument: task-id or issue-number.
 ---
 
 # Sync Progress to Issue
 
-Sync task progress to its associated GitHub Issue. Argument: task-id.
+Sync task progress to its associated GitHub Issue. Argument: task-id or issue-number.
 
 ## Execution Flow
 
+### 0. Parse Argument
+
+Determine the provided argument:
+- A plain number (`123`) or `#` + number (`#123`) -> treat it as an issue number
+- Starts with `TASK-` -> treat it as a task-id (existing format)
+
+If the argument is an issue number:
+- Traverse task directories under `.agent-workspace/active/`, `.agent-workspace/blocked/`, and `.agent-workspace/completed/`
+- Read the `issue_number` field from each `task.md` and match it against the target number
+- When a matching task is found, record the corresponding `{task-id}` and task directory, then continue to step 1
+- If no match is found, prompt `No task found associated with Issue #{issue-number}`
+
+If the argument is a task-id, continue with the existing step 1 logic.
+
 ### 1. Verify Task Exists
 
-Search for the task in priority order:
+For the `task-id` path, search for the task in priority order:
 - `.agent-workspace/active/{task-id}/task.md`
 - `.agent-workspace/blocked/{task-id}/task.md`
 - `.agent-workspace/completed/{task-id}/task.md`
 
 Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, e.g. `TASK-20260306-143022`
+
+If step 0 already resolved an issue number to a matching task, use that task directory directly and continue without rescanning.
 
 ### 2. Read Task Information
 

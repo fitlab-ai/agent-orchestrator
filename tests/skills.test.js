@@ -113,9 +113,50 @@ test("sync-issue skill documents label sync and development linking", () => {
 
     assert.deepEqual(
       stepNumbers,
-      [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
-      `${relativePath} should number steps continuously from 1 to 11`
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
+      `${relativePath} should number steps continuously from 0 to 11`
     );
+  });
+});
+
+test("sync-issue skill accepts issue numbers and keeps task-id compatibility", () => {
+  skillDocPaths("sync-issue").forEach((relativePath) => {
+    assertContainsPatterns(relativePath, [
+      /参数：task-id 或 issue-number|Argument: task-id or issue-number/,
+      /纯数字（如 `123`）或 `#` \+ 数字（如 `#123`）|plain number \(`123`\) or `#` \+ number \(`#123`\)/,
+      /`TASK-` 开头|Starts with `TASK-`/,
+      /读取每个 `task\.md` 的 `issue_number` 字段|Read the `issue_number` field from each `task\.md`/,
+      /No task found associated with Issue #\{issue-number\}/
+    ]);
+  });
+});
+
+test("complete-task skill uses issue_number sync hint with explicit guard", () => {
+  skillDocPaths("complete-task").forEach((relativePath) => {
+    const content = read(relativePath);
+
+    assertContainsPatterns(relativePath, [
+      /issue_number` (字段，且其值不为空也不为 `N\/A`|field whose value is neither empty nor `N\/A`)/,
+      /跳过此步骤，不输出任何内容|skip this step and output nothing/,
+      /sync-issue \{issue_number\}/
+    ]);
+
+    assert.doesNotMatch(content, /关联 Issue：#\{issue_number\}|Associated Issue: #\{issue_number\}/);
+    assert.doesNotMatch(content, /sync-issue \{task-id\}/);
+  });
+});
+
+test("block-task skill uses issue_number sync hint with explicit guard", () => {
+  skillDocPaths("block-task").forEach((relativePath) => {
+    const content = read(relativePath);
+
+    assertContainsPatterns(relativePath, [
+      /issue_number` (字段，且其值不为空也不为 `N\/A`|field whose value is neither empty nor `N\/A`)/,
+      /跳过此步骤，不输出任何内容|skip this step and output nothing/,
+      /sync-issue \{issue_number\}/
+    ]);
+
+    assert.doesNotMatch(content, /sync-issue \{task-id\}/);
   });
 });
 

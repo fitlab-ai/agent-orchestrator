@@ -2,23 +2,39 @@
 name: sync-issue
 description: >
   将任务处理进度同步到对应的 GitHub Issue 评论。
-  当用户要求同步进度到 Issue 时触发。参数：task-id。
+  当用户要求同步进度到 Issue 时触发。参数：task-id 或 issue-number。
 ---
 
 # 同步进度到 Issue
 
-将任务处理进度同步到关联的 GitHub Issue。参数：task-id。
+将任务处理进度同步到关联的 GitHub Issue。参数：task-id 或 issue-number。
 
 ## 执行流程
 
+### 0. 解析参数
+
+识别用户提供的参数：
+- 纯数字（如 `123`）或 `#` + 数字（如 `#123`）-> 视为 issue number
+- `TASK-` 开头 -> 视为 task-id（现有格式）
+
+如果参数是 issue number：
+- 遍历 `.agent-workspace/active/`、`.agent-workspace/blocked/`、`.agent-workspace/completed/` 下所有任务目录
+- 读取每个 `task.md` 的 `issue_number` 字段并匹配目标编号
+- 找到匹配任务后，记录对应 `{task-id}` 和任务目录，然后继续执行步骤 1
+- 如果没有找到，提示 `No task found associated with Issue #{issue-number}`
+
+如果参数是 task-id，继续执行步骤 1 的现有逻辑。
+
 ### 1. 验证任务存在
 
-按优先顺序搜索任务：
+对于 `task-id` 路径，按优先顺序搜索任务：
 - `.agent-workspace/active/{task-id}/task.md`
 - `.agent-workspace/blocked/{task-id}/task.md`
 - `.agent-workspace/completed/{task-id}/task.md`
 
 注意：`{task-id}` 格式为 `TASK-{yyyyMMdd-HHmmss}`，例如 `TASK-20260306-143022`
+
+如果步骤 0 已通过 issue number 找到匹配任务，则直接使用该任务目录继续后续步骤，无需再次扫描。
 
 ### 2. 读取任务信息
 
