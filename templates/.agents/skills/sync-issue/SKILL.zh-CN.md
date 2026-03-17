@@ -40,20 +40,29 @@ description: >
 
 从 task.md 中提取：
 - `issue_number`（必需 —— 如果缺失，提示用户）
+- `type`
 - 任务标题、描述、状态
-- `current_step`、`created_at`、`updated_at`
+- `current_step`、`created_at`、`updated_at`、`last_synced_at`（如存在）
 
 ### 4. 读取上下文文件
 
 检查并读取（如存在）：
 - `analysis.md` - 需求分析
 - `plan.md` - 技术方案
-- `implementation.md` - 实现报告
-- `review.md` - 审查报告
+- `implementation.md`、`implementation-r*.md` - 实现报告
+- `review.md`、`review-r*.md` - 审查报告
 
 ### 5. 探测交付状态
 
 依次执行以下探测；任一步失败时，降级到“模式 C：开发中”，不要编造无法确认的信息。
+
+在开始探测前，先获取仓库坐标和绝对 URL 前缀：
+
+```bash
+repo="$(gh repo view --json nameWithOwner --jq '.nameWithOwner')"
+owner="${repo%%/*}"
+repo_url="https://github.com/$repo"
+```
 
 **a) 提取 commit hash**
 
@@ -110,7 +119,13 @@ gh issue view {issue-number} --json state
 
 优先级必须为 `模式 A > 模式 B > 模式 C`。即使存在 PR，只要 commit 已在受保护分支上，也按“已完成”处理。
 
-### 6. 同步 Labels
+后续所有 commit / PR 链接必须使用绝对 URL：
+- `https://github.com/{owner}/{repo}/commit/{commit-hash}`
+- `https://github.com/{owner}/{repo}/pull/{pr-number}`
+
+不要再使用 `../../commit/...` 或 `../../pull/...` 这类相对路径。
+
+### 6. 同步 Labels 和 Issue Type
 
 基于步骤 5 的探测结果同步 Issue labels。
 
@@ -132,7 +147,7 @@ gh label list --search "type:" --limit 1 --json name --jq 'length'
 
 | task.md type | GitHub label |
 |---|---|
-| bug | `type: bug` |
+| bug、bugfix | `type: bug` |
 | feature | `type: feature` |
 | enhancement | `type: enhancement` |
 | documentation | `type: documentation` |
@@ -181,8 +196,8 @@ gh issue edit {issue-number} --add-label "{status-label}"
 
 **d) 同步 in: label**
 
-从 `implementation.md`（优先）或 `analysis.md` 中提取受影响文件路径：
-- 优先读取 `## 修改文件` / `## 新建文件` 中的文件列表
+从实现报告（优先）或 `analysis.md` 中提取受影响文件路径：
+- 优先读取 `implementation.md` 与 `implementation-r*.md` 中 `## 修改文件` / `## 新建文件` 的文件列表
 - 如果实现报告不存在，则回退到分析报告中的受影响文件列表
 
 对每个文件路径：
@@ -201,6 +216,33 @@ gh issue edit {issue-number} --add-label "in: {module}"
 ```
 
 5. **只添加，不移除**现有的 `in:` labels
+
+**e) 同步 Issue Type 字段**
+
+根据 task.md 的 `type` 字段映射 GitHub 原生 Issue Type：
+
+| task.md type | GitHub Issue Type |
+|---|---|
+| `bug`、`bugfix` | `Bug` |
+| `feature`、`enhancement` | `Feature` |
+| `task`、`documentation`、`dependency-upgrade`、`chore`、`docs`、`refactor`、`refactoring` 及其他值 | `Task` |
+
+先查询组织可用的 Issue Types：
+
+```bash
+gh api "orgs/$owner/issue-types" --jq '.[].name'
+```
+
+然后仅在目标类型存在时执行：
+
+```bash
+gh api "repos/$repo/issues/{issue-number}" -X PATCH -f type="{name}"
+```
+
+容错要求：
+- 如果 API 返回 `404`、仓库 owner 不是组织，或仓库未启用 Issue Types，记录 `Issue Type: skipped (not enabled)` 并继续，不要让整个同步失败
+- 如果目标类型不存在，记录 `Issue Type: skipped (type not available)`
+- 不要尝试创建新的 Issue Type；只使用组织中已存在的类型名称
 
 ### 7. 同步 Development
 
@@ -284,8 +326,6 @@ git tag --list 'v*' --sort=-v:refname | head -1
 执行：
 
 ```bash
-repo="$(gh repo view --json nameWithOwner --jq '.nameWithOwner')"
-
 gh api "repos/$repo/milestones" --paginate \
   --jq '.[] | select(.title=="{target}") | .number'
 ```
@@ -305,143 +345,152 @@ gh api "repos/$repo/issues/{issue-number}" -X PATCH -F milestone={milestone-numb
 - `Milestone: {target} (assigned)` 或
 - `Milestone: General Backlog (fallback)`
 
-### 9. 生成进度摘要
+### 9. 拉取已有评论并构建已发布步骤集合
 
-生成面向**项目经理和利益相关者**的清晰进度摘要：
+一次性拉取 Issue 的全部评论，并基于隐藏标识构建“已发布步骤集合”。
 
-三种模式共享以下要求：
-- 头部去掉 `**任务 ID**` 行，并在状态描述中展示 commit hash（如有）
-- 如需提供链接，用 `**相关链接**` 替换 `**相关文档**`，且只包含 GitHub 上可访问的资源
-- 脚注统一为 `*由 AI 自动生成 · 内部追踪：{task-id}*`
+先拉取评论（保留 comment id 与 body）：
 
-#### 模式 A：已完成
+```bash
+comments_jsonl="$(mktemp)"
 
-适用条件：commit 已在 `main`、`master` 或 `{major}.{minor}.x` 版本分支上。
+gh api "repos/$repo/issues/{issue-number}/comments" \
+  --paginate \
+  --jq '.[] | {id, body}' > "$comments_jsonl"
+```
+
+固定步骤顺序必须是：
+1. `analysis`
+2. `plan`
+3. `implementation`
+4. `review`
+5. `summary`
+
+每条同步评论的第一行必须插入隐藏标识：
+
+```html
+<!-- sync-issue:{task-id}:{step} -->
+```
+
+其中 `{step}` 只能是上面 5 个固定步骤名之一。
+
+对每个步骤，用本地检索判断是否已发布：
+
+```bash
+grep -qF "<!-- sync-issue:{task-id}:{step} -->" "$comments_jsonl"
+```
+
+- 匹配到：该步骤已发布，后续默认跳过
+- 未匹配：该步骤尚未发布，可以创建新评论
+
+对 `summary` 步骤，额外提取评论 id 以便后续更新：
+
+```bash
+summary_comment_id="$(
+  jq -r 'select(.body | contains("<!-- sync-issue:{task-id}:summary -->")) | .id' \
+    "$comments_jsonl" | head -1
+)"
+```
+
+幂等要求：
+- 第一次执行时，只发布当前已存在产物对应的步骤
+- 第二次执行时，必须跳过已发布步骤，只补发新增步骤
+- 如果 5 个步骤都已发布，且 `summary` 内容没有变化，则本次不发布任何新评论
+- 如果 `summary` 已发布但交付状态发生变化，只更新原评论，不新增第二条 summary 评论
+
+### 10. 逐步发布上下文文件
+
+按 `analysis → plan → implementation → review → summary` 的固定顺序处理。
+
+**a) 为每个步骤准备评论内容**
+
+- `analysis`：发布 `analysis.md` 原文
+- `plan`：发布 `plan.md` 原文
+- `implementation`：将 `implementation.md` 与 `implementation-r*.md` 按轮次顺序合并到同一条评论，使用 `### implementation.md`、`### implementation-r2.md` 等小节标题分隔
+- `review`：将 `review.md` 与 `review-r*.md` 按轮次顺序合并到同一条评论，使用 `### review.md`、`### review-r2.md` 等小节标题分隔
+- `summary`：生成精简交付摘要，只包含当前交付状态与 GitHub 上可访问的绝对链接
+
+除 `summary` 外，其余步骤都应发布原文，不要再次压缩成摘要。
+
+每条评论统一格式：
 
 ```markdown
-## 任务进度更新
+<!-- sync-issue:{task-id}:{step} -->
+## {步骤标题}
+
+{原文内容或 summary 内容}
+
+---
+*由 AI 自动生成 · 内部追踪：{task-id}*
+```
+
+推荐步骤标题：
+- `analysis` -> `需求分析`
+- `plan` -> `技术方案`
+- `implementation` -> `实现报告`
+- `review` -> `审查报告`
+- `summary` -> `交付摘要`
+
+`summary` 评论建议格式：
+
+```markdown
+<!-- sync-issue:{task-id}:summary -->
+## 交付摘要
 
 **更新时间**：{当前时间}
-**状态**：✅ 已完成，代码已合入 `{branch}`（`{commit-short}`）
-
-### 完成总结
-
-- [x] 需求分析 - {完成时间}
-  - {1-2 个关键要点}
-- [x] 技术设计 - {完成时间}
-  - {决策和理由}
-- [x] 实现 - {完成时间}
-  - {核心实现内容}
-- [x] 最终交付 - {完成时间}
-  - {合入方式或结果}
-
-### 最终变更
+**状态**：{模式化状态描述}
 
 | 类型 | 内容 |
-|------|------|
-| 分支 | `{branch}` |
-| Commit | [`{commit-short}`](../../commit/{commit-hash}) |
-| PR | {PR 链接或 `N/A`} |
-| Issue | {issue-state} |
+|---|---|
+| 分支 | `{branch 或 N/A}` |
+| Commit | [`{commit-short}`](https://github.com/{owner}/{repo}/commit/{commit-hash}) 或 `N/A` |
+| PR | [#{pr-number}](https://github.com/{owner}/{repo}/pull/{pr-number}) 或 `N/A` |
+| Issue | `{issue-state}` |
 
 ---
 *由 AI 自动生成 · 内部追踪：{task-id}*
 ```
 
-要求：
-- 使用“完成总结”替代“已完成步骤”，更简洁地说明交付结果
-- 不要包含“当前进度”或“下一步”段落
-- 链接信息保留在“最终变更”表格中；PR 仅在存在时附上
+模式化状态描述要求：
+- 模式 A：`✅ 已完成，代码已合入 {branch}`
+- 模式 B：`PR 阶段，当前为 #{pr-number}（OPEN 或 MERGED）`
+- 模式 C：`开发中，当前步骤为 {current_step}`
 
-#### 模式 B：PR 阶段
+**b) 跳过已发布或缺失的步骤**
 
-适用条件：不存在已合入受保护分支的 commit，但存在状态为 `OPEN` 或 `MERGED` 的关联 PR。
+- 对于 `analysis`、`plan`、`implementation`、`review`：如果对应文件不存在，直接跳过，不报错
+- 对于任意步骤：如果标识已存在，默认跳过
+- 对于 `summary`：即使标识已存在，也要重新生成候选内容，用于比较是否需要更新
 
-```markdown
-## 任务进度更新
+**c) 发布新评论**
 
-**更新时间**：{当前时间}
-**状态**：PR [#{pr-number}](../../pull/{pr-number}) {待审查或已合并}{（`{commit-short}`）可选}
-
-### 已完成步骤
-
-- [x] 需求分析 - {完成时间}
-  - {1-2 个关键要点}
-- [x] 技术设计 - {完成时间}
-  - {决策和理由}
-- [x] 实现 - {完成时间}
-  - {核心实现内容}
-- [ ] 代码审查
-- [ ] 最终提交
-
-### 当前进度
-
-{当前 PR 状态、审查结论或合并情况}
-
-### 相关链接
-
-- PR：[#{pr-number}](../../pull/{pr-number})
-
----
-*由 AI 自动生成 · 内部追踪：{task-id}*
-```
-
-要求：
-- 保留“已完成步骤”和“当前进度”
-- 不要包含“下一步”段落，因为 PR 本身就是下一步的载体
-- 相关链接只列 GitHub 可访问资源，至少包含 PR
-
-#### 模式 C：开发中
-
-适用条件：既未检测到已合入受保护分支的 commit，也没有可用的 `OPEN`/`MERGED` PR。
-
-```markdown
-## 任务进度更新
-
-**更新时间**：{当前时间}
-**状态**：{状态描述}{（`{commit-short}`）可选}
-
-### 已完成步骤
-
-- [x] 需求分析 - {完成时间}
-  - {1-2 个关键要点}
-- [x] 技术设计 - {完成时间}
-  - {决策和理由}
-- [ ] 实现（进行中）
-- [ ] 代码审查
-- [ ] 最终提交
-
-### 当前进度
-
-{当前步骤的描述}
-
-### 下一步
-
-{接下来需要做什么}
-
----
-*由 AI 自动生成 · 内部追踪：{task-id}*
-```
-
-要求：
-- 保留“已完成步骤”“当前进度”“下一步”
-- 不要包含“相关链接”段落，因为此时还没有适合公开引用的 GitHub 资源
-
-**摘要原则**：
-- **面向利益相关者**：关注进展、决策和时间线
-- **状态真实**：依据探测结果选择模式，不要假设“提交 -> PR -> 合入”的固定路径
-- **简洁**：避免过多技术细节
-- **逻辑清晰**：按时间顺序呈现进展
-- **可读性强**：使用通俗语言，避免行话
-
-### 10. 发布到 Issue
+当步骤尚未发布时，执行：
 
 ```bash
 gh issue comment {issue-number} --body "$(cat <<'EOF'
-{生成的摘要}
+{comment-body}
 EOF
 )"
 ```
+
+**d) 仅更新已有 summary 评论**
+
+如果 `summary` 标识已存在，且新生成内容与已有内容不同，则编辑原评论：
+
+```bash
+gh api "repos/$repo/issues/comments/{comment-id}" -X PATCH -f body="$(cat <<'EOF'
+{comment-body}
+EOF
+)"
+```
+
+如果内容相同，则不做任何操作。
+
+**e) 零操作场景**
+
+如果所有步骤都已同步，且 `summary` 无需更新：
+- 不发布任何新评论
+- 在最终告知用户时明确说明：`所有步骤已同步，无新内容`
 
 ### 11. 更新任务状态
 
@@ -462,15 +511,19 @@ date "+%Y-%m-%d %H:%M:%S"
 ```
 进度已同步到 Issue #{issue-number}。
 
-已同步内容：
-- 已完成步骤：{数量}
+同步结果：
+- 新发布评论：{数量}
+- 更新评论：{数量}
+- 已跳过步骤：{步骤列表或 `无`}
 - 当前状态：{状态}
 - Labels：type={type-label 或 skipped}，status={status-label 或 cleared}，in:={新增数量}
+- Issue Type：{Bug / Feature / Task / skipped}
 - Milestone：{preserved / assigned / fallback / skipped}
 - Development：{已追加 Closes 关联 / 已存在关联 / 无 PR，跳过}
-- 下一步：{描述或 N/A}
 
 查看：https://github.com/{owner}/{repo}/issues/{issue-number}
+
+如果本次没有发布或更新任何评论，请明确说明：所有步骤已同步，无新内容。
 ```
 
 ## 注意事项
@@ -478,7 +531,7 @@ date "+%Y-%m-%d %H:%M:%S"
 1. **需要 Issue 编号**：任务的 task.md 中必须有 `issue_number`。如果缺失，提示用户。
 2. **受众**：`sync-issue` 技能面向利益相关者；`sync-pr` 技能面向代码审查者。关注点不同。
 3. **同步时机**：在完成重要阶段（分析、设计、实现、审查）或被阻塞时同步。
-4. **避免刷屏**：不要同步过于频繁。
+4. **避免刷屏**：不要同步过于频繁。虽然本技能使用隐藏标识保证幂等，但仍应避免无意义重复同步。
 
 ## 错误处理
 

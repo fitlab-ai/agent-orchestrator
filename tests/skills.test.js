@@ -121,6 +121,7 @@ test("sync-issue skill documents label sync and development linking", () => {
       /--add-label/,
       /--remove-label/,
       /type: bug/,
+      /\| bug(?:、|, )bugfix \| `type: bug` \|/,
       /type: feature/,
       /status: blocked/,
       /status: in-progress/,
@@ -162,6 +163,26 @@ test("sync-issue skill accepts issue numbers and keeps task-id compatibility", (
       /读取每个 `task\.md` 的 `issue_number` 字段|Read the `issue_number` field from each `task\.md`/,
       /No task found associated with Issue #\{issue-number\}/
     ]);
+  });
+});
+
+test("sync-issue skill documents issue type sync, idempotent comments, and absolute links", () => {
+  skillDocPaths("sync-issue").forEach((relativePath) => {
+    const content = read(relativePath);
+
+    assertContainsPatterns(relativePath, [
+      /gh api "orgs\/\$owner\/issue-types"/,
+      /gh api "repos\/\$repo\/issues\/\{issue-number\}" -X PATCH -f type="\{name\}"/,
+      /<!-- sync-issue:\{task-id\}:\{step\} -->/,
+      /gh api "repos\/\$repo\/issues\/comments\/\{comment-id\}" -X PATCH/,
+      /https:\/\/github\.com\/\{owner\}\/\{repo\}\/commit\/\{commit-hash\}/,
+      /https:\/\/github\.com\/\{owner\}\/\{repo\}\/pull\/\{pr-number\}/,
+      /implementation-r\*\.md/,
+      /review-r\*\.md/
+    ]);
+
+    assert.doesNotMatch(content, /\.\.\/\.\.\/commit\/\{commit-hash\}/);
+    assert.doesNotMatch(content, /\.\.\/\.\.\/pull\/\{pr-number\}/);
   });
 });
 
