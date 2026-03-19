@@ -77,7 +77,91 @@ EOF
 )"
 ```
 
-### 8. 更新任务状态（如果与任务相关）
+### 8. 同步 PR 元数据（如果与任务相关）
+
+如果存在关联的活跃任务，在创建 PR 后立即同步以下元数据：
+
+**a) 检查 label 体系是否已初始化**
+
+执行：
+
+```bash
+gh label list --search "type:" --limit 1 --json name --jq 'length'
+```
+
+- 返回 `0` -> 先执行 `init-labels` 技能，然后重新执行本步骤
+- 返回非 `0` -> 继续
+
+**b) 同步 type label**
+
+根据 task.md 的 `type` 字段按下表映射：
+
+| task.md type | GitHub label |
+|---|---|
+| bug、bugfix | `type: bug` |
+| feature | `type: feature` |
+| enhancement | `type: enhancement` |
+| refactor、refactoring | `type: enhancement` |
+| documentation | `type: documentation` |
+| dependency-upgrade | `type: dependency-upgrade` |
+| task | `type: task` |
+| 其他 | 跳过 |
+
+如果 task.md 的 `type` 可以映射到标准 type label，执行：
+
+```bash
+gh pr edit {pr-number} --add-label "{type-label}"
+```
+
+**c) 同步 in: label**
+
+从实现报告或分析报告提取受影响模块，确认对应 label 存在后执行：
+
+```bash
+gh pr edit {pr-number} --add-label "in: {module}"
+```
+
+只添加，不移除现有的 `in:` labels。
+
+**d) 同步 Milestone**
+
+复用 `sync-pr` 的里程碑推断策略：
+- 先检查 PR 是否已有 milestone
+- 再检查 task.md 是否显式指定 `milestone`
+- 否则基于当前分支、版本分支或最新 tag 推断
+- 最终回退到 `General Backlog`
+
+找到目标后执行：
+
+```bash
+gh pr edit {pr-number} --milestone "{milestone-title}"
+```
+
+**e) 同步 Development 关联**
+
+如果 task.md 包含 `issue_number`，读取 PR body：
+
+```bash
+gh pr view {pr-number} --json body --jq '.body // ""'
+```
+
+如果 body 不包含以下任一关键词：
+- `Closes #{issue-number}`
+- `Fixes #{issue-number}`
+- `Resolves #{issue-number}`
+
+则在末尾追加：
+
+```bash
+gh pr edit {pr-number} --body "$(cat <<'EOF'
+{existing-body}
+
+Closes #{issue-number}
+EOF
+)"
+```
+
+### 9. 更新任务状态（如果与任务相关）
 
 获取当前时间：
 
@@ -93,15 +177,20 @@ date "+%Y-%m-%d %H:%M:%S"
   - {yyyy-MM-dd HH:mm:ss} — **PR Created** by {agent} — PR #{pr-number} created
   ```
 
-### 9. 输出结果
+### 10. 输出结果
 
 > **重要**：以下「下一步」中列出的所有 TUI 命令格式必须完整输出，不要只展示当前 AI 代理对应的格式。
 
 ```
 PR 已创建：{pr-url}
 
+元数据同步：
+- Labels：{type-label-result}, {in-label-result}
+- Milestone：{milestone-result}
+- Development：{development-result}
+
 下一步（如在任务工作流中）：
-- 同步进度：
+- 发布审查摘要（可选）：
   - Claude Code / OpenCode：/sync-pr {task-id}
   - Gemini CLI：/agent-infra:sync-pr {task-id}
   - Codex CLI：$sync-pr {task-id}
@@ -117,6 +206,7 @@ PR 已创建：{pr-url}
 2. **参考风格**：匹配最近合并的 PR 的格式和风格
 3. **标题格式**：遵循 Conventional Commits 或项目规范
 4. **所有提交都重要**：分析分支中的**所有**提交，而不仅仅是最新的
+5. **自动同步元数据**：如果与任务相关，create-pr 必须在创建后立即补齐 labels、milestone 和 development 关联
 
 ## 错误处理
 

@@ -122,6 +122,7 @@ test("sync-issue skill documents label sync and development linking", () => {
       /--remove-label/,
       /type: bug/,
       /\| bug(?:、|, )bugfix \| `type: bug` \|/,
+      /\| refactor(?:、|, )refactoring \| `type: enhancement` \|/,
       /type: feature/,
       /status: blocked/,
       /status: in-progress/,
@@ -194,6 +195,64 @@ test("sync-issue skill documents issue type sync, timeline comments, and absolut
     assert.doesNotMatch(content, /按 `analysis → plan → implementation → review → summary` 的固定顺序处理|Process steps strictly in the fixed order `analysis → plan → implementation → review → summary`\./);
     assert.doesNotMatch(content, /\.\.\/\.\.\/commit\/\{commit-hash\}/);
     assert.doesNotMatch(content, /\.\.\/\.\.\/pull\/\{pr-number\}/);
+  });
+});
+
+test("sync-pr skill documents metadata sync and idempotent summary", () => {
+  skillDocPaths("sync-pr").forEach((relativePath) => {
+    const content = read(relativePath);
+
+    assertContainsPatterns(relativePath, [
+      /repo="\$\(gh repo view --json nameWithOwner --jq '\.nameWithOwner'\)"/,
+      /<!-- sync-pr:\{task-id\}:summary -->/,
+      /gh pr edit \{pr-number\} --add-label/,
+      /gh label list --search "type:"/,
+      /init-labels/,
+      /type: bug/,
+      /\| refactor(?:、|, )refactoring \| `type: enhancement` \|/,
+      /方案 A\/B|Option A\/B/,
+      /in: \{module\}/,
+      /--milestone/,
+      /Closes #\{issue-number\}/,
+      /gh issue view \{issue-number\} --json state/,
+      /gh api "repos\/\$repo\/issues\/comments\/\{comment-id\}" -X PATCH/,
+      /PR #\{number\} is closed\/merged, metadata sync skipped/,
+      /date "\+%Y-%m-%d %H:%M:%S"/
+    ]);
+
+    const stepNumbers = [...content.matchAll(/^### (\d+)\. /gm)]
+      .map((match) => Number(match[1]));
+
+    const expected = stepNumbers.map((_, index) => index + 1);
+
+    assert.deepEqual(
+      stepNumbers,
+      expected,
+      `${relativePath} steps should be consecutively numbered from 1`
+    );
+
+    assert.doesNotMatch(content, /gh pr comment/);
+  });
+});
+
+test("create-pr skill documents metadata sync step", () => {
+  skillDocPaths("create-pr").forEach((relativePath) => {
+    const content = read(relativePath);
+
+    assertContainsPatterns(relativePath, [
+      /--add-label/,
+      /--milestone/,
+      /\| bug(?:、|, )bugfix \| `type: bug` \|/,
+      /\| refactor(?:、|, )refactoring \| `type: enhancement` \|/,
+      /Closes #\{issue-number\}/,
+      /sync-pr/
+    ]);
+
+    assert.doesNotMatch(
+      content,
+      /复用 `sync-pr` 的 type label 映射|Reuse the same type-label mapping as `sync-pr`/,
+      `${relativePath} should inline the type-label mapping instead of delegating to sync-pr`
+    );
   });
 });
 

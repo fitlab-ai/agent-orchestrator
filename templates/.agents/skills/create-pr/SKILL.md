@@ -78,7 +78,91 @@ EOF
 )"
 ```
 
-### 8. Update Task Status (If Task-Related)
+### 8. Sync PR Metadata (If Task-Related)
+
+If this work is associated with an active task, sync the following metadata immediately after creating the PR.
+
+**a) Check whether the label system has been initialized**
+
+Run:
+
+```bash
+gh label list --search "type:" --limit 1 --json name --jq 'length'
+```
+
+- returns `0` -> run the `init-labels` skill first, then retry this step
+- returns non-zero -> continue
+
+**b) Sync the type label**
+
+Map task.md `type` using this table:
+
+| task.md type | GitHub label |
+|---|---|
+| bug, bugfix | `type: bug` |
+| feature | `type: feature` |
+| enhancement | `type: enhancement` |
+| refactor, refactoring | `type: enhancement` |
+| documentation | `type: documentation` |
+| dependency-upgrade | `type: dependency-upgrade` |
+| task | `type: task` |
+| anything else | skip |
+
+If task.md `type` maps to a standard type label, run:
+
+```bash
+gh pr edit {pr-number} --add-label "{type-label}"
+```
+
+**c) Sync `in:` labels**
+
+Extract affected modules from implementation reports or analysis, verify that the label exists, then run:
+
+```bash
+gh pr edit {pr-number} --add-label "in: {module}"
+```
+
+Only add labels; do not remove existing `in:` labels.
+
+**d) Sync the milestone**
+
+Reuse the same milestone inference strategy as `sync-pr`:
+- preserve an existing PR milestone
+- otherwise respect explicit `milestone` from task.md
+- otherwise infer from the current branch, release branches, or the latest tag
+- finally fall back to `General Backlog`
+
+Once the target is resolved, run:
+
+```bash
+gh pr edit {pr-number} --milestone "{milestone-title}"
+```
+
+**e) Sync development linking**
+
+If task.md contains `issue_number`, read the PR body:
+
+```bash
+gh pr view {pr-number} --json body --jq '.body // ""'
+```
+
+If the body does not contain any of:
+- `Closes #{issue-number}`
+- `Fixes #{issue-number}`
+- `Resolves #{issue-number}`
+
+append:
+
+```bash
+gh pr edit {pr-number} --body "$(cat <<'EOF'
+{existing-body}
+
+Closes #{issue-number}
+EOF
+)"
+```
+
+### 9. Update Task Status (If Task-Related)
 
 Get the current time:
 
@@ -94,15 +178,20 @@ If there is an active task for this work, update `.agent-workspace/active/{task-
   - {yyyy-MM-dd HH:mm:ss} — **PR Created** by {agent} — PR #{pr-number} created
   ```
 
-### 9. Output Result
+### 10. Output Result
 
 > **IMPORTANT**: All TUI command formats listed below must be output in full. Do not show only the format for the current AI agent.
 
 ```
 PR created: {pr-url}
 
+Metadata sync:
+- Labels: {type-label-result}, {in-label-result}
+- Milestone: {milestone-result}
+- Development: {development-result}
+
 Next steps (if in task workflow):
-- Sync progress:
+- Publish review summary (optional):
   - Claude Code / OpenCode: /sync-pr {task-id}
   - Gemini CLI: /{{project}}:sync-pr {task-id}
   - Codex CLI: $sync-pr {task-id}
@@ -118,6 +207,7 @@ Next steps (if in task workflow):
 2. **Reference style**: Match the format and style of recent merged PRs
 3. **Title format**: Follow Conventional Commits or project conventions
 4. **All commits matter**: Analyze ALL commits in the branch, not just the latest
+5. **Sync metadata automatically**: When task-related, create-pr must immediately fill labels, milestone, and development linking after PR creation
 
 ## Error Handling
 
