@@ -380,7 +380,7 @@ import-issue #42                    从 GitHub Issue 导入任务
   "org": "my-org",
   "language": "en",
   "templateSource": "templates/",
-  "templateVersion": "v0.3.0",
+  "templateVersion": "v0.3.1",
   "modules": ["ai", "github"],
   "files": {
     "managed": [
