@@ -491,6 +491,30 @@ test("import-issue skill uses the shared boundary section format", () => {
   });
 });
 
+test("create-issue skill limits issue content to task.md and writes back issue_number", () => {
+  skillDocPaths("create-issue").forEach((relativePath) => {
+    assertContainsPatterns(relativePath, [
+      /行为边界 \/ 关键规则|Boundary \/ Critical Rules/,
+      /仅从 task\.md 读取|from `task\.md` only/,
+      /不要读取 `analysis\.md`、`plan\.md`、`implementation\.md`|Do not read `analysis\.md`, `plan\.md`, `implementation\.md`/,
+      /gh auth status/,
+      /ISSUE_TEMPLATE/,
+      /fallback|兜底/,
+      /`labels:`/,
+      /`milestone`/,
+      /--milestone/,
+      /issue-types/,
+      /-X PATCH -f type="\{issue-type\}"/,
+      /textarea/,
+      /dropdown/,
+      /checkboxes/,
+      /gh issue create --title/,
+      /`issue_number`/,
+      /sync-issue/
+    ]);
+  });
+});
+
 test("refine-task records the implementation artifact during prerequisite discovery", () => {
   skillDocPaths("refine-task").forEach((relativePath) => {
     assertContainsPatterns(relativePath, [
