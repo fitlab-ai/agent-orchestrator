@@ -197,6 +197,50 @@ test("sync-issue skill documents issue type sync, timeline comments, and absolut
   });
 });
 
+test("sync-pr skill documents metadata sync and idempotent summary", () => {
+  skillDocPaths("sync-pr").forEach((relativePath) => {
+    const content = read(relativePath);
+
+    assertContainsPatterns(relativePath, [
+      /<!-- sync-pr:\{task-id\}:summary -->/,
+      /gh pr edit \{pr-number\} --add-label/,
+      /gh label list --search "type:"/,
+      /init-labels/,
+      /type: bug/,
+      /in: \{module\}/,
+      /--milestone/,
+      /Closes #\{issue-number\}/,
+      /gh issue view \{issue-number\} --json state/,
+      /gh api "repos\/\$repo\/issues\/comments\/\{comment-id\}" -X PATCH/,
+      /date "\+%Y-%m-%d %H:%M:%S"/
+    ]);
+
+    const stepNumbers = [...content.matchAll(/^### (\d+)\. /gm)]
+      .map((match) => Number(match[1]));
+
+    const expected = stepNumbers.map((_, index) => index + 1);
+
+    assert.deepEqual(
+      stepNumbers,
+      expected,
+      `${relativePath} steps should be consecutively numbered from 1`
+    );
+
+    assert.doesNotMatch(content, /gh pr comment/);
+  });
+});
+
+test("create-pr skill documents metadata sync step", () => {
+  skillDocPaths("create-pr").forEach((relativePath) => {
+    assertContainsPatterns(relativePath, [
+      /--add-label/,
+      /--milestone/,
+      /Closes #\{issue-number\}/,
+      /sync-pr/
+    ]);
+  });
+});
+
 test("complete-task skill uses issue_number sync hint with explicit guard", () => {
   skillDocPaths("complete-task").forEach((relativePath) => {
     const content = read(relativePath);
