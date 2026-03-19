@@ -11,7 +11,7 @@ description: >
 
 - 本技能的唯一产出是 GitHub Issue，以及 task.md 中 `issue_number` 字段的回写
 - 构建 Issue 标题和正文时，**仅从 task.md 读取**；不要读取 `analysis.md`、`plan.md`、`implementation.md` 或其他产物
-- 如果项目存在 Issue 模板，模板只提供正文结构、字段标题和默认 labels；所有实际正文内容值仍然只来自 task.md
+- 如果项目存在 Issue 模板，模板只提供正文结构、字段标题、默认 labels 和候选 Issue Type；所有实际正文内容值仍然只来自 task.md
 - 不要在此技能中同步分析、方案、实现或审查细节；这些由 `sync-issue` 负责
 - 执行本技能后，你**必须**立即更新 task.md 中的任务状态
 
@@ -41,6 +41,7 @@ gh auth status
 - `## 描述` 内容
 - `## 需求` 列表
 - `type` 字段
+- `milestone` 字段（如存在）
 
 如果描述为空，提示用户先完善任务描述。
 
@@ -50,6 +51,7 @@ Issue 内容规则：
 - **标题**：使用任务标题
 - **正文内容值**：仅来自 task.md
 - **模板作用**：Issue 模板只提供结构、字段标签和默认 labels
+- **Issue Type**：优先使用模板中的 `type:`；无模板时根据 task.md `type` 做 fallback 映射
 - **无可用模板时**：退回简单格式（fallback / 兜底）
 
 #### 3a. 检测 Issue 模板
@@ -76,10 +78,12 @@ rg --files .github/ISSUE_TEMPLATE -g '*.yml' -g '!config.yml'
 
 读取匹配模板中的顶层字段：
 - `name`
+- `type:`
 - `labels:`
 - `body:`
 
 模板路径的处理规则：
+- 如果模板定义了 `type:`，记录为 `{issue-type}`
 - `labels:` 中的每个值都视为候选 label
 - 遍历 `body:` 列表
 - 对 `type: textarea` 和 `type: input` 字段：
@@ -130,6 +134,14 @@ gh label list --search "{label}" --limit 20 --json name --jq '.[].name'
 | `task`、`chore`、`refactor`、`refactoring` | `type: task` |
 | 其他 | 跳过 |
 
+Issue Type fallback 映射：
+
+| task.md type | GitHub Issue Type |
+|---|---|
+| `bug`、`bugfix` | `Bug` |
+| `feature`、`enhancement` | `Feature` |
+| `task`、`documentation`、`dependency-upgrade`、`chore`、`docs`、`refactor`、`refactoring` 及其他值 | `Task` |
+
 如果 fallback 路径映射到了 label，先检查该 label 是否存在：
 
 ```bash
@@ -143,10 +155,11 @@ gh label list --search "{type-label}" --limit 20 --json name --jq '.[].name'
 执行：
 
 ```bash
-gh issue create --title "{title}" --body "{body}" --label "{label-1}" --label "{label-2}"
+gh issue create --title "{title}" --body "{body}" --label "{label-1}" --label "{label-2}" --milestone "{milestone}"
 ```
 
 如果前一步没有保留下任何有效 label，则省略所有 `--label` 参数。
+如果 task.md 中没有 `milestone` 字段或值为空，默认使用 `General Backlog` 作为里程碑（新建 Issue 处于未分配状态，应归入通用积压）。如果 `General Backlog` 也不存在，则省略 `--milestone` 参数。
 
 不要依赖 `gh issue create --template`；本技能应直接解析 `.github/ISSUE_TEMPLATE/*.yml` 并生成最终 `--body`。
 
@@ -156,6 +169,20 @@ gh issue create --title "{title}" --body "{body}" --label "{label-1}" --label "{
 issue_url="$(gh issue create ...)"
 issue_number="${issue_url##*/}"
 ```
+
+如果已经确定了 `{issue-type}`，在创建后以 best-effort 方式设置 Issue Type：
+
+```bash
+repo="$(gh repo view --json nameWithOwner --jq '.nameWithOwner')"
+owner="${repo%%/*}"
+gh api "orgs/$owner/issue-types" --jq '.[].name'
+gh api "repos/$repo/issues/{issue-number}" -X PATCH -f type="{issue-type}"
+```
+
+容错要求：
+- 如果 `orgs/$owner/issue-types` 返回 `404`、仓库 owner 不是组织，或仓库未启用 Issue Types，则跳过，不要让创建失败
+- 如果目标 `{issue-type}` 不在可用列表中，则跳过
+- Milestone 不存在或名称无效时，也应提示并跳过，而不是中断整个 Issue 创建流程
 
 ### 5. 更新任务状态
 
@@ -185,6 +212,8 @@ Issue 信息：
 - 编号：#{issue-number}
 - URL：{issue-url}
 - Labels：{applied-labels 或 skipped}
+- Issue Type：{issue-type 或 skipped}
+- Milestone：{milestone 或 skipped}
 
 产出：
 - task.md 已回写 `issue_number`
@@ -201,6 +230,7 @@ Issue 信息：
 - [ ] 检测了项目 `ISSUE_TEMPLATE`
 - [ ] 有模板时按模板结构生成正文；无模板时走 fallback / 兜底格式
 - [ ] Issue 标题和正文仅来自 task.md
+- [ ] 如可用，处理了 `type:` / Issue Type 和 `milestone`
 - [ ] 在 task.md 中记录了 `issue_number`
 - [ ] 更新了 task.md 中的 `updated_at`
 - [ ] 追加了 Activity Log 条目到 task.md
@@ -217,6 +247,7 @@ Issue 信息：
 2. **避免重复创建**：已有 `issue_number` 时，先与用户确认
 3. **Label 容错**：标准 label 未初始化时，可以跳过 label，但不要阻止 Issue 创建
 4. **模板容错**：模板缺失、匹配失败或 YAML 异常时，退回 fallback / 兜底正文，不要让整个创建失败
+5. **Issue Type / Milestone 容错**：Issue Type 未启用、类型不存在或 milestone 不可用时，跳过该项并继续创建
 
 ## 错误处理
 
