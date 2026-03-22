@@ -105,17 +105,7 @@ gh pr view {pr-number} --json state,mergedAt
 
 根据返回结果识别 PR 是 `OPEN`、`MERGED` 还是其他状态。
 
-**d) 检测 Issue 状态**
-
-执行：
-
-```bash
-gh issue view {issue-number} --json state
-```
-
-记录 Issue 当前是 `OPEN` 还是 `CLOSED`。
-
-**e) 综合判定交付模式**
+**d) 综合判定交付模式**
 
 按以下优先级确定摘要模式：
 
@@ -452,16 +442,14 @@ summary_comment_id="$(
 |---|---|
 | 分支 | `{branch 或 N/A}` |
 | Commit | [`{commit-short}`](https://github.com/{owner}/{repo}/commit/{commit-hash}) 或 `N/A` |
-| PR | [#{pr-number}](https://github.com/{owner}/{repo}/pull/{pr-number}) 或 `N/A` |
-| Issue | `{issue-state}` |
 
 ---
 *由 AI 自动生成 · 内部追踪：{task-id}*
 ```
 
 模式化状态描述要求：
-- 模式 A：`✅ 已完成，代码已合入 {branch}`
-- 模式 B：`PR 阶段，当前为 #{pr-number}（OPEN 或 MERGED）`
+- 模式 A：`✅ 已完成`
+- 模式 B：`PR 阶段`
 - 模式 C：`开发中，当前步骤为 {current_step}`
 
 **b) 跳过已发布或缺失的产物**
