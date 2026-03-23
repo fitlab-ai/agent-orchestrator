@@ -385,7 +385,7 @@ The generated `.airc.json` file is the central contract between the bootstrap CL
   "org": "my-org",
   "language": "en",
   "templateSource": "templates/",
-  "templateVersion": "v0.3.1",
+  "templateVersion": "v0.3.2",
   "modules": ["ai", "github"],
   "files": {
     "managed": [

@@ -385,7 +385,7 @@ import-issue #42                    从 GitHub Issue 导入任务
   "org": "my-org",
   "language": "en",
   "templateSource": "templates/",
-  "templateVersion": "v0.3.1",
+  "templateVersion": "v0.3.2",
   "modules": ["ai", "github"],
   "files": {
     "managed": [
