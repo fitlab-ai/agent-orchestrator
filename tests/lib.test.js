@@ -1,35 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
 import readline from "node:readline";
 
 import { filePath, loadFreshEsm, renderPlaceholders } from "./helpers.js";
 import * as paths from "../lib/paths.js";
 
-test("paths detect clone installs when bundled templates live under HOME", () => {
-  const originalHomedir = os.homedir;
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-home-"));
-
-  try {
-    const installDir = path.join(tmpDir, ".agent-infra");
-    fs.mkdirSync(path.join(installDir, "templates"), { recursive: true });
-
-    os.homedir = () => tmpDir;
-    assert.equal(paths.resolveInstallDir(), installDir);
-    assert.equal(paths.resolveTemplateDir(), filePath("templates"));
-    assert.equal(paths.isCloneInstall(), false);
-
-    fs.rmSync(path.join(installDir, "templates"), { recursive: true, force: true });
-    fs.symlinkSync(filePath("templates"), path.join(installDir, "templates"), "dir");
-
-    assert.equal(paths.resolveTemplateDir(), filePath("templates"));
-    assert.equal(paths.isCloneInstall(), true);
-  } finally {
-    os.homedir = originalHomedir;
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+test("resolveTemplateDir returns the bundled templates directory", () => {
+  assert.equal(paths.resolveTemplateDir(), filePath("templates"));
 });
 
 test("renderPlaceholders only replaces double-brace placeholders", () => {

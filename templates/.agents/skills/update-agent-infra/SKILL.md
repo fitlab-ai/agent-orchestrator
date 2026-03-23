@@ -29,7 +29,7 @@ node .agents/skills/update-agent-infra/scripts/sync-templates.js
 ```
 
 The script reads `.agent-infra/config.json` (including `templateSource`, default `templates/`) and automatically performs:
-- git pull to fetch latest templates
+- detect the template source version
 - File registry sync (`defaults.json` → `.agent-infra/config.json`)
 - All managed files (language selection → exclude merged/ejected → placeholder rendering → overwrite)
 - Ejected files (create only on first install)

@@ -159,7 +159,7 @@ Open the project in any AI TUI and run `update-agent-infra`:
 | Gemini CLI | `/{{project}}:update-agent-infra` |
 | OpenCode | `/update-agent-infra` |
 
-This pulls the latest templates and renders all managed files. The same command is used both for first-time setup and for future template upgrades.
+This detects the packaged template version and renders all managed files. The same command is used both for first-time setup and for future template upgrades.
 
 <a id="architecture-overview"></a>
 
@@ -171,7 +171,7 @@ agent-infra is intentionally simple: a bootstrap CLI creates the seed configurat
 
 1. **Install** — `npm install -g @fitlab-ai/agent-infra` (or use the shell script wrapper)
 2. **Initialize** — `ai init` in the project root to generate `.agent-infra/config.json` and install the seed command
-3. **Render** — run `update-agent-infra` in any AI TUI to pull templates and generate all managed files
+3. **Render** — run `update-agent-infra` in any AI TUI to detect the bundled template version and generate all managed files
 4. **Develop** — use 28 built-in skills to drive the full lifecycle: `analysis → design → implementation → review → fix → commit`
 5. **Update** — run `update-agent-infra` again whenever a new template version is available
 

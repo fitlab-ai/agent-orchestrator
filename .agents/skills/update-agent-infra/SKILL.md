@@ -25,7 +25,7 @@ node .agents/skills/update-agent-infra/scripts/sync-templates.js
 ```
 
 脚本读取 `.agent-infra/config.json`（含 `templateSource`，默认 `templates/`），自动完成：
-- git pull 拉取最新模板
+- 检测模板源版本
 - 同步文件注册表（`defaults.json` → `.agent-infra/config.json`）
 - 处理所有 managed 文件（语言选择 → 排除 merged/ejected → 占位符渲染 → 覆盖写入）
 - 处理 ejected 文件（仅首次安装时创建）

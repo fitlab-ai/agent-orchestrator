@@ -7,43 +7,13 @@ import os from "node:os";
 
 import { exists, filePath, read } from "./helpers.js";
 
-function pathExists(targetPath) {
-  try {
-    fs.lstatSync(targetPath);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function ensureCloneInstallFixture() {
-  const installDir = path.join(os.homedir(), ".agent-infra");
-  const templateSource = filePath("templates");
-  const backupDir = pathExists(installDir)
-    ? `${installDir}.test-backup-${process.pid}-${Date.now()}`
-    : null;
-
-  if (backupDir) {
-    fs.renameSync(installDir, backupDir);
-  }
-
-  fs.mkdirSync(installDir, { recursive: true });
-  fs.cpSync(templateSource, path.join(installDir, "templates"), { recursive: true });
-  return () => {
-    fs.rmSync(installDir, { recursive: true, force: true });
-    if (backupDir) {
-      fs.renameSync(backupDir, installDir);
-    }
-  };
-}
-
 test("bootstrap CLI files exist", () => {
   assert.ok(exists("install.sh"), "install.sh should exist");
   assert.ok(exists("bin/cli.js"), "bin/cli.js (node) should exist");
 
   const installSh = read("install.sh");
   assert.match(installSh, /npm install/);
-  assert.match(installSh, /\.agent-infra/);
+  assert.match(installSh, /@fitlab-ai\/agent-infra/);
 
   const nodeCli = read("bin/cli.js");
   assert.match(nodeCli, /agent-infra/);
@@ -147,7 +117,6 @@ test("agent-infra init generates seed files in a temp directory", () => {
 test("installed sync-templates.js executes inside a type=module project", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-esm-"));
   const cli = filePath("bin/cli.js");
-  const cleanupCloneInstall = ensureCloneInstallFixture();
 
   try {
     fs.writeFileSync(
@@ -164,6 +133,21 @@ test("installed sync-templates.js executes inside a type=module project", () => 
       JSON.parse(fs.readFileSync(path.join(tmpDir, "package.json"), "utf8")).type,
       "module",
       "package.json should remain an ESM package after init"
+    );
+    fs.mkdirSync(path.join(tmpDir, "templates"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, "templates", "README.md"), "Hello {{project}}\n", "utf8");
+    fs.writeFileSync(
+      path.join(tmpDir, ".agent-infra", "config.json"),
+      JSON.stringify({
+        ...JSON.parse(fs.readFileSync(path.join(tmpDir, ".agent-infra", "config.json"), "utf8")),
+        templateSource: path.join(tmpDir, "templates"),
+        files: {
+          managed: ["README.md"],
+          merged: [],
+          ejected: []
+        }
+      }, null, 2) + "\n",
+      "utf8"
     );
 
     const output = execFileSync(
@@ -184,7 +168,6 @@ test("installed sync-templates.js executes inside a type=module project", () => 
       "sync-templates.js should be installed into the ESM project"
     );
   } finally {
-    cleanupCloneInstall();
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });

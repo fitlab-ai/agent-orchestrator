@@ -159,7 +159,7 @@ CLI 会收集项目元数据，向所有支持的 AI TUI 安装 `update-agent-in
 | Gemini CLI | `/{{project}}:update-agent-infra` |
 | OpenCode | `/update-agent-infra` |
 
-该命令会拉取最新模板并渲染所有受管理文件。首次安装和后续升级都使用同一条命令。
+该命令会检测当前打包模板版本并渲染所有受管理文件。首次安装和后续升级都使用同一条命令。
 
 <a id="architecture-overview"></a>
 
@@ -171,7 +171,7 @@ agent-infra 的结构刻意保持简单：引导 CLI 负责生成种子配置，
 
 1. **安装** — `npm install -g @fitlab-ai/agent-infra`（或使用 shell 脚本便捷封装）
 2. **初始化** — 在项目根目录运行 `ai init`，生成 `.agent-infra/config.json` 并安装种子命令
-3. **渲染** — 在任意 AI TUI 中执行 `update-agent-infra`，拉取模板并生成所有受管理文件
+3. **渲染** — 在任意 AI TUI 中执行 `update-agent-infra`，检测当前打包模板版本并生成所有受管理文件
 4. **开发** — 使用 28 个内置 skill 驱动完整生命周期：`analysis → design → implementation → review → fix → commit`
 5. **升级** — 有新模板版本时再次执行 `update-agent-infra` 即可
 

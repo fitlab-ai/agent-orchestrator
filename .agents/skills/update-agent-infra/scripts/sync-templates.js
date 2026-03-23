@@ -2,7 +2,7 @@
 /**
  * sync-templates.js — Deterministic template sync for managed & ejected files.
  *
- * Handles SKILL steps: 2 (git pull), 3.0 (registry sync), 4 (managed),
+ * Handles SKILL steps: 2 (detect template source version), 3.0 (registry sync), 4 (managed),
  * 6 (ejected), 7 (.agent-infra/config.json update).
  *
  * Merged files (step 5) are NOT handled — they require AI semantic merge.
@@ -16,23 +16,8 @@
 
 import childProcess from 'node:child_process';
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-
-// Keep these helpers aligned with lib/paths.js for clone installs.
-function resolveInstallDir() {
-  return path.join(os.homedir(), '.agent-infra');
-}
-
-function resolveTemplateDir() {
-  const clonePath = path.join(resolveInstallDir(), 'templates');
-  if (fs.existsSync(clonePath)) {
-    return clonePath;
-  }
-
-  return null;
-}
 
 const RETIRED_FILE_ENTRIES = new Set([
   '.agent-workspace/README.md',
@@ -143,34 +128,17 @@ function renderPathname(p, project) {
 }
 
 function resolveProjectTemplateDir(projectRoot, templateSource) {
-  const fallbackRoot = resolveTemplateDir();
+  if (!templateSource) return null;
 
-  const candidates = [];
-  if (templateSource) {
-    if (path.isAbsolute(templateSource)) {
-      candidates.push(templateSource);
-    } else {
-      if (fallbackRoot) {
-        candidates.push(path.resolve(path.dirname(fallbackRoot), templateSource));
-      }
-      candidates.push(path.resolve(projectRoot, templateSource));
-    }
-  }
-  if (fallbackRoot) {
-    candidates.push(fallbackRoot);
-  }
+  const candidate = path.isAbsolute(templateSource)
+    ? templateSource
+    : path.resolve(projectRoot, templateSource);
 
-  for (const candidate of candidates) {
-    try {
-      if (fs.statSync(candidate).isDirectory()) {
-        return candidate;
-      }
-    } catch {
-      // Keep scanning until a valid directory is found.
-    }
+  try {
+    return fs.statSync(candidate).isDirectory() ? candidate : null;
+  } catch {
+    return null;
   }
-
-  return null;
 }
 
 function isBinary(fp) {
@@ -252,34 +220,9 @@ function syncTemplates(projectRoot) {
   pruneRetiredConfig(cfg);
   const templateRoot = resolveProjectTemplateDir(projectRoot, cfg.templateSource);
   if (!templateRoot) {
-    return { error: 'Template source not found. Install: curl -fsSL https://raw.githubusercontent.com/fitlab-ai/agent-infra/main/install.sh | sh' };
+    return { error: 'Template source not found. Install via npm: npm install -g @fitlab-ai/agent-infra' };
   }
-  const installDir = resolveInstallDir();
-
-  const hasGit = fs.existsSync(path.join(installDir, '.git'));
-  if (hasGit) {
-    try { childProcess.execSync('git fetch --tags --quiet', { cwd: installDir, stdio: 'pipe' }); } catch { /* network */ }
-  }
-
-  let version = 'unknown';
-  if (hasGit) {
-    let tagOutput;
-    try {
-      tagOutput = childProcess.execSync('git tag --sort=-v:refname', {
-        cwd: installDir, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe']
-      }).trim();
-    } catch {
-      return { error: 'Failed to list tags in agent-infra repository. Please check git installation.' };
-    }
-    const latestTag = tagOutput.split('\n')[0];
-    if (!latestTag) {
-      return { error: 'No tags found in agent-infra repository. This is unexpected — please reinstall.' };
-    }
-    try { childProcess.execFileSync('git', ['checkout', latestTag, '--quiet'], { cwd: installDir, stdio: 'pipe' }); } catch { /* ignore */ }
-    version = latestTag;
-  } else {
-    version = INSTALLER_VERSION || version;
-  }
+  const version = INSTALLER_VERSION;
 
   const { project, org, language: lang = 'en' } = cfg;
   const vars = { project, org };
@@ -435,8 +378,7 @@ function syncTemplates(projectRoot) {
   );
 
   const projUrl = gitUrl(projectRoot);
-  const instUrl = gitUrl(installDir);
-  report.selfUpdate = !!(projUrl && instUrl && projUrl === instUrl);
+  report.selfUpdate = !!(projUrl && /fitlab-ai\/agent-infra/.test(projUrl));
 
   const hasChanges = (
     report.managed.written.length +

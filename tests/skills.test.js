@@ -16,7 +16,7 @@ test("update-agent-infra instructions point to templates rendering", () => {
 
   assert.match(updateSkill, /templateSource/);
   assert.match(updateSkill, /templates\//);
-  assert.match(updateSkill, /git.*pull/);
+  assert.match(updateSkill, /模板源版本/);
   assert.match(updateSkill, /ai update/);
   assert.match(geminiUpdate, /SKILL\.md/);
 });
