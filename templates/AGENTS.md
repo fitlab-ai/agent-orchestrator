@@ -63,7 +63,7 @@ Before submitting a PR, ensure:
 ## Security Notes
 
 - Do not commit sensitive files: `.env`, `credentials.json`, keys, etc.
-- Report security issues per `SECURITY.md` guidelines (do not open public Issues)
+- Handle security issues privately according to your project's disclosure policy (do not open public Issues)
 
 ## Multi-AI Collaboration Support
 

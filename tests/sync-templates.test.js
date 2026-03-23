@@ -45,12 +45,11 @@ test("syncTemplates respects templateSource and stays idempotent", async () => {
     writeFile(templateRoot, "child.md", "Top\n");
     writeFile(templateRoot, "nested/child.md", "Nested\n");
 
-    writeJson(projectRoot, ".airc.json", {
+    writeJson(projectRoot, ".agent-infra/config.json", {
       project: "demo",
       org: "acme",
       language: "zh-CN",
       templateSource: "custom-source",
-      modules: ["ai"],
       files: {
         managed: ["docs/", "_project_/script.sh", ".github/release.yml"],
         merged: ["docs/merge.md", "**child.md"],
@@ -69,18 +68,15 @@ test("syncTemplates respects templateSource and stays idempotent", async () => {
     const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
 
     const firstReport = syncTemplates(projectRoot);
-    const afterFirstRun = fs.readFileSync(path.join(projectRoot, ".airc.json"), "utf8");
+    const afterFirstRun = fs.readFileSync(path.join(projectRoot, ".agent-infra/config.json"), "utf8");
     const secondReport = syncTemplates(projectRoot);
-    const afterSecondRun = fs.readFileSync(path.join(projectRoot, ".airc.json"), "utf8");
+    const afterSecondRun = fs.readFileSync(path.join(projectRoot, ".agent-infra/config.json"), "utf8");
 
     assert.equal(normalize(firstReport.templateRoot), normalize(templateRoot));
-    assert.ok(
-      firstReport.registryAdded.some((entry) => entry.entry === ".editorconfig" && entry.list === "managed")
-    );
+    assert.ok(firstReport.registryAdded.some((entry) => entry.entry === ".agents/skills/" && entry.list === "managed"));
     assert.deepEqual(firstReport.managed.created.sort(), ["demo/script.sh", "docs/empty.txt", "docs/guide.md"]);
     assert.deepEqual(firstReport.managed.written, []);
     assert.deepEqual(firstReport.managed.skippedMerged, ["docs/merge.md"]);
-    assert.deepEqual(firstReport.managed.skippedModule, [".github/release.yml"]);
     assert.deepEqual(firstReport.managed.removed, []);
     assert.deepEqual(firstReport.ejected.created, ["local-only.md"]);
     assert.deepEqual(firstReport.ejected.skipped, []);
@@ -112,6 +108,56 @@ test("syncTemplates respects templateSource and stays idempotent", async () => {
   }
 });
 
+test("syncTemplates prunes retired config entries during sync", async () => {
+  const originalHomedir = os.homedir;
+  const originalExecSync = childProcess.execSync;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-prune-"));
+
+  try {
+    const homeDir = path.join(tmpDir, "home");
+    const projectRoot = path.join(tmpDir, "project");
+    const templateRoot = path.join(tmpDir, "template-root");
+
+    fs.mkdirSync(homeDir, { recursive: true });
+    fs.mkdirSync(projectRoot, { recursive: true });
+    fs.mkdirSync(templateRoot, { recursive: true });
+
+    writeFile(templateRoot, "README.md", "Hello {{project}}\n");
+    writeJson(projectRoot, ".agent-infra/config.json", {
+      project: "demo",
+      org: "acme",
+      language: "en",
+      templateSource: templateRoot,
+      modules: ["ai", "github"],
+      files: {
+        managed: [".editorconfig", "README.md"],
+        merged: [".mailmap"],
+        ejected: []
+      }
+    });
+
+    os.homedir = () => homeDir;
+    childProcess.execSync = (command) => {
+      if (command === "git remote get-url origin") {
+        throw new Error("not a git repo");
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    };
+
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
+    syncTemplates(projectRoot);
+
+    const updated = JSON.parse(fs.readFileSync(path.join(projectRoot, ".agent-infra/config.json"), "utf8"));
+    assert.ok(!("modules" in updated));
+    assert.ok(!updated.files.managed.includes(".editorconfig"));
+    assert.ok(!updated.files.merged.includes(".mailmap"));
+  } finally {
+    os.homedir = originalHomedir;
+    childProcess.execSync = originalExecSync;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("syncTemplates falls back to the installer version with a v prefix when clone metadata is unavailable", async () => {
   const originalHomedir = os.homedir;
   const originalExecSync = childProcess.execSync;
@@ -127,12 +173,11 @@ test("syncTemplates falls back to the installer version with a v prefix when clo
     fs.mkdirSync(templateRoot, { recursive: true });
 
     writeFile(templateRoot, "README.md", "Hello {{project}}\n");
-    writeJson(projectRoot, ".airc.json", {
+    writeJson(projectRoot, ".agent-infra/config.json", {
       project: "demo",
       org: "acme",
       language: "en",
       templateSource: templateRoot,
-      modules: [],
       files: {
         managed: ["README.md"],
         merged: [],
@@ -180,12 +225,11 @@ test("syncTemplates prefers the latest tag and reports the template version when
     fs.mkdirSync(templateRoot, { recursive: true });
 
     writeFile(templateRoot, "README.md", "Hello {{project}}\n");
-    writeJson(projectRoot, ".airc.json", {
+    writeJson(projectRoot, ".agent-infra/config.json", {
       project: "demo",
       org: "acme",
       language: "en",
       templateSource: templateRoot,
-      modules: [],
       files: {
         managed: ["README.md"],
         merged: [],
@@ -258,12 +302,11 @@ test("syncTemplates returns an error when no tags exist", async () => {
     fs.mkdirSync(templateRoot, { recursive: true });
 
     writeFile(templateRoot, "README.md", "Hello {{project}}\n");
-    writeJson(projectRoot, ".airc.json", {
+    writeJson(projectRoot, ".agent-infra/config.json", {
       project: "demo",
       org: "acme",
       language: "en",
       templateSource: templateRoot,
-      modules: [],
       files: {
         managed: ["README.md"],
         merged: [],
@@ -327,12 +370,11 @@ test("syncTemplates returns an error when tag listing fails", async () => {
     fs.mkdirSync(templateRoot, { recursive: true });
 
     writeFile(templateRoot, "README.md", "Hello {{project}}\n");
-    writeJson(projectRoot, ".airc.json", {
+    writeJson(projectRoot, ".agent-infra/config.json", {
       project: "demo",
       org: "acme",
       language: "en",
       templateSource: templateRoot,
-      modules: [],
       files: {
         managed: ["README.md"],
         merged: [],
@@ -377,109 +419,7 @@ test("syncTemplates returns an error when tag listing fails", async () => {
   }
 });
 
-test("syncTemplates outputs both SECURITY language variants for zh-CN merged files", async () => {
-  const originalHomedir = os.homedir;
-  const originalExecSync = childProcess.execSync;
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-security-zh-"));
-
-  try {
-    const homeDir = path.join(tmpDir, "home");
-    const projectRoot = path.join(tmpDir, "project");
-    const templateRoot = path.join(tmpDir, "template-root");
-
-    fs.mkdirSync(homeDir, { recursive: true });
-    fs.mkdirSync(projectRoot, { recursive: true });
-    fs.mkdirSync(templateRoot, { recursive: true });
-
-    writeFile(templateRoot, "SECURITY.md", "Security EN\n");
-    writeFile(templateRoot, "SECURITY.zh-CN.md", "Security ZH\n");
-    writeJson(projectRoot, ".airc.json", {
-      project: "demo",
-      org: "acme",
-      language: "zh-CN",
-      templateSource: templateRoot,
-      modules: [],
-      files: {
-        managed: [],
-        merged: ["SECURITY.md"],
-        ejected: []
-      }
-    });
-
-    os.homedir = () => homeDir;
-    childProcess.execSync = (command) => {
-      if (command === "git remote get-url origin") {
-        throw new Error("not a git repo");
-      }
-      throw new Error(`Unexpected command: ${command}`);
-    };
-
-    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
-    const report = syncTemplates(projectRoot);
-
-    assert.deepEqual(report.merged.pending, [
-      { target: "SECURITY.md", template: "SECURITY.md" },
-      { target: "SECURITY.zh-CN.md", template: "SECURITY.zh-CN.md" }
-    ]);
-  } finally {
-    os.homedir = originalHomedir;
-    childProcess.execSync = originalExecSync;
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test("syncTemplates outputs both SECURITY language variants for en merged files", async () => {
-  const originalHomedir = os.homedir;
-  const originalExecSync = childProcess.execSync;
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-security-en-"));
-
-  try {
-    const homeDir = path.join(tmpDir, "home");
-    const projectRoot = path.join(tmpDir, "project");
-    const templateRoot = path.join(tmpDir, "template-root");
-
-    fs.mkdirSync(homeDir, { recursive: true });
-    fs.mkdirSync(projectRoot, { recursive: true });
-    fs.mkdirSync(templateRoot, { recursive: true });
-
-    writeFile(templateRoot, "SECURITY.md", "Security EN\n");
-    writeFile(templateRoot, "SECURITY.zh-CN.md", "Security ZH\n");
-    writeJson(projectRoot, ".airc.json", {
-      project: "demo",
-      org: "acme",
-      language: "en",
-      templateSource: templateRoot,
-      modules: [],
-      files: {
-        managed: [],
-        merged: ["SECURITY.md"],
-        ejected: []
-      }
-    });
-
-    os.homedir = () => homeDir;
-    childProcess.execSync = (command) => {
-      if (command === "git remote get-url origin") {
-        throw new Error("not a git repo");
-      }
-      throw new Error(`Unexpected command: ${command}`);
-    };
-
-    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
-    const report = syncTemplates(projectRoot);
-
-    assert.deepEqual(report.merged.pending, [
-      { target: "SECURITY.md", template: "SECURITY.md" },
-      { target: "SECURITY.zh-CN.md", template: "SECURITY.zh-CN.md" }
-    ]);
-  } finally {
-    os.homedir = originalHomedir;
-    childProcess.execSync = originalExecSync;
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test("syncTemplates removes stale managed files but preserves merged, ejected, and disabled-module files", async () => {
+test("syncTemplates removes stale managed files but preserves merged and ejected files", async () => {
   const originalHomedir = os.homedir;
   const originalExecSync = childProcess.execSync;
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-cleanup-"));
@@ -498,12 +438,11 @@ test("syncTemplates removes stale managed files but preserves merged, ejected, a
     writeFile(templateRoot, ".github/workflows/release.yml", "name: release\n");
     writeFile(templateRoot, "preserved.md", "Existing\n");
 
-    writeJson(projectRoot, ".airc.json", {
+    writeJson(projectRoot, ".agent-infra/config.json", {
       project: "demo",
       org: "acme",
       language: "en",
       templateSource: templateRoot,
-      modules: ["ai"],
       files: {
         managed: ["docs/", ".agents/", ".github/"],
         merged: ["docs/merged.md"],
@@ -538,11 +477,11 @@ test("syncTemplates removes stale managed files but preserves merged, ejected, a
     assert.equal(fs.readFileSync(path.join(projectRoot, "docs/merged.md"), "utf8"), "keep merged\n");
     assert.equal(fs.readFileSync(path.join(projectRoot, "docs/ejected.md"), "utf8"), "keep ejected\n");
     assert.equal(fs.readFileSync(path.join(projectRoot, ".github/workflows/release.yml"), "utf8"), "name: custom\n");
-    assert.deepEqual(firstReport.managed.skippedModule, [".github/workflows/release.yml"]);
-    assert.deepEqual(firstReport.managed.skippedMerged, []);
+    assert.deepEqual(firstReport.managed.skippedMerged, [".github/workflows/release.yml"]);
     assert.deepEqual(secondReport.managed.removed, []);
     assert.ok(secondReport.managed.unchanged.includes("docs/guide.md"));
     assert.ok(secondReport.managed.unchanged.includes(".agents/keep.md"));
+    assert.deepEqual(secondReport.managed.skippedMerged, [".github/workflows/release.yml"]);
   } finally {
     os.homedir = originalHomedir;
     childProcess.execSync = originalExecSync;
@@ -565,12 +504,11 @@ test("syncTemplates preserves stale files that match merged glob patterns", asyn
     fs.mkdirSync(templateRoot, { recursive: true });
 
     writeFile(templateRoot, "docs/guide.md", "Guide\n");
-    writeJson(projectRoot, ".airc.json", {
+    writeJson(projectRoot, ".agent-infra/config.json", {
       project: "demo",
       org: "acme",
       language: "en",
       templateSource: templateRoot,
-      modules: [],
       files: {
         managed: ["docs/"],
         merged: ["docs/**/*.md"],

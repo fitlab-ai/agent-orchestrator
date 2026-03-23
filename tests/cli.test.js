@@ -72,15 +72,15 @@ test("agent-infra init generates seed files in a temp directory", () => {
     );
 
     const config = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".airc.json"), "utf8")
+      fs.readFileSync(path.join(tmpDir, ".agent-infra/config.json"), "utf8")
     );
     assert.equal(config.project, "testproj");
     assert.equal(config.org, "testorg");
     assert.equal(config.templateVersion, `v${JSON.parse(read("package.json")).version}`);
     assert.ok(!config.branchPrefix, "branchPrefix should not exist");
     assert.ok(!config.source, "consumer projects should not have source: self");
-    assert.ok(!config.files.managed.includes(".mailmap"), ".mailmap should not be managed");
-    assert.ok(config.files.merged.includes(".mailmap"), ".mailmap should be merged");
+    assert.ok(!config.files.managed.includes(".editorconfig"), ".editorconfig should not be managed");
+    assert.ok(!config.files.merged.includes(".mailmap"), ".mailmap should not be merged");
     [
       "**/test.*",
       "**/test-integration.*",
@@ -221,24 +221,25 @@ test("agent-infra init rejects invalid input", () => {
 test("agent-infra update refreshes seed files and syncs file registry", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-update-"));
   const cli = filePath("bin/cli.js");
-  const config = {
-    version: "0.1.0",
-    project: "seedproj",
-    org: "seedorg",
-    language: "zh-CN",
-    templateSource: "templates/",
-    templateVersion: "stale",
-    modules: ["ai", "github"],
-    files: {
-      managed: [".editorconfig"],
-      merged: [".mailmap"],
-      ejected: []
-    }
-  };
+    const config = {
+      version: "0.1.0",
+      project: "seedproj",
+      org: "seedorg",
+      language: "zh-CN",
+      templateSource: "templates/",
+      templateVersion: "stale",
+      modules: ["ai", "github"],
+      files: {
+        managed: [".editorconfig"],
+        merged: [".mailmap"],
+        ejected: []
+      }
+    };
 
   try {
+    fs.mkdirSync(path.join(tmpDir, ".agent-infra"), { recursive: true });
     fs.writeFileSync(
-      path.join(tmpDir, ".airc.json"),
+      path.join(tmpDir, ".agent-infra/config.json"),
       JSON.stringify(config, null, 2) + "\n",
       "utf8"
     );
@@ -268,15 +269,13 @@ test("agent-infra update refreshes seed files and syncs file registry", () => {
     assert.match(output, /Seed files updated successfully!/);
 
     const updated = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".airc.json"), "utf8")
+      fs.readFileSync(path.join(tmpDir, ".agent-infra/config.json"), "utf8")
     );
+    assert.ok(!("modules" in updated), "legacy modules field should be removed");
+    assert.ok(!updated.files.managed.includes(".editorconfig"));
+    assert.ok(!updated.files.merged.includes(".mailmap"));
     assert.ok(updated.files.managed.includes(".agents/skills/"));
     assert.ok(updated.files.merged.includes("**/test.*"));
-    assert.equal(
-      updated.files.merged.filter((entry) => entry === ".mailmap").length,
-      1,
-      "existing merged entries should not be duplicated"
-    );
 
     const skill = fs.readFileSync(
       path.join(tmpDir, ".agents", "skills", "update-agent-infra", "SKILL.md"),
@@ -309,7 +308,53 @@ test("agent-infra update refreshes seed files and syncs file registry", () => {
   }
 });
 
-test("agent-infra update requires .airc.json", () => {
+test("agent-infra update migrates legacy config and workspace paths", () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-update-legacy-"));
+  const cli = filePath("bin/cli.js");
+
+  try {
+    fs.writeFileSync(
+      path.join(tmpDir, ".airc.json"),
+      JSON.stringify({
+        project: "legacyproj",
+        org: "legacyorg",
+        language: "en",
+        templateSource: "templates/",
+        templateVersion: "stale",
+        modules: ["ai", "github"],
+        files: {
+          managed: [".editorconfig"],
+          merged: [".mailmap"],
+          ejected: []
+        }
+      }, null, 2) + "\n",
+      "utf8"
+    );
+    fs.mkdirSync(path.join(tmpDir, ".agent-workspace"), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, ".agent-workspace", "README.md"), "legacy\n", "utf8");
+
+    const output = execSync(`node "${cli}" update`, {
+      cwd: tmpDir,
+      stdio: "pipe",
+      encoding: "utf8"
+    });
+
+    assert.match(output, /Migrated \.airc\.json -> \.agent-infra\/config\.json/);
+    assert.match(output, /Migrated \.agent-workspace -> \.agent-infra\/workspace/);
+    assert.ok(fs.existsSync(path.join(tmpDir, ".agent-infra", "config.json")));
+    const migrated = JSON.parse(fs.readFileSync(path.join(tmpDir, ".agent-infra", "config.json"), "utf8"));
+    assert.ok(!("modules" in migrated), "legacy modules field should be removed during migration");
+    assert.ok(!migrated.files.managed.includes(".editorconfig"));
+    assert.ok(!migrated.files.merged.includes(".mailmap"));
+    assert.ok(fs.existsSync(path.join(tmpDir, ".agent-infra", "workspace", "README.md")));
+    assert.ok(!fs.existsSync(path.join(tmpDir, ".airc.json")));
+    assert.ok(!fs.existsSync(path.join(tmpDir, ".agent-workspace")));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("agent-infra update requires .agent-infra/config.json", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-update-"));
   const cli = filePath("bin/cli.js");
 

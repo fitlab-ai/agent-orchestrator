@@ -3,7 +3,7 @@
  * sync-templates.js — Deterministic template sync for managed & ejected files.
  *
  * Handles SKILL steps: 2 (git pull), 3.0 (registry sync), 4 (managed),
- * 6 (ejected), 7 (.airc.json update).
+ * 6 (ejected), 7 (.agent-infra/config.json update).
  *
  * Merged files (step 5) are NOT handled — they require AI semantic merge.
  * The report includes `merged.pending` so the AI knows what to process.
@@ -33,6 +33,20 @@ function resolveTemplateDir() {
 
   return null;
 }
+
+const RETIRED_FILE_ENTRIES = new Set([
+  '.agent-workspace/README.md',
+  '.github/hooks/',
+  '.github/ISSUE_TEMPLATE/',
+  '.github/PULL_REQUEST_TEMPLATE.md',
+  '.github/release.yml',
+  '.github/workflows/pr-title-check.yml',
+  '.github/dependabot.yml',
+  'CONTRIBUTING.md',
+  'SECURITY.md',
+  '.editorconfig',
+  '.mailmap'
+]);
 
 const DEFAULTS = JSON.parse(
   fs.readFileSync(new URL('../lib/defaults.json', import.meta.url), 'utf8')
@@ -139,15 +153,6 @@ function isBinary(fp) {
   return false;
 }
 
-function fileModule(rel) {
-  const p = norm(rel);
-  if (p.startsWith('.github/')) return 'github';
-  if (p.startsWith('.agents/') || p.startsWith('.claude/') ||
-      p.startsWith('.gemini/') || p.startsWith('.opencode/') ||
-      p.startsWith('.codex/') || p === 'AGENTS.md') return 'ai';
-  return null;
-}
-
 function gitUrl(dir) {
   try {
     return childProcess.execSync('git remote get-url origin', {
@@ -155,9 +160,6 @@ function gitUrl(dir) {
     }).trim();
   } catch { return null; }
 }
-
-// Public-facing docs should keep all available language variants in sync.
-const MULTI_LANG = new Set(['SECURITY.md']);
 
 function langSelect(rels, lang, allSet, project) {
   const sel = new Map();
@@ -186,13 +188,38 @@ function langSelect(rels, lang, allSet, project) {
   return sel;
 }
 
+function pruneRetiredConfig(config) {
+  const prune = (entries = []) => entries.filter((entry) => !RETIRED_FILE_ENTRIES.has(entry));
+
+  delete config.modules;
+  config.files = config.files || {};
+  config.files.managed = prune(config.files.managed);
+  config.files.merged = prune(config.files.merged);
+  config.files.ejected = prune(config.files.ejected);
+}
+
 function syncTemplates(projectRoot) {
-  const cfgPath = path.join(projectRoot, '.airc.json');
+  const configDir = path.join(projectRoot, '.agent-infra');
+  const cfgPath = path.join(configDir, 'config.json');
+  const legacyCfgPath = path.join(projectRoot, '.airc.json');
+  const workspacePath = path.join(configDir, 'workspace');
+  const legacyWorkspacePath = path.join(projectRoot, '.agent-workspace');
+
+  if (!fs.existsSync(cfgPath) && fs.existsSync(legacyCfgPath)) {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.renameSync(legacyCfgPath, cfgPath);
+  }
+  if (!fs.existsSync(workspacePath) && fs.existsSync(legacyWorkspacePath)) {
+    fs.mkdirSync(configDir, { recursive: true });
+    fs.renameSync(legacyWorkspacePath, workspacePath);
+  }
+
   if (!fs.existsSync(cfgPath)) {
-    return { error: 'No .airc.json in project root.' };
+    return { error: 'No .agent-infra/config.json in project root.' };
   }
 
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  pruneRetiredConfig(cfg);
   const templateRoot = resolveProjectTemplateDir(projectRoot, cfg.templateSource);
   if (!templateRoot) {
     return { error: 'Template source not found. Install: curl -fsSL https://raw.githubusercontent.com/fitlab-ai/agent-infra/main/install.sh | sh' };
@@ -224,7 +251,7 @@ function syncTemplates(projectRoot) {
     version = INSTALLER_VERSION || version;
   }
 
-  const { project, org, language: lang = 'en', modules = [] } = cfg;
+  const { project, org, language: lang = 'en' } = cfg;
   const vars = { project, org };
 
   const managed = [...(cfg.files.managed || [])];
@@ -235,7 +262,7 @@ function syncTemplates(projectRoot) {
     templateVersion: version,
     templateRoot: norm(templateRoot),
     registryAdded: [],
-    managed: { written: [], created: [], unchanged: [], skippedMerged: [], skippedModule: [], removed: [] },
+    managed: { written: [], created: [], unchanged: [], skippedMerged: [], removed: [] },
     ejected: { created: [], skipped: [] },
     merged:  { pending: [] },
     configUpdated: false,
@@ -252,8 +279,6 @@ function syncTemplates(projectRoot) {
 
   const allRels = walkDir(templateRoot).map(f => norm(path.relative(templateRoot, f)));
   const allSet = new Set(allRels);
-  const modSet = new Set(modules);
-
   for (const entry of managed) {
     const isDir = entry.endsWith('/');
     let entryRels;
@@ -273,18 +298,10 @@ function syncTemplates(projectRoot) {
       if (!entryRels.length) continue;
     }
 
-    const selected = MULTI_LANG.has(norm(entry))
-      ? entryRels.map(r => [norm(renderPathname(r, project)), r])
-      : langSelect(entryRels, lang, allSet, project);
+    const selected = langSelect(entryRels, lang, allSet, project);
 
     for (const [tgt, src] of selected) {
       if (expectedTargets) expectedTargets.add(tgt);
-
-      const mod = fileModule(tgt);
-      if (mod !== null && !modSet.has(mod)) {
-        report.managed.skippedModule.push(tgt);
-        continue;
-      }
 
       if (matchesAny(tgt, merged) || matchesAny(tgt, ejected)) {
         report.managed.skippedMerged.push(tgt);
@@ -325,9 +342,6 @@ function syncTemplates(projectRoot) {
         for (const projFile of projFiles) {
           if (expectedTargets.has(projFile)) continue;
           if (matchesAny(projFile, merged) || matchesAny(projFile, ejected)) continue;
-
-          const mod = fileModule(projFile);
-          if (mod !== null && !modSet.has(mod)) continue;
 
           fs.unlinkSync(path.join(projectRoot, projFile));
           report.managed.removed.push(projFile);
@@ -380,9 +394,7 @@ function syncTemplates(projectRoot) {
       const ext = path.extname(entry), base = entry.slice(0, -ext.length);
       const zh = norm(base + '.zh-CN' + ext);
       if (allSet.has(zh)) rels.push(zh);
-      const selected = MULTI_LANG.has(n)
-        ? rels.map(r => [norm(renderPathname(r, project)), r])
-        : langSelect(rels, lang, allSet, project);
+      const selected = langSelect(rels, lang, allSet, project);
       for (const [t, s] of selected) {
         if (!mergedMap.has(t)) mergedMap.set(t, s);
       }

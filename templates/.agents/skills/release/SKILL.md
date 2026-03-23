@@ -52,7 +52,7 @@ Search for version references in project files and update them:
 - `SECURITY.md` / `SECURITY.zh-CN.md` (supported version table)
 
 **Exclude from version replacement**:
-- `.agents/`, `.agent-workspace/`, `.claude/`, `.codex/`, `.gemini/`, `.opencode/` (AI tool configs)
+- `.agents/`, `.agent-infra/workspace/`, `.claude/`, `.codex/`, `.gemini/`, `.opencode/` (AI tool configs)
 
 ### Step 4: Create Release Commit
 

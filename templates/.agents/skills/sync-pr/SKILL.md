@@ -14,9 +14,9 @@ Sync task progress to the related Pull Request. Argument: task-id.
 ### 1. Verify the Task Exists
 
 Search for the task in this order:
-- `.agent-workspace/active/{task-id}/task.md`
-- `.agent-workspace/completed/{task-id}/task.md`
-- `.agent-workspace/blocked/{task-id}/task.md`
+- `.agent-infra/workspace/active/{task-id}/task.md`
+- `.agent-infra/workspace/completed/{task-id}/task.md`
+- `.agent-infra/workspace/blocked/{task-id}/task.md`
 
 Note: `{task-id}` format is `TASK-{yyyyMMdd-HHmmss}`, for example `TASK-20260306-143022`
 

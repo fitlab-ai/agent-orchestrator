@@ -39,7 +39,7 @@ node --test tests/*.test.js
 ├── templates/                     # 模板源文件（镜像项目目录结构）
 ├── tests/                         # 测试（Node.js 内置测试运行器）
 ├── install.sh                     # 引导安装脚本
-├── .airc.json                     # 项目配置
+├── .agent-infra/config.json       # 项目配置
 └── package.json                   # npm 测试脚本定义
 ```
 

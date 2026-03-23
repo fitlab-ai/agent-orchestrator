@@ -4,24 +4,14 @@
   "language": "zh-CN",
   "templateSource": "templates/",
   "templateVersion": "v0.3.2",
-  "modules": [
-    "ai",
-    "github"
-  ],
   "files": {
     "managed": [
       ".agents/skills/",
       ".agents/templates/",
       ".agents/workflows/",
-      ".agent-workspace/README.md",
+      ".agent-infra/workspace/README.md",
       ".claude/commands/",
-      ".editorconfig",
       ".gemini/commands/",
-      ".github/hooks/",
-      ".github/ISSUE_TEMPLATE/",
-      ".github/PULL_REQUEST_TEMPLATE.md",
-      ".github/release.yml",
-      ".github/workflows/pr-title-check.yml",
       ".opencode/commands/"
     ],
     "merged": [
@@ -40,14 +30,10 @@
       ".claude/settings.json",
       ".codex/README.md",
       ".gemini/settings.json",
-      ".github/dependabot.yml",
       ".gitignore",
-      ".mailmap",
       ".opencode/COMMAND_STYLE_GUIDE.md",
       ".opencode/README.md",
-      "AGENTS.md",
-      "CONTRIBUTING.md",
-      "SECURITY.md"
+      "AGENTS.md"
     ],
     "ejected": []
   }

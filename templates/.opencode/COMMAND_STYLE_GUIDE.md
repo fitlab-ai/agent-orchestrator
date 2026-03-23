@@ -131,9 +131,9 @@ Each step should do one thing. If a step is too complex, break it into sub-steps
 1. **Verify task exists**
 
 Search for the task file:
-- `.agent-workspace/active/{task-id}/task.md`
-- `.agent-workspace/blocked/{task-id}/task.md`
-- `.agent-workspace/completed/{task-id}/task.md`
+- `.agent-infra/workspace/active/{task-id}/task.md`
+- `.agent-infra/workspace/blocked/{task-id}/task.md`
+- `.agent-infra/workspace/completed/{task-id}/task.md`
 
 If not found, respond:
 "Task {task-id} not found. Please check the task ID."
@@ -157,9 +157,9 @@ Do NOT silently continue.
 
 ```markdown
 Search for the task in this order:
-1. `.agent-workspace/active/{task-id}/task.md`
-2. `.agent-workspace/blocked/{task-id}/task.md`
-3. `.agent-workspace/completed/{task-id}/task.md`
+1. `.agent-infra/workspace/active/{task-id}/task.md`
+2. `.agent-infra/workspace/blocked/{task-id}/task.md`
+3. `.agent-infra/workspace/completed/{task-id}/task.md`
 ```
 
 ### Status update pattern

@@ -13,8 +13,6 @@ import {
 
 test("required template files were migrated into templates/", () => {
   const requiredFiles = [
-    "templates/.mailmap",
-    "templates/.editorconfig",
     "templates/.agents/workflows/feature-development.yaml",
     "templates/.agents/templates/task.md",
     "templates/.agents/README.md",
@@ -26,8 +24,8 @@ test("required template files were migrated into templates/", () => {
     "templates/.agents/skills/update-agent-infra/SKILL.md",
     "templates/.agents/skills/update-agent-infra/scripts/package.json",
     "templates/.agents/skills/update-agent-infra/scripts/sync-templates.js",
-    "templates/.agent-workspace/README.md",
-    "templates/.agent-workspace/README.zh-CN.md",
+    "templates/.agent-infra/workspace/README.md",
+    "templates/.agent-infra/workspace/README.zh-CN.md",
     "templates/.claude/CLAUDE.md",
     "templates/.claude/project-rules.md",
     "templates/.claude/settings.json",
@@ -50,13 +48,7 @@ test("required template files were migrated into templates/", () => {
     "templates/.opencode/commands/init-labels.md",
     "templates/.opencode/commands/init-labels.zh-CN.md",
     "templates/.opencode/commands/update-agent-infra.md",
-    "templates/.github/ISSUE_TEMPLATE/01_bug_report.yml",
-    "templates/.github/workflows/pr-title-check.yml",
-    "templates/.github/PULL_REQUEST_TEMPLATE.md",
     "templates/AGENTS.md",
-    "templates/CONTRIBUTING.md",
-    "templates/SECURITY.md",
-    "templates/SECURITY.zh-CN.md",
     "templates/.gitignore"
   ];
 
@@ -84,25 +76,8 @@ test("templates do not contain legacy single-brace project or org placeholders",
   });
 });
 
-test("init-project files have been removed", () => {
-  const removedFiles = [
-    ".agents/skills/init-project/SKILL.md",
-    ".claude/commands/init-project.md",
-    ".gemini/commands/collaborator/init-project.toml",
-    ".opencode/commands/init-project.md",
-    "templates/.agents/skills/init-project/SKILL.md",
-    "templates/.claude/commands/init-project.md",
-    "templates/.gemini/commands/_project_/init-project.toml",
-    "templates/.opencode/commands/init-project.md"
-  ];
-
-  removedFiles.forEach((relativePath) => {
-    assert.ok(!exists(relativePath), `init-project file should be removed: ${relativePath}`);
-  });
-});
-
 test("update-agent-infra template copies stay in sync with working files", () => {
-  const collaborator = JSON.parse(read(".airc.json"));
+  const collaborator = JSON.parse(read(".agent-infra/config.json"));
   const project = collaborator.project;
   const org = collaborator.org;
   const lang = collaborator.language;
@@ -235,12 +210,10 @@ test("README documents the bootstrap installation flow", () => {
 
 test("version format validation hooks are wired into templates and local config", () => {
   const packageJson = JSON.parse(read("package.json"));
-  const collaborator = JSON.parse(read(".airc.json"));
+  const collaborator = JSON.parse(read(".agent-infra/config.json"));
   const rootClaudeSettings = JSON.parse(read(".claude/settings.json"));
   const templateClaudeSettings = JSON.parse(read("templates/.claude/settings.json"));
-  const templateCheckScript = read("templates/.github/hooks/check-version-format.sh");
   const localCheckScript = read(".github/hooks/check-version-format.sh");
-  const templatePreCommit = read("templates/.github/hooks/pre-commit");
   const localPreCommit = read(".github/hooks/pre-commit");
 
   assert.equal(
@@ -252,12 +225,11 @@ test("version format validation hooks are wired into templates and local config"
   assert.equal(
     collaborator.templateVersion,
     `v${packageJson.version}`,
-    ".airc.json templateVersion should match package.json version with a v prefix"
+    ".agent-infra/config.json templateVersion should match package.json version with a v prefix"
   );
 
   [
-    [".github/hooks/check-version-format.sh", localCheckScript],
-    ["templates/.github/hooks/check-version-format.sh", templateCheckScript]
+    [".github/hooks/check-version-format.sh", localCheckScript]
   ].forEach(([relativePath, content]) => {
     assert.match(content, /templateVersion must use v-prefixed semver/, `${relativePath} should validate the templateVersion format`);
     assert.match(content, /package\.json version must use plain semver/, `${relativePath} should validate the package version format`);
@@ -265,8 +237,7 @@ test("version format validation hooks are wired into templates and local config"
   });
 
   [
-    [".github/hooks/pre-commit", localPreCommit],
-    ["templates/.github/hooks/pre-commit", templatePreCommit]
+    [".github/hooks/pre-commit", localPreCommit]
   ].forEach(([relativePath, content]) => {
     assert.match(content, /check-utf8-encoding\.sh/, `${relativePath} should run the UTF-8 validation hook`);
     assert.match(content, /check-version-format\.sh/, `${relativePath} should run the version format validation hook`);

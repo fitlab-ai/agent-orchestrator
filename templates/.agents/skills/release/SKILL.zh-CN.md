@@ -51,7 +51,7 @@ git status --short
 - `SECURITY.md` / `SECURITY.zh-CN.md`（支持版本表格）
 
 **排除以下目录的版本替换**：
-- `.agents/`、`.agent-workspace/`、`.claude/`、`.codex/`、`.gemini/`、`.opencode/`（AI 工具配置）
+- `.agents/`、`.agent-infra/workspace/`、`.claude/`、`.codex/`、`.gemini/`、`.opencode/`（AI 工具配置）
 
 ### 步骤 4：创建发布提交
 

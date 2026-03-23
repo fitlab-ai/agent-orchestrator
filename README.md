@@ -144,7 +144,7 @@ ai init
 # or: agent-infra init
 ```
 
-The CLI collects project metadata, installs the `update-agent-infra` seed command for all supported AI TUIs, and generates `.airc.json`.
+The CLI collects project metadata, installs the `update-agent-infra` seed command for all supported AI TUIs, and generates `.agent-infra/config.json`.
 
 > `ai` is a shorthand for `agent-infra`. Both commands are equivalent.
 
@@ -170,7 +170,7 @@ agent-infra is intentionally simple: a bootstrap CLI creates the seed configurat
 ### End-to-End Flow
 
 1. **Install** — `npm install -g @fitlab-ai/agent-infra` (or use the shell script wrapper)
-2. **Initialize** — `ai init` in the project root to generate `.airc.json` and install the seed command
+2. **Initialize** — `ai init` in the project root to generate `.agent-infra/config.json` and install the seed command
 3. **Render** — run `update-agent-infra` in any AI TUI to pull templates and generate all managed files
 4. **Develop** — use 28 built-in skills to drive the full lifecycle: `analysis → design → implementation → review → fix → commit`
 5. **Update** — run `update-agent-infra` again whenever a new template version is available
@@ -197,7 +197,7 @@ block-beta
 
     block:project:4
         columns 4
-        agents[".agents/"] config[".airc.json"] workspace[".agent-workspace/"] governance["AGENTS.md"]
+        agents[".agents/"] config[".agent-infra/config.json"] workspace[".agent-infra/workspace/"] governance["AGENTS.md"]
     end
 
     tui -- "slash commands" --> shared
@@ -214,20 +214,17 @@ After setup, your project gains a complete AI collaboration infrastructure:
 
 ```text
 my-project/
+├── .agent-infra/          # agent-infra-owned state
+│   ├── config.json        # Central configuration
+│   └── workspace/         # Task workspace (git-ignored)
 ├── .agents/               # Shared AI collaboration config
 │   ├── skills/            # 28 built-in AI skills
 │   ├── workflows/         # 4 prebuilt workflows
 │   └── templates/         # Task and artifact templates
-├── .agent-workspace/      # Task workspace (git-ignored)
 ├── .claude/               # Claude Code config and commands
 ├── .gemini/               # Gemini CLI config and commands
 ├── .opencode/             # OpenCode config and commands
-├── .github/               # PR templates, issue forms, workflows
-├── AGENTS.md              # Universal AI agent instructions
-├── CONTRIBUTING.md        # Contribution guide
-├── SECURITY.md            # Security policy (English)
-├── SECURITY.zh-CN.md      # Security policy (Chinese)
-└── .airc.json             # Central configuration
+└── AGENTS.md              # Universal AI agent instructions
 ```
 
 <a id="built-in-ai-skills"></a>
@@ -375,9 +372,9 @@ import-issue #42                    Import task from GitHub Issue
 
 ## Configuration Reference
 
-The generated `.airc.json` file is the central contract between the bootstrap CLI, templates, and future updates.
+The generated `.agent-infra/config.json` file is the central contract between the bootstrap CLI, templates, and future updates.
 
-### Example `.airc.json`
+### Example `.agent-infra/config.json`
 
 ```json
 {
@@ -386,9 +383,9 @@ The generated `.airc.json` file is the central contract between the bootstrap CL
   "language": "en",
   "templateSource": "templates/",
   "templateVersion": "v0.3.2",
-  "modules": ["ai", "github"],
   "files": {
     "managed": [
+      ".agent-infra/workspace/README.md",
       ".agents/skills/",
       ".agents/templates/",
       ".agents/workflows/",
@@ -399,9 +396,7 @@ The generated `.airc.json` file is the central contract between the bootstrap CL
     "merged": [
       ".agents/README.md",
       ".gitignore",
-      "AGENTS.md",
-      "CONTRIBUTING.md",
-      "SECURITY.md"
+      "AGENTS.md"
     ],
     "ejected": []
   }
@@ -417,15 +412,7 @@ The generated `.airc.json` file is the central contract between the bootstrap CL
 | `language` | Primary project language or locale used by rendered templates. |
 | `templateSource` | Local template root used during rendering. |
 | `templateVersion` | Installed template version for future upgrades and drift tracking. |
-| `modules` | Enabled template bundles. Supported values are `ai` and `github`. |
 | `files` | Per-path update strategy configuration for managed, merged, and ejected files. |
-
-### Module reference
-
-| Module | Includes |
-|--------|----------|
-| `ai` | `.agents/`, `.claude/`, `.gemini/`, `.opencode/`, `AGENTS.md`, and related collaboration assets |
-| `github` | `.github/`, contribution templates, release config, and GitHub governance assets |
 
 <a id="file-management-strategies"></a>
 
@@ -446,15 +433,14 @@ Each generated path is assigned an update strategy. That strategy determines how
   "files": {
     "managed": [
       ".agents/skills/",
-      ".github/workflows/pr-title-check.yml"
+      ".agent-infra/workspace/README.md"
     ],
     "merged": [
       ".gitignore",
-      "AGENTS.md",
-      "CONTRIBUTING.md"
+      "AGENTS.md"
     ],
     "ejected": [
-      "SECURITY.md"
+      "docs/architecture.md"
     ]
   }
 }
@@ -462,7 +448,7 @@ Each generated path is assigned an update strategy. That strategy determines how
 
 ### Moving a file from `managed` to `ejected`
 
-1. Remove the path from the `managed` array in `.airc.json`.
+1. Remove the path from the `managed` array in `.agent-infra/config.json`.
 2. Add the same path to the `ejected` array.
 3. Run `update-agent-infra` again so future updates stop managing that file.
 
@@ -472,7 +458,7 @@ Use this when a file starts as template-owned but later becomes project-specific
 
 ## Version Management
 
-agent-infra uses semantic versioning through Git tags and GitHub releases. The installed template version is recorded in `.airc.json` as `templateVersion`, which gives both humans and AI tools a stable reference point for upgrades.
+agent-infra uses semantic versioning through Git tags and GitHub releases. The installed template version is recorded in `.agent-infra/config.json` as `templateVersion`, which gives both humans and AI tools a stable reference point for upgrades.
 
 <a id="contributing"></a>
 

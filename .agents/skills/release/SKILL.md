@@ -48,7 +48,7 @@ npm test
 更新以下文件中的版本号：
 
 1. `package.json` 中的 `"version": "X.Y.Z"`
-2. `.airc.json` 中的 `"templateVersion": "vX.Y.Z"`
+2. `.agent-infra/config.json` 中的 `"templateVersion": "vX.Y.Z"`
 3. `SECURITY.md` 中的支持版本表格（`v{MAJOR}.{MINOR}.x | Supported`，`< v{MAJOR}.{MINOR}.0 | Not Supported`）
 4. `SECURITY.zh-CN.md` 中的支持版本表格（`v{MAJOR}.{MINOR}.x | 支持中`，`< v{MAJOR}.{MINOR}.0 | 不再支持`）
 
@@ -57,7 +57,7 @@ npm test
 使用搜索确认旧版本号（包含可能的 prerelease 后缀）无遗漏，使用编辑工具更新。
 
 **排除以下目录的版本替换**：
-- `.agents/`、`.agent-workspace/`、`.claude/`、`.codex/`、`.gemini/`、`.opencode/`（AI 工具配置）
+- `.agents/`、`.agent-infra/workspace/`、`.claude/`、`.codex/`、`.gemini/`、`.opencode/`（AI 工具配置）
 
 ### 步骤 5：重新生成内联产物
 

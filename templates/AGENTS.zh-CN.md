@@ -63,7 +63,7 @@ refactor(module): refactor internal logic
 ## 安全注意事项
 
 - 不要提交敏感文件：`.env`, `credentials.json`, 密钥等
-- 安全问题请按 `SECURITY.md` 指引私下提交（不要公开 Issue）
+- 安全问题请按项目自己的披露流程私下处理（不要公开 Issue）
 
 ## 多 AI 协作支持
 

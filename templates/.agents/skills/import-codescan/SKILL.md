@@ -36,7 +36,7 @@ Extract key information:
 
 Check whether a task for this alert already exists. If not, create one:
 
-Directory: `.agent-workspace/active/TASK-{yyyyMMdd-HHmmss}/`
+Directory: `.agent-infra/workspace/active/TASK-{yyyyMMdd-HHmmss}/`
 
 Task metadata:
 ```yaml
