@@ -232,3 +232,65 @@ test("README documents the bootstrap installation flow", () => {
   assert.doesNotMatch(readmeZh, /npx @fitlab-ai\/agent-infra init/);
   assert.doesNotMatch(readmeZh, /源码安装/);
 });
+
+test("version format validation hooks are wired into templates and local config", () => {
+  const packageJson = JSON.parse(read("package.json"));
+  const collaborator = JSON.parse(read(".airc.json"));
+  const rootClaudeSettings = JSON.parse(read(".claude/settings.json"));
+  const templateClaudeSettings = JSON.parse(read("templates/.claude/settings.json"));
+  const templateCheckScript = read("templates/.github/hooks/check-version-format.sh");
+  const localCheckScript = read(".github/hooks/check-version-format.sh");
+  const templatePreCommit = read("templates/.github/hooks/pre-commit");
+  const localPreCommit = read(".github/hooks/pre-commit");
+
+  assert.equal(
+    packageJson.scripts.prepare,
+    "git config core.hooksPath .github/hooks || true",
+    "package.json should install the managed hooks path during prepare"
+  );
+
+  assert.equal(
+    collaborator.templateVersion,
+    `v${packageJson.version}`,
+    ".airc.json templateVersion should match package.json version with a v prefix"
+  );
+
+  [
+    [".github/hooks/check-version-format.sh", localCheckScript],
+    ["templates/.github/hooks/check-version-format.sh", templateCheckScript]
+  ].forEach(([relativePath, content]) => {
+    assert.match(content, /templateVersion must use v-prefixed semver/, `${relativePath} should validate the templateVersion format`);
+    assert.match(content, /package\.json version must use plain semver/, `${relativePath} should validate the package version format`);
+    assert.match(content, /templateVersion and package\.json version do not match/, `${relativePath} should validate version parity`);
+  });
+
+  [
+    [".github/hooks/pre-commit", localPreCommit],
+    ["templates/.github/hooks/pre-commit", templatePreCommit]
+  ].forEach(([relativePath, content]) => {
+    assert.match(content, /check-utf8-encoding\.sh/, `${relativePath} should run the UTF-8 validation hook`);
+    assert.match(content, /check-version-format\.sh/, `${relativePath} should run the version format validation hook`);
+  });
+
+  [
+    [".claude/settings.json", rootClaudeSettings],
+    ["templates/.claude/settings.json", templateClaudeSettings]
+  ].forEach(([relativePath, settings]) => {
+    assert.deepEqual(
+      settings.hooks?.PostToolUse,
+      [
+        {
+          matcher: "Bash",
+          hooks: [
+            {
+              type: "command",
+              command: "sh .github/hooks/check-version-format.sh",
+              timeout: 5
+            }
+          ]
+        }
+      ],
+      `${relativePath} should configure the PostToolUse version format validation hook`
+    );
+  });
+});

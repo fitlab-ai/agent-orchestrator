@@ -16,5 +16,19 @@
       "Bash(sudo rm:*)",
       "Bash(rm -rf /:*)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh .github/hooks/check-version-format.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
   }
 }
