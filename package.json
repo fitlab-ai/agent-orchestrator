@@ -42,6 +42,7 @@
   ],
   "scripts": {
     "build": "node scripts/build-inline.js",
+    "prepare": "git config core.hooksPath .github/hooks || true",
     "test": "node scripts/build-inline.js --check && node --test tests/*.test.js",
     "prepublishOnly": "node scripts/build-inline.js --check && node --test tests/*.test.js"
   }
