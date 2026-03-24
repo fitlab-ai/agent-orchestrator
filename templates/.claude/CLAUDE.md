@@ -128,7 +128,7 @@ When writing or updating `.agents/skills/*/SKILL.md` files, keep step numbering 
 - Move content beyond that threshold into a sibling `reference/` directory.
 - Use explicit navigation in the skeleton, such as: `Read reference/xxx.md before executing this step.`
 - Keep scripts in `scripts/` and execute them instead of inlining long bash blocks.
-- Support files can stay in the primary language only; bilingual variants are not required.
+- When a skill provides bilingual `SKILL.md` / `SKILL.zh-CN.md`, keep matching bilingual variants for user-facing `reference/` files as well.
 
 <!-- Canonical source: .agents/README.md - keep in sync -->
 

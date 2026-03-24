@@ -86,6 +86,9 @@ test("update-agent-infra template copies stay in sync with working files", () =>
   const project = collaborator.project;
   const org = collaborator.org;
   const lang = collaborator.language;
+  const referenceSyncFiles = listFilesRecursive("templates/.agents/skills")
+    .filter((relativePath) => /\/reference\/.*\.md$/.test(relativePath) && !relativePath.includes(".zh-CN."))
+    .map((templatePath) => [templatePath.replace(/^templates\//, ""), templatePath]);
 
   const syncFiles = [
     [".agents/skills/init-labels/SKILL.md", "templates/.agents/skills/init-labels/SKILL.md"],
@@ -93,7 +96,8 @@ test("update-agent-infra template copies stay in sync with working files", () =>
     [".agents/skills/update-agent-infra/scripts/package.json", "templates/.agents/skills/update-agent-infra/scripts/package.json"],
     [".agents/skills/update-agent-infra/scripts/sync-templates.js", "templates/.agents/skills/update-agent-infra/scripts/sync-templates.js"],
     [".claude/hooks/check-version-format.sh", "templates/.claude/hooks/check-version-format.sh"],
-    ...buildCommandSyncFiles(project)
+    ...buildCommandSyncFiles(project),
+    ...referenceSyncFiles
   ];
 
   syncFiles.forEach(([source, target]) => {
@@ -101,6 +105,16 @@ test("update-agent-infra template copies stay in sync with working files", () =>
     const rendered = renderPlaceholders(read(templatePath), { project, org });
 
     assert.equal(rendered, read(source), `${templatePath} is out of sync with ${source}`);
+  });
+});
+
+test("split skill reference templates provide zh-CN variants", () => {
+  const referenceTemplates = listFilesRecursive("templates/.agents/skills")
+    .filter((relativePath) => /\/reference\/.*\.md$/.test(relativePath) && !relativePath.includes(".zh-CN."));
+
+  referenceTemplates.forEach((relativePath) => {
+    const zhVariant = relativePath.replace(/\.md$/, ".zh-CN.md");
+    assert.ok(exists(zhVariant), `Missing zh-CN reference variant: ${zhVariant}`);
   });
 });
 

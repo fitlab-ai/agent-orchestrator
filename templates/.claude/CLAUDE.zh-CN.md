@@ -128,7 +128,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 - 超过阈值的内容拆分到同级 `reference/` 目录。
 - 骨架中使用明确导航，例如：`执行此步骤前，先读取 reference/xxx.md。`
 - 长脚本继续放在 `scripts/` 目录，优先执行脚本而不是内联大段 bash。
-- 支撑文件可只维护主语言版本，不要求双语。
+- 当 skill 提供双语 `SKILL.md` / `SKILL.zh-CN.md` 时，面向用户的 `reference/` 文件也必须提供对应的双语版本。
 
 <!-- Canonical source: .agents/README.zh-CN.md - keep in sync -->
 
