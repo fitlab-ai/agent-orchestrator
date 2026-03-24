@@ -1,9 +1,6 @@
 ---
 name: create-release-note
-description: >
-  Generate release notes from PRs and commits between two versions.
-  Triggered when the user requests release note generation.
-  Arguments: version number, optional previous version.
+description: "Generate release notes from PRs and commits"
 ---
 
 # Create Release Notes

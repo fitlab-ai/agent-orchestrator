@@ -97,6 +97,14 @@ refactor(module): refactor internal logic
 5. 调整编号时，必须同步更新文中的步骤引用，确保说明、命令和检查点一致。
 6. 长 bash 脚本应从 SKILL.md 提取到同级 `scripts/` 目录中，SKILL.md 只保留单行调用（如 `bash .agents/skills/<skill>/scripts/<script>.sh`）和对脚本职责的概要说明。
 
+### SKILL.md 体积控制
+
+- SKILL.md 正文控制在约 500 tokens（约 80 行 / 2KB）以内。
+- 超过阈值的内容拆分到同级 `reference/` 目录。
+- 骨架中使用明确导航，例如：`执行此步骤前，先读取 reference/xxx.md。`
+- 长脚本继续放在 `scripts/` 目录，优先执行脚本而不是内联大段 bash。
+- 支撑文件可只维护主语言版本，不要求双语。
+
 <!-- Canonical source: .agents/README.zh-CN.md - keep in sync -->
 
 ---

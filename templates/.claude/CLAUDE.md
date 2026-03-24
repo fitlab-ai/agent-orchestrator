@@ -88,56 +88,10 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## Slash Commands
 
-### Development
-```bash
-/commit [message]           # Commit code
-/create-pr [branch]         # Create PR
-```
+Available commands are auto-discovered from `.claude/commands/`. Type `/` in the prompt to see the full list with descriptions.
 
-### Task Management
-```bash
-/create-task <description>  # Create task from description
-/import-issue <number>      # Import GitHub Issue as task
-/analyze-task <task-id>     # Analyze task requirements
-/plan-task <task-id>        # Design technical plan
-/implement-task <task-id>   # Implement task
-/review-task <task-id>      # Code review
-/complete-task <task-id>    # Complete task
-/check-task <task-id>       # Check status
-/block-task <task-id>       # Block task
-/refine-task <task-id>      # Handle review feedback
-```
-
-### PR and Sync
-```bash
-/sync-issue <number>        # Sync progress to Issue
-/sync-pr <number>           # Sync progress to PR
-```
-
-### Testing and Release
-```bash
-/test                       # Run tests
-/test-integration           # Run integration tests
-/release <version>          # Version release
-/create-release-note        # Generate release notes
-```
-
-### Security
-```bash
-/import-dependabot <number> # Import Dependabot alert
-/close-dependabot           # Close Dependabot alert
-/import-codescan <number>   # Import Code Scanning alert
-/close-codescan             # Close Code Scanning alert
-```
-
-### Tools
-```bash
-/init-milestones            # Initialize GitHub Milestones
-/init-labels                # Initialize GitHub Labels
-/refine-title               # Reformat Issue/PR title
-/upgrade-dependency         # Upgrade dependency
-/update-agent-infra  # Update AI collaboration config
-```
+For task workflow, the typical sequence is:
+`/create-task` -> `/analyze-task` -> `/plan-task` -> `/implement-task` -> `/review-task` -> `/complete-task`
 
 ## Language Conventions
 
@@ -167,6 +121,14 @@ When writing or updating `.agents/skills/*/SKILL.md` files, keep step numbering 
 4. Do not use intermediate numbers such as `1.5` or `2.5`; if a new standalone step is needed, renumber the following top-level steps.
 5. When renumbering, update every in-document step reference so the instructions remain accurate.
 6. Extract long bash scripts into a sibling `scripts/` directory; the SKILL.md should contain only a single-line invocation (e.g., `bash .agents/skills/<skill>/scripts/<script>.sh`) and a brief summary of the script's responsibilities.
+
+### SKILL.md Size Control
+
+- Keep the SKILL.md body within about 500 tokens (roughly 80 lines / 2KB).
+- Move content beyond that threshold into a sibling `reference/` directory.
+- Use explicit navigation in the skeleton, such as: `Read reference/xxx.md before executing this step.`
+- Keep scripts in `scripts/` and execute them instead of inlining long bash blocks.
+- Support files can stay in the primary language only; bilingual variants are not required.
 
 <!-- Canonical source: .agents/README.md - keep in sync -->
 

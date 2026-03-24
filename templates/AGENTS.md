@@ -97,6 +97,14 @@ When writing or updating `.agents/skills/*/SKILL.md` files, keep step numbering 
 5. When renumbering, update every in-document step reference so the instructions remain accurate.
 6. Extract long bash scripts into a sibling `scripts/` directory; the SKILL.md should contain only a single-line invocation (e.g., `bash .agents/skills/<skill>/scripts/<script>.sh`) and a brief summary of the script's responsibilities.
 
+### SKILL.md Size Control
+
+- Keep the SKILL.md body within about 500 tokens (roughly 80 lines / 2KB).
+- Move content beyond that threshold into a sibling `reference/` directory.
+- Use explicit navigation in the skeleton, such as: `Read reference/xxx.md before executing this step.`
+- Keep scripts in `scripts/` and execute them instead of inlining long bash blocks.
+- Support files can stay in the primary language only; bilingual variants are not required.
+
 <!-- Canonical source: .agents/README.md - keep in sync -->
 
 ---

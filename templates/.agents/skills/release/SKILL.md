@@ -1,8 +1,6 @@
 ---
 name: release
-description: >
-  Execute the version release workflow. Triggered when the user
-  requests a version release. Argument: version number (X.Y.Z).
+description: "Run the version release workflow"
 ---
 
 # Version Release

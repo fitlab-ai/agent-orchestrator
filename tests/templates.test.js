@@ -106,8 +106,6 @@ test("update-agent-infra template copies stay in sync with working files", () =>
 
 test("assistant template docs use import commands and analyze-task naming", () => {
   [
-    "templates/.claude/CLAUDE.md",
-    "templates/.claude/CLAUDE.zh-CN.md",
     "templates/.claude/project-rules.md",
     "templates/.claude/project-rules.zh-CN.md",
     "templates/.opencode/README.md",
@@ -121,8 +119,6 @@ test("assistant template docs use import commands and analyze-task naming", () =
   });
 
   [
-    "templates/.claude/CLAUDE.md",
-    "templates/.claude/CLAUDE.zh-CN.md",
     "templates/.opencode/README.md",
     "templates/.opencode/README.zh-CN.md"
   ].forEach((relativePath) => {
@@ -132,6 +128,16 @@ test("assistant template docs use import commands and analyze-task naming", () =
     assert.match(content, /import-codescan/, `${relativePath} should reference import-codescan`);
     assert.doesNotMatch(content, /analyze-dependabot/, `${relativePath} should not reference analyze-dependabot`);
     assert.doesNotMatch(content, /analyze-codescan/, `${relativePath} should not reference analyze-codescan`);
+  });
+
+  [
+    "templates/.claude/CLAUDE.md",
+    "templates/.claude/CLAUDE.zh-CN.md"
+  ].forEach((relativePath) => {
+    const content = read(relativePath);
+
+    assert.match(content, /auto-discovered from `\.claude\/commands\/`|自动发现/, `${relativePath} should explain command auto-discovery`);
+    assert.match(content, /\/create-task.*\/complete-task/s, `${relativePath} should keep the workflow sequence hint`);
   });
 });
 
