@@ -7,7 +7,7 @@ description: "Commit the current changes to Git"
 
 Create a Git commit without overwriting user work and update the related task state when needed.
 
-## Step 0: Check Local Modifications (CRITICAL)
+## Step 1: Check Local Modifications (CRITICAL)
 
 Before any edit, inspect:
 
@@ -18,23 +18,23 @@ git diff
 
 Respect existing user changes. If your planned edit conflicts with them, stop and ask before proceeding.
 
-## Step 1: Update Copyright Headers
+## Step 2: Update Copyright Headers
 
 Use the current year dynamically and only update files that are already modified.
 
 > The full copyright workflow lives in `reference/copyright-check.md`. Read `reference/copyright-check.md` before editing any header.
 
-## Step 2: Build the Commit Message
+## Step 3: Build the Commit Message
 
 Review status, diff, and recent history, then prepare a Conventional Commit with the correct co-author lines.
 
 > Commit message rules, examples, and multi-agent co-authorship details live in `reference/commit-message.md`. Read `reference/commit-message.md` before writing the commit.
 
-## Step 3: Create the Commit
+## Step 4: Create the Commit
 
 Stage specific files only and run `git commit` with the prepared message.
 
-## Step 4: Update Task Status When Applicable
+## Step 5: Update Task Status When Applicable
 
 Get the current time:
 

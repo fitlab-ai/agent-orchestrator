@@ -2,7 +2,7 @@
 
 在创建或更新面向 reviewer 的唯一 PR 摘要评论之前先读取本文件。
 
-### 9. 创建或更新唯一且幂等的审查摘要
+## 创建或更新唯一且幂等的审查摘要
 
 使用如下隐藏标记：
 
@@ -76,7 +76,7 @@ EOF
 *由 AI 自动生成 · 内部追踪：{task-id}*
 ```
 
-### 10. 更新任务状态
+## 更新任务状态
 
 追加：
 `- {yyyy-MM-dd HH:mm:ss} — **Sync to PR** by {agent} — PR metadata synced, summary {created|updated|skipped} on PR #{pr-number}`

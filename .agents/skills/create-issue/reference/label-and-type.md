@@ -2,7 +2,7 @@
 
 在应用 label、Issue Type、milestone 或 `in:` label 之前先读取本文件。
 
-#### 3c. 默认正文格式（Fallback）
+## 默认正文格式（Fallback）
 
 推荐 fallback：
 
@@ -39,7 +39,7 @@ Issue Type fallback 映射：
 | `feature`, `enhancement` | `Feature` |
 | `task`, `documentation`, `dependency-upgrade`, `chore`, `docs`, `refactor`, `refactoring` 以及其他所有值 | `Task` |
 
-### 4. 创建 Issue
+## 创建 Issue
 
 使用：
 

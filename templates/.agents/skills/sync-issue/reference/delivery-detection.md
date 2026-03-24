@@ -2,7 +2,7 @@
 
 Read this file before deciding whether the task is completed, in PR stage, or still in development.
 
-### 5. Detect Delivery Status
+## Detect Delivery Status
 
 Resolve repository coordinates first:
 

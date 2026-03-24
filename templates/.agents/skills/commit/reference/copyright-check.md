@@ -2,7 +2,7 @@
 
 Read this file before editing any copyright header.
 
-## Step 1: Update Copyright Header Years (CRITICAL)
+## Update Copyright Header Years
 
 ### Get Current Year
 

@@ -2,11 +2,11 @@
 
 在生成 PR 标题和正文之前先读取本文件。
 
-### 2. 读取 PR 模板
+## 读取 PR 模板
 
 读取仓库中的 `.github/PULL_REQUEST_TEMPLATE.md`。如果不存在，则使用标准格式。
 
-### 3. 参考最近合并的 PR
+## 参考最近合并的 PR
 
 ```bash
 gh pr list --limit 3 --state merged --json number,title,body
@@ -14,7 +14,7 @@ gh pr list --limit 3 --state merged --json number,title,body
 
 把最近合并的 PR 当作风格和排版参考。
 
-### 4. 分析当前分支变更
+## 分析当前分支变更
 
 ```bash
 git status
@@ -23,7 +23,7 @@ git diff <target-branch>...HEAD --stat
 git diff <target-branch>...HEAD
 ```
 
-### 8. 同步 PR 元数据
+## 同步 PR 元数据
 
 在同步 label 之前，先确认标准 label 体系已经存在：
 
@@ -54,7 +54,7 @@ Type label 映射：
 5. 按 `PR -> task.md -> Issue -> branch/tag inference -> General Backlog` 的顺序解析 milestone
 6. 确保 PR 正文包含 `Closes #{issue-number}` 或等价的 closing keyword
 
-### 7. 创建 PR
+## 创建 PR
 
 - 当当前工作属于活动任务时，从 task.md 中提取 `issue_number`
 - 如果存在 `issue_number`，用 `gh issue view {issue-number} --json number,title --jq '.number'` 尽力查询对应 Issue

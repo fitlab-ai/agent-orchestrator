@@ -2,7 +2,7 @@
 
 在编辑 `status:`、`in:` 或 Issue Type 元数据之前先读取本文件。
 
-### 6. 同步 Labels 和 Issue Type
+## 同步 Labels 和 Issue Type
 
 必要时先初始化 label：
 

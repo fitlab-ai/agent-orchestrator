@@ -681,9 +681,9 @@ test("sync-pr skill keeps milestone inference and reviewer-summary content rules
     /\(X\+1\)\.0\.x/,
     /inherit the Issue milestone/,
     /self-contained technical decisions/,
-    /avoid internal shorthand such as `方案 A\/B`/,
+    /avoid internal shorthand such as `Plan A\/B`|避免使用 `方案 A\/B`/,
     /review-history table/,
-    /\| 轮次 \| 结论 \| 问题统计 \| 修复状态 \|/
+    /\| 轮次 \| 结论 \| 问题统计 \| 修复状态 \||\| Round \| Verdict \| Finding Counts \| Fix Status \|/
   ].forEach((pattern) => {
     assert.match(corpus, pattern);
   });

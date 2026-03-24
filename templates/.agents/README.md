@@ -36,12 +36,11 @@ This dual-config approach ensures every AI tool receives appropriate project con
     bug-fix.yaml                # Bug fix workflow
     code-review.yaml            # Code review workflow
     refactoring.yaml            # Refactoring workflow
-
-.agents/workspace/         # Runtime workspace (git-ignored)
-  active/                       # Currently active tasks
-  blocked/                      # Blocked tasks
-  completed/                    # Completed tasks
-  logs/                         # Collaboration logs
+  workspace/                    # Runtime workspace (git-ignored)
+    active/                     # Currently active tasks
+    blocked/                    # Blocked tasks
+    completed/                  # Completed tasks
+    logs/                       # Collaboration logs
 
 .claude/                        # Claude Code specific config
   CLAUDE.md                     # Project instructions for Claude
@@ -53,11 +52,12 @@ This dual-config approach ensures every AI tool receives appropriate project con
 
 The multi-AI collaboration follows a structured workflow:
 
-```
-1. Analysis    -->  2. Design    -->  3. Implementation
-                                            |
-6. Commit  <--  5. Fix Issues  <--  4. Review
-```
+1. Analysis
+2. Design
+3. Implementation
+4. Review
+5. Fix Issues
+6. Commit
 
 ### Phase Details
 

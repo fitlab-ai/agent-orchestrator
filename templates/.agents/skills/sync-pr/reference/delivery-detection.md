@@ -14,7 +14,7 @@ Type label examples:
 - `bug`, `bugfix` -> `type: bug`
 - `refactor`, `refactoring` -> `type: enhancement`
 
-### 7. Sync the Milestone
+## Sync the Milestone
 
 Milestone priority:
 1. current PR milestone

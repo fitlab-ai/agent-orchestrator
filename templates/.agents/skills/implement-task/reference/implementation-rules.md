@@ -2,7 +2,7 @@
 
 Read this file before coding or interpreting test failures.
 
-### 4. Execute Code Implementation
+## Execute Code Implementation
 
 Follow the `implementation` step in `.agents/workflows/feature-development.yaml`.
 
@@ -19,7 +19,7 @@ Follow the `implementation` step in `.agents/workflows/feature-development.yaml`
 3. **Keep testing continuously**: re-run tests as work progresses
 4. **Keep it simple**: do not add unplanned features
 
-### 5. Run Test Verification
+## Run Test Verification
 
 Run the project test command. Refer to the `test` skill for project-specific commands.
 

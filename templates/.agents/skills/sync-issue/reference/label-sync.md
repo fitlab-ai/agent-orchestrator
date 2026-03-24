@@ -2,7 +2,7 @@
 
 Read this file before editing `status:`, `in:`, or Issue Type metadata.
 
-### 6. Sync Labels and Issue Type
+## Sync Labels and Issue Type
 
 Initialize labels when needed:
 

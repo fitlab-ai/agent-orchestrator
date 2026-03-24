@@ -2,7 +2,7 @@
 
 Read this file before staging files or composing the commit message.
 
-## Step 2: Analyze Changes and Generate Commit Message
+## Analyze Changes and Generate the Commit Message
 
 ```bash
 git status
@@ -37,7 +37,7 @@ Build the co-author block with these rules:
 4. de-duplicate all additional `Co-Authored-By` lines
 5. map unknown agents to `Co-Authored-By: {Agent} <noreply@unknown>`
 
-## Step 3: Create Commit
+## Create the Commit
 
 ```bash
 git add <specific-files>

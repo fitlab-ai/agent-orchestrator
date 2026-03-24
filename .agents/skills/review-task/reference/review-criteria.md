@@ -2,7 +2,7 @@
 
 在审查代码或划分问题严重程度之前先读取本文件。
 
-### 4. 执行代码审查
+## 执行代码审查
 
 遵循 `.agents/workflows/feature-development.yaml` 中的 `code-review` 步骤。
 

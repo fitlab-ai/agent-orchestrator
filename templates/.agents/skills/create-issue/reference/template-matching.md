@@ -2,7 +2,7 @@
 
 Read this file before deciding how to build the Issue body from `.github/ISSUE_TEMPLATE`.
 
-#### 3a. Detect Issue Templates
+## Detect Issue Templates
 
 Search project templates with:
 
@@ -21,7 +21,7 @@ Typical candidate templates:
 
 If no template matches clearly, choose the nearest candidate. If templates are missing, unreadable, or parsing fails, fall back to the default body path.
 
-#### 3b. Build the Body from the Matched Template
+## Build the Body from the Matched Template
 
 Read the matched template's:
 - `name`

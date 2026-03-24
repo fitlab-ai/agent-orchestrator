@@ -2,7 +2,7 @@
 
 Read this file before inferring the base branch.
 
-### 1. Determine Target Branch
+## Determine Target Branch
 
 - If the user provides an argument such as `main`, `develop`, or `3.6.x`, use it directly.
 - If no argument is provided, inspect:

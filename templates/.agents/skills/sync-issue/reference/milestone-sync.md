@@ -2,7 +2,7 @@
 
 Read this file before selecting or editing the Issue milestone.
 
-### 8. Sync the Milestone
+## Sync the Milestone
 
 Milestone priority:
 1. existing Issue milestone

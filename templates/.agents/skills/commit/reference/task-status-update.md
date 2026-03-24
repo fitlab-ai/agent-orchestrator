@@ -2,7 +2,7 @@
 
 Read this file before choosing the post-commit task-state branch.
 
-## Step 4: Update the Related Task State
+## Update the Related Task State
 
 Get the current time first:
 

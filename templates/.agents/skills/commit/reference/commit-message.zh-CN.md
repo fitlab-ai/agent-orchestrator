@@ -2,7 +2,7 @@
 
 在暂存文件或编写 commit message 之前先读取本文件。
 
-## Step 2: 分析变更并生成提交信息
+## 分析变更并生成提交信息
 
 ```bash
 git status
@@ -37,7 +37,7 @@ git log --oneline -5
 4. 所有额外的 `Co-Authored-By` 行都要去重
 5. 未知 agent 统一映射为 `Co-Authored-By: {Agent} <noreply@unknown>`
 
-## Step 3: 创建提交
+## 创建提交
 
 ```bash
 git add <specific-files>

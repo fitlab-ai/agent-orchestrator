@@ -2,7 +2,7 @@
 
 Read this file before reviewing code or classifying findings.
 
-### 4. Perform Code Review
+## Perform Code Review
 
 Follow the `code-review` step in `.agents/workflows/feature-development.yaml`.
 

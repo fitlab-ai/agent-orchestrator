@@ -2,7 +2,7 @@
 
 Read this file before applying labels, Issue Type, milestone, or `in:` labels.
 
-#### 3c. Default Body Format (Fallback)
+## Default Body Format (Fallback)
 
 Recommended fallback:
 
@@ -39,7 +39,7 @@ Issue Type fallback mapping:
 | `feature`, `enhancement` | `Feature` |
 | `task`, `documentation`, `dependency-upgrade`, `chore`, `docs`, `refactor`, `refactoring`, and all other values | `Task` |
 
-### 4. Create Issue
+## Create the Issue
 
 Use:
 

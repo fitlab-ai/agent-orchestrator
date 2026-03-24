@@ -2,7 +2,7 @@
 
 在选择或编辑 Issue milestone 之前先读取本文件。
 
-### 8. 同步 Milestone
+## 同步 Milestone
 
 Milestone 优先级：
 1. Issue 当前已有的 milestone

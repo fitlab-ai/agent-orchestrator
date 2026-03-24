@@ -2,11 +2,11 @@
 
 Read this file before generating the PR title and body.
 
-### 2. Read PR Template
+## Read the PR Template
 
 Read `.github/PULL_REQUEST_TEMPLATE.md` from the repository. If it does not exist, use the standard format.
 
-### 3. Review Recent Merged PRs for Reference
+## Review Recent Merged PRs for Reference
 
 ```bash
 gh pr list --limit 3 --state merged --json number,title,body
@@ -14,7 +14,7 @@ gh pr list --limit 3 --state merged --json number,title,body
 
 Use the recent merged PRs as style and formatting references.
 
-### 4. Analyze Current Branch Changes
+## Analyze Current Branch Changes
 
 ```bash
 git status
@@ -23,7 +23,7 @@ git diff <target-branch>...HEAD --stat
 git diff <target-branch>...HEAD
 ```
 
-### 8. Sync PR Metadata
+## Sync PR Metadata
 
 Before syncing labels, verify the standard label system:
 
@@ -54,7 +54,7 @@ Metadata sync order:
 5. resolve milestone in order: PR -> task.md -> Issue -> branch/tag inference -> `General Backlog`
 6. ensure the PR body contains `Closes #{issue-number}` or an equivalent closing keyword
 
-### 7. Create PR
+## Create the PR
 
 - Extract `issue_number` from task.md when this work belongs to an active task
 - If `issue_number` exists, query the Issue best-effort with `gh issue view {issue-number} --json number,title --jq '.number'`

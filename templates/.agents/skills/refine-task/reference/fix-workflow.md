@@ -2,7 +2,7 @@
 
 Read this file before changing code during refinement.
 
-### 3. Plan the Fixes
+## Plan the Fixes
 
 Classify and prioritize work:
 1. **Blockers first**
@@ -20,7 +20,7 @@ Detailed priority rules:
 - Minor issues are optional only after Blockers and Majors are resolved
 - If you disagree with a finding, record that disagreement under unresolved issues instead of silently skipping it
 
-### 4. Execute the Fixes
+## Execute the Fixes
 
 For each fix:
 1. read the affected files
@@ -28,11 +28,11 @@ For each fix:
 3. verify the change addresses the review feedback
 4. run the relevant tests
 
-### 5. Run Test Verification
+## Run Test Verification
 
 Run the project test command from the `test` skill and confirm that all required tests still pass.
 
-### 8. Choose the Next-Step Branch
+## Choose the Next-Step Branch
 
 Decision rules:
 1. if this round fixed any `Blocker` or `Major`, recommend re-review by default
@@ -45,25 +45,25 @@ Prohibition:
 Required output template:
 
 ```text
-任务 {task-id} 修复完成。
+Task {task-id} refinement completed.
 
-修复情况：
-- 阻塞项修复：{数量}/{总数}
-- 主要问题修复：{数量}/{总数}
-- 次要问题修复：{数量}/{总数}
-- 所有测试通过：{是/否}
-- 审查输入：{review-artifact}
-- 修复产物：{refinement-artifact}
+Refinement status:
+- Blockers fixed: {fixed-blockers}/{total-blockers}
+- Major issues fixed: {fixed-majors}/{total-majors}
+- Minor issues fixed: {fixed-minors}/{total-minors}
+- All tests passing: {yes/no}
+- Review input: {review-artifact}
+- Refinement artifact: {refinement-artifact}
 
-下一步 - 重新审查或提交：
-- 重新审查（默认推荐；修复了 Blocker/Major 时优先）：
-  - Claude Code / OpenCode：/review-task {task-id}
-  - Gemini CLI：/agent-infra:review-task {task-id}
-  - Codex CLI：$review-task {task-id}
-- 直接提交（仅限只修复 Minor 且风险可控）：
-  - Claude Code / OpenCode：/commit
-  - Gemini CLI：/agent-infra:commit
-  - Codex CLI：$commit
+Next step - re-review or commit:
+- Re-review (recommended by default when Blocker/Major issues were fixed):
+  - Claude Code / OpenCode: /review-task {task-id}
+  - Gemini CLI: /agent-infra:review-task {task-id}
+  - Codex CLI: $review-task {task-id}
+- Commit directly (Minor-only, low-risk changes only):
+  - Claude Code / OpenCode: /commit
+  - Gemini CLI: /agent-infra:commit
+  - Codex CLI: $commit
 ```
 
 ## Notes

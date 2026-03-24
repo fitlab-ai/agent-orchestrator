@@ -14,7 +14,7 @@ Type label 示例：
 - `bug`, `bugfix` -> `type: bug`
 - `refactor`, `refactoring` -> `type: enhancement`
 
-### 7. 同步 Milestone
+## 同步 Milestone
 
 Milestone 优先级：
 1. PR 当前已有的 milestone

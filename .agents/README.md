@@ -36,12 +36,11 @@
     bug-fix.yaml                # 缺陷修复工作流
     code-review.yaml            # 代码审查工作流
     refactoring.yaml            # 重构工作流
-
-.agents/workspace/              # 运行时工作区（已被 git ignore）
-  active/                       # 当前活跃任务
-  blocked/                      # 被阻塞的任务
-  completed/                    # 已完成的任务
-  logs/                         # 协作日志
+  workspace/                    # 运行时工作区（已被 git ignore）
+    active/                     # 当前活跃任务
+    blocked/                    # 被阻塞的任务
+    completed/                  # 已完成的任务
+    logs/                       # 协作日志
 
 .claude/                        # Claude Code 专属配置
   CLAUDE.md                     # Claude 项目指令
@@ -53,11 +52,12 @@
 
 多 AI 协作遵循结构化工作流：
 
-```
-1. 分析    -->  2. 设计    -->  3. 实现
-                                    |
-6. 提交  <--  5. 修复问题  <--  4. 审查
-```
+1. 分析
+2. 设计
+3. 实现
+4. 审查
+5. 修复问题
+6. 提交
 
 ### 阶段详情
 
