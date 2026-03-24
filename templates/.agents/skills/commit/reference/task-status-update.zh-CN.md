@@ -43,7 +43,7 @@ date "+%Y-%m-%d %H:%M:%S"
 必带下一步命令：
 
 ```text
-Next step - complete and archive the task:
+下一步 - 完成并归档任务：
   - Claude Code / OpenCode: /complete-task {task-id}
   - Gemini CLI: /agent-infra:complete-task {task-id}
   - Codex CLI: $complete-task {task-id}
@@ -66,7 +66,7 @@ Next step - complete and archive the task:
 必带下一步命令：
 
 ```text
-Next step - code review:
+下一步 - 代码审查：
   - Claude Code / OpenCode: /review-task {task-id}
   - Gemini CLI: /agent-infra:review-task {task-id}
   - Codex CLI: $review-task {task-id}
@@ -81,7 +81,7 @@ Next step - code review:
 必带下一步命令：
 
 ```text
-Next step - create Pull Request:
+下一步 - 创建 Pull Request：
   - Claude Code / OpenCode: /create-pr
   - Gemini CLI: /agent-infra:create-pr
   - Codex CLI: $create-pr

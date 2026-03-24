@@ -5,59 +5,59 @@
 ## 输出模板
 
 ```markdown
-# Implementation Report
+# 实现报告
 
-- **Implementation Round**: Round {implementation-round}
-- **Artifact File**: `{implementation-artifact}`
+- **实现轮次**: Round {implementation-round}
+- **产物文件**: `{implementation-artifact}`
 
-## Modified Files
+## 变更文件
 
-### New Files
+### 新建文件
 - `{file-path}` - {description}
 
-### Modified Files
+### 修改文件
 - `{file-path}` - {change summary}
 
-## Key Code Explanation
+## 关键代码说明
 
-### {Module/Feature Name}
-**File**: `{file-path}:{line-number}`
+### {模块/功能名称}
+**文件**: `{file-path}:{line-number}`
 
-**Implementation Logic**:
+**实现逻辑**:
 {important logic summary}
 
-**Key Code**:
+**关键代码**:
 ```{language}
 {key-code-snippet}
 ```
 
-## Test Results
+## 测试结果
 
-### Unit Tests
-- Test file: `{test-file-path}`
-- Test case count: {count}
-- Pass rate: {percentage}
+### 单元测试
+- 测试文件: `{test-file-path}`
+- 测试用例数: {count}
+- 通过率: {percentage}
 
-**Test Output**:
+**测试输出**:
 ```
 {test-run-output}
 ```
 
-## Differences from Plan
+## 与方案的差异
 
 {describe any deviation from the approved plan}
 
-## Items for Review
+## 供审查关注的内容
 
-**Focus areas for reviewers**:
+**建议审查者重点关注**:
 - {item 1}
 - {item 2}
 
-## Known Issues
+## 已知问题
 
 {known issues or follow-up ideas}
 
-## Next Steps
+## 下一步
 
 {recommended follow-up}
 ```

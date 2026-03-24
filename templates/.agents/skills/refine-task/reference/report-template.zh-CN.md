@@ -5,34 +5,34 @@
 ## 输出模板
 
 ```markdown
-# Refinement Report
+# 修复报告
 
-- **Refinement Round**: Round {refinement-round}
-- **Artifact File**: `{refinement-artifact}`
-- **Review Input**: `{review-artifact}`
-- **Implementation Context**: `{implementation-artifact}`
+- **修复轮次**: Round {refinement-round}
+- **产物文件**: `{refinement-artifact}`
+- **审查输入**: `{review-artifact}`
+- **实现上下文**: `{implementation-artifact}`
 
-### Review Feedback Handling
+### 审查反馈处理
 
-#### Blocker Fixes
+#### 阻塞项修复
 1. **{issue-title}**
-   - **Fix**: {what changed}
-   - **File**: `{file-path}:{line-number}`
-   - **Validation**: {validation}
+   - **修复**: {what changed}
+   - **文件**: `{file-path}:{line-number}`
+   - **验证**: {validation}
 
-#### Major Issue Fixes
+#### 主要问题修复
 1. **{issue-title}**
-   - **Fix**: {what changed}
-   - **File**: `{file-path}:{line-number}`
+   - **修复**: {what changed}
+   - **文件**: `{file-path}:{line-number}`
 
-#### Minor Issue Handling
+#### 次要问题处理
 1. **{issue-title}**
-   - **Fix**: {what changed}
+   - **修复**: {what changed}
 
-#### Unresolved Issues
+#### 未解决问题
 - {issue}: {reason}
 
-### Test Results After Refinement
-- All tests passing: {yes/no}
-- Test output: {summary}
+### 修复后的测试结果
+- 所有测试通过: {yes/no}
+- 测试输出: {summary}
 ```

@@ -74,12 +74,12 @@ EOF
 最终用户输出必须按顺序包含这两类后续动作：
 
 ```text
-Next steps:
-  - optional reviewer summary sync:
+下一步：
+  - 可选：同步 reviewer 摘要：
     - Claude Code / OpenCode: /sync-pr {task-id}
     - Gemini CLI: /agent-infra:sync-pr {task-id}
     - Codex CLI: $sync-pr {task-id}
-  - complete the task after the workflow truly finishes:
+  - 工作流真正结束后完成任务：
     - Claude Code / OpenCode: /complete-task {task-id}
     - Gemini CLI: /agent-infra:complete-task {task-id}
     - Codex CLI: $complete-task {task-id}

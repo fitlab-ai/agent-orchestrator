@@ -70,7 +70,7 @@ gh issue edit {issue-number} --add-label "in: {module}"
 最终给用户的输出必须包含所有 TUI 的 `sync-issue` 命令格式：
 
 ```text
-Next step - sync progress to the Issue:
+下一步 - 同步进度到 Issue：
   - Claude Code / OpenCode: /sync-issue {task-id}
   - Gemini CLI: /agent-infra:sync-issue {task-id}
   - Codex CLI: $sync-issue {task-id}
