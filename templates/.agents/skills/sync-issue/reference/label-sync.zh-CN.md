@@ -1,8 +1,8 @@
-# Label 和 Issue Type 同步
+# Label 和 Issue 类型同步
 
-在编辑 `status:`、`in:` 或 Issue Type 元数据之前先读取本文件。
+在编辑 `status:`、`in:` 或 Issue 类型元数据之前先读取本文件。
 
-## 同步 Labels 和 Issue Type
+## 同步 Label 和 Issue 类型
 
 必要时先初始化 label：
 
@@ -22,14 +22,14 @@ gh issue edit {issue-number} --add-label "{status-label}"
 
 `status:` 判断表：
 
-| Condition | Action |
+| 条件 | 操作 |
 |---|---|
-| task lives under `blocked/` | add `status: blocked` |
-| Mode A: completed | add no new `status:` label |
-| Mode B: PR is `MERGED` | add no new `status:` label |
-| Mode B: PR is `OPEN` | add `status: in-progress` |
-| Mode C + `current_step` ∈ {`requirement-analysis`, `technical-design`} | add `status: pending-design-work` |
-| Mode C + `current_step` ∈ {`implementation`, `code-review`, `refinement`} | add `status: in-progress` |
+| 任务位于 `blocked/` 目录下 | 添加 `status: blocked` |
+| 场景 A：已完成 | 不新增 `status:` label |
+| 场景 B：PR 状态为 `MERGED` | 不新增 `status:` label |
+| 场景 B：PR 状态为 `OPEN` | 添加 `status: in-progress` |
+| 场景 C + `current_step` ∈ {`requirement-analysis`, `technical-design`} | 添加 `status: pending-design-work` |
+| 场景 C + `current_step` ∈ {`implementation`, `code-review`, `refinement`} | 添加 `status: in-progress` |
 
 `in:` label 工作流：
 
@@ -45,19 +45,19 @@ gh issue edit {issue-number} --add-label "in: {module}"
 4. 仅在对应的精确 `in: {module}` label 存在时才添加
 5. 只添加匹配的 label；绝不移除已有的 `in:` label
 
-Issue Type 工作流：
+Issue 类型工作流：
 
 ```bash
 gh api "orgs/$owner/issue-types" --jq '.[].name'
 gh api "repos/$repo/issues/{issue-number}" -X PATCH -f type="{name}"
 ```
 
-Issue Type 映射：
+Issue 类型映射：
 
-| task.md type | GitHub Issue Type |
+| task.md 类型 | GitHub Issue 类型 |
 |---|---|
 | `bug`, `bugfix` | `Bug` |
 | `feature`, `enhancement` | `Feature` |
 | `task`, `documentation`, `dependency-upgrade`, `chore`, `docs`, `refactor`, `refactoring` 以及其他所有值 | `Task` |
 
-如果 Issue Type 不可用，记录 `Issue Type: skipped (not enabled)`，然后继续执行。
+如果 Issue 类型不可用，记录 `Issue Type: skipped (not enabled)`，然后继续执行。

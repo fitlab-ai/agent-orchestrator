@@ -22,20 +22,20 @@ Protected branch matching rules:
 - output matches `{major}.{minor}.x` -> treat as a protected release line
 - otherwise -> not on a protected branch
 
-Mode decision matrix:
+Scenario decision matrix:
 
-| Condition | Mode |
+| Condition | Scenario |
 |---|---|
-| commit is already on a protected branch | Mode A: Completed |
-| PR exists and its state is `OPEN` or `MERGED` | Mode B: PR stage |
-| all other cases | Mode C: In development |
+| commit is already on a protected branch | Scenario A: Completed |
+| PR exists and its state is `OPEN` or `MERGED` | Scenario B: PR stage |
+| all other cases | Scenario C: In development |
 
-Mode priority:
-- Mode A: Completed
-- Mode B: PR stage
-- Mode C: In development
+Scenario priority:
+- Scenario A: Completed
+- Scenario B: PR stage
+- Scenario C: In development
 
-Priority rule: `Mode A > Mode B > Mode C`. Even if a PR exists, once the commit is on `main`, `master`, or `{major}.{minor}.x`, report the task as completed.
+Priority rule: `Scenario A > Scenario B > Scenario C`. Even if a PR exists, once the commit is on `main`, `master`, or `{major}.{minor}.x`, report the task as completed.
 
 Absolute links must use:
 - `https://github.com/{owner}/{repo}/commit/{commit-hash}`

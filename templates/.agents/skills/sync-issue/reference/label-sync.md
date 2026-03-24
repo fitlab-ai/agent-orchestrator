@@ -25,11 +25,11 @@ Status decision table:
 | Condition | Action |
 |---|---|
 | task lives under `blocked/` | add `status: blocked` |
-| Mode A: completed | add no new `status:` label |
-| Mode B: PR is `MERGED` | add no new `status:` label |
-| Mode B: PR is `OPEN` | add `status: in-progress` |
-| Mode C + `current_step` ∈ {`requirement-analysis`, `technical-design`} | add `status: pending-design-work` |
-| Mode C + `current_step` ∈ {`implementation`, `code-review`, `refinement`} | add `status: in-progress` |
+| Scenario A: completed | add no new `status:` label |
+| Scenario B: PR is `MERGED` | add no new `status:` label |
+| Scenario B: PR is `OPEN` | add `status: in-progress` |
+| Scenario C + `current_step` ∈ {`requirement-analysis`, `technical-design`} | add `status: pending-design-work` |
+| Scenario C + `current_step` ∈ {`implementation`, `code-review`, `refinement`} | add `status: in-progress` |
 
 `in:` label workflow:
 
