@@ -380,7 +380,6 @@ import-issue #42                    从 GitHub Issue 导入任务
   "project": "my-project",
   "org": "my-org",
   "language": "en",
-  "templateSource": "templates/",
   "templateVersion": "v0.4.0",
   "files": {
     "managed": [
@@ -409,7 +408,6 @@ import-issue #42                    从 GitHub Issue 导入任务
 | `project` | 用于渲染命令、路径和模板内容的项目名。 |
 | `org` | 生成元数据和链接时使用的 GitHub 组织或拥有者。 |
 | `language` | 渲染模板时采用的项目主语言或区域设置。 |
-| `templateSource` | 本地模板根目录。 |
 | `templateVersion` | 当前安装的模板版本，用于升级和差异追踪。 |
 | `files` | 针对具体路径配置 `managed`、`merged`、`ejected` 三类更新策略。 |
 

@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 
 import { read } from "./helpers.js";
 
-test(".agents/.airc.json declares templates as the template source", () => {
+test(".agents/.airc.json does not declare templateSource", () => {
   const collaborator = JSON.parse(read(".agents/.airc.json"));
 
-  assert.equal(collaborator.templateSource, "templates/");
+  assert.ok(!("templateSource" in collaborator));
 });
 
 test(".agents/.airc.json merged patterns use recursive command globs and explicit skill paths", () => {

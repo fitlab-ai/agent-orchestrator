@@ -24,7 +24,7 @@ Execute the following command to handle all deterministic steps at once:
 node .agents/skills/update-agent-infra/scripts/sync-templates.js
 ```
 
-The script reads `.agents/.airc.json` (including `templateSource`, default `templates/`) and automatically performs:
+The script reads `.agents/.airc.json`, automatically locates the installed `@fitlab-ai/agent-infra/templates/` directory via npm, and performs:
 - detect the template source version
 - File registry sync (`defaults.json` → `.agents/.airc.json`)
 - All managed files (language selection → exclude merged/ejected → placeholder rendering → overwrite)

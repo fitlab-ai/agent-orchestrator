@@ -22,7 +22,7 @@ description: "更新项目 AI 协作配置"
 node .agents/skills/update-agent-infra/scripts/sync-templates.js
 ```
 
-脚本读取 `.agents/.airc.json`（含 `templateSource`，默认 `templates/`），自动完成：
+脚本读取 `.agents/.airc.json`，并通过 npm 自动定位已安装的 `@fitlab-ai/agent-infra/templates/` 目录，然后自动完成：
 - 检测模板源版本
 - 同步文件注册表（`defaults.json` → `.agents/.airc.json`）
 - 处理所有 managed 文件（语言选择 → 排除 merged/ejected → 占位符渲染 → 覆盖写入）

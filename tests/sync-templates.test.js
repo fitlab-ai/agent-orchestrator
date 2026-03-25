@@ -21,13 +21,19 @@ function normalize(targetPath) {
   return targetPath.replace(/\\/g, "/");
 }
 
-test("syncTemplates respects templateSource and stays idempotent", async () => {
+test("syncTemplates resolves template roots via npm and removes legacy templateSource", async () => {
   const originalExecSync = childProcess.execSync;
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-"));
 
   try {
     const projectRoot = path.join(tmpDir, "project");
-    const templateRoot = path.join(projectRoot, "custom-source");
+    const templateRoot = path.join(
+      projectRoot,
+      "node_modules",
+      "@fitlab-ai",
+      "agent-infra",
+      "templates"
+    );
 
     fs.mkdirSync(projectRoot, { recursive: true });
 
@@ -54,7 +60,14 @@ test("syncTemplates respects templateSource and stays idempotent", async () => {
       }
     });
 
-    childProcess.execSync = (command) => {
+    childProcess.execSync = (command, options = {}) => {
+      if (command === "npm root -g") {
+        return path.join(tmpDir, "missing-global-node_modules");
+      }
+      if (command === "npm root") {
+        assert.equal(options.cwd, projectRoot);
+        return path.join(projectRoot, "node_modules");
+      }
       if (command === "git remote get-url origin") {
         throw new Error("not a git repo");
       }
@@ -67,8 +80,11 @@ test("syncTemplates respects templateSource and stays idempotent", async () => {
     const afterFirstRun = fs.readFileSync(path.join(projectRoot, ".agents", ".airc.json"), "utf8");
     const secondReport = syncTemplates(projectRoot);
     const afterSecondRun = fs.readFileSync(path.join(projectRoot, ".agents", ".airc.json"), "utf8");
+    const parsedConfig = JSON.parse(afterSecondRun);
 
     assert.equal(normalize(firstReport.templateRoot), normalize(templateRoot));
+    assert.equal(firstReport.configUpdated, true);
+    assert.ok(!("templateSource" in parsedConfig));
     assert.ok(firstReport.registryAdded.some((entry) => entry.entry === ".agents/skills/" && entry.list === "managed"));
     assert.deepEqual(firstReport.managed.created.sort(), ["demo/script.sh", "docs/empty.txt", "docs/guide.md"]);
     assert.deepEqual(firstReport.managed.written, []);
@@ -96,6 +112,7 @@ test("syncTemplates respects templateSource and stays idempotent", async () => {
     assert.deepEqual(secondReport.managed.removed, []);
     assert.deepEqual(secondReport.ejected.created, []);
     assert.deepEqual(secondReport.ejected.skipped, ["local-only.md"]);
+    assert.equal(secondReport.configUpdated, false);
     assert.equal(afterSecondRun, afterFirstRun);
   } finally {
     childProcess.execSync = originalExecSync;
@@ -119,7 +136,6 @@ test("syncTemplates reports the bundled installer version with a v prefix", asyn
       project: "demo",
       org: "acme",
       language: "en",
-      templateSource: templateRoot,
       files: {
         managed: ["README.md"],
         merged: [],
@@ -135,7 +151,7 @@ test("syncTemplates reports the bundled installer version with a v prefix", asyn
     };
 
     const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
-    const report = syncTemplates(projectRoot);
+    const report = syncTemplates(projectRoot, templateRoot);
 
     assert.equal(
       report.templateVersion,
@@ -167,7 +183,6 @@ test("syncTemplates removes stale managed files but preserves merged and ejected
       project: "demo",
       org: "acme",
       language: "en",
-      templateSource: templateRoot,
       files: {
         managed: ["docs/", ".agents/", ".github/"],
         merged: ["docs/merged.md"],
@@ -192,8 +207,8 @@ test("syncTemplates removes stale managed files but preserves merged and ejected
 
     const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
 
-    const firstReport = syncTemplates(projectRoot);
-    const secondReport = syncTemplates(projectRoot);
+    const firstReport = syncTemplates(projectRoot, templateRoot);
+    const secondReport = syncTemplates(projectRoot, templateRoot);
 
     assert.deepEqual(firstReport.managed.removed.sort(), ["docs/stale.md", "docs/subdir/orphan.md"]);
     assert.ok(!fs.existsSync(path.join(projectRoot, "docs/stale.md")));
@@ -228,7 +243,6 @@ test("syncTemplates preserves stale files that match merged glob patterns", asyn
       project: "demo",
       org: "acme",
       language: "en",
-      templateSource: templateRoot,
       files: {
         managed: ["docs/"],
         merged: ["docs/**/*.md"],
@@ -248,7 +262,7 @@ test("syncTemplates preserves stale files that match merged glob patterns", asyn
     };
 
     const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
-    const report = syncTemplates(projectRoot);
+    const report = syncTemplates(projectRoot, templateRoot);
 
     assert.equal(fs.readFileSync(path.join(projectRoot, "docs/stale/note.md"), "utf8"), "keep merged glob\n");
     assert.ok(!fs.existsSync(path.join(projectRoot, "docs/stale/extra.txt")));
@@ -280,7 +294,6 @@ test("syncTemplates syncs the managed github hook as a single file", async () =>
       project: "demo",
       org: "acme",
       language: "en",
-      templateSource: templateRoot,
       files: {
         managed: [],
         merged: [],
@@ -298,7 +311,7 @@ test("syncTemplates syncs the managed github hook as a single file", async () =>
     };
 
     const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
-    const report = syncTemplates(projectRoot);
+    const report = syncTemplates(projectRoot, templateRoot);
 
     assert.ok(
       report.registryAdded.some(
@@ -341,7 +354,6 @@ test("syncTemplates reports github pre-commit as a merged pending file", async (
       project: "demo",
       org: "acme",
       language: "en",
-      templateSource: templateRoot,
       files: {
         managed: [],
         merged: [],
@@ -357,7 +369,7 @@ test("syncTemplates reports github pre-commit as a merged pending file", async (
     };
 
     const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
-    const report = syncTemplates(projectRoot);
+    const report = syncTemplates(projectRoot, templateRoot);
 
     assert.ok(
       report.registryAdded.some(

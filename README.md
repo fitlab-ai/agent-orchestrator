@@ -380,7 +380,6 @@ The generated `.agents/.airc.json` file is the central contract between the boot
   "project": "my-project",
   "org": "my-org",
   "language": "en",
-  "templateSource": "templates/",
   "templateVersion": "v0.4.0",
   "files": {
     "managed": [
@@ -409,7 +408,6 @@ The generated `.agents/.airc.json` file is the central contract between the boot
 | `project` | Project name used when rendering commands, paths, and templates. |
 | `org` | GitHub organization or owner used by generated metadata and links. |
 | `language` | Primary project language or locale used by rendered templates. |
-| `templateSource` | Local template root used during rendering. |
 | `templateVersion` | Installed template version for future upgrades and drift tracking. |
 | `files` | Per-path update strategy configuration for managed, merged, and ejected files. |
 

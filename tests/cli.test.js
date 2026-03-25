@@ -47,6 +47,7 @@ test("agent-infra init generates seed files in a temp directory", () => {
     assert.equal(config.project, "testproj");
     assert.equal(config.org, "testorg");
     assert.equal(config.templateVersion, `v${JSON.parse(read("package.json")).version}`);
+    assert.ok(!("templateSource" in config), "init should not generate templateSource");
     assert.ok(!config.branchPrefix, "branchPrefix should not exist");
     assert.ok(!config.source, "consumer projects should not have source: self");
     assert.ok(
@@ -139,13 +140,30 @@ test("installed sync-templates.js executes inside a type=module project", () => 
       "module",
       "package.json should remain an ESM package after init"
     );
-    fs.mkdirSync(path.join(tmpDir, "templates"), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, "templates", "README.md"), "Hello {{project}}\n", "utf8");
+    const npmGlobalPrefix = path.join(tmpDir, ".npm-global");
+    const globalTemplateRoot = path.join(
+      npmGlobalPrefix,
+      "lib",
+      "node_modules",
+      "@fitlab-ai",
+      "agent-infra",
+      "templates"
+    );
+    const localTemplateRoot = path.join(
+      tmpDir,
+      "node_modules",
+      "@fitlab-ai",
+      "agent-infra",
+      "templates"
+    );
+    fs.mkdirSync(globalTemplateRoot, { recursive: true });
+    fs.mkdirSync(localTemplateRoot, { recursive: true });
+    fs.writeFileSync(path.join(globalTemplateRoot, "README.md"), "Hello {{project}} from global\n", "utf8");
+    fs.writeFileSync(path.join(localTemplateRoot, "README.md"), "Hello {{project}}\n", "utf8");
     fs.writeFileSync(
       path.join(tmpDir, ".agents", ".airc.json"),
       JSON.stringify({
         ...JSON.parse(fs.readFileSync(path.join(tmpDir, ".agents", ".airc.json"), "utf8")),
-        templateSource: path.join(tmpDir, "templates"),
         files: {
           managed: ["README.md"],
           merged: [],
@@ -160,12 +178,18 @@ test("installed sync-templates.js executes inside a type=module project", () => 
       [path.join(".agents", "skills", "update-agent-infra", "scripts", "sync-templates.js")],
       {
         cwd: tmpDir,
-        encoding: "utf8"
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          npm_config_prefix: npmGlobalPrefix
+        }
       }
     );
     const report = JSON.parse(output);
 
     assert.ok(!report.error, "sync-templates.js should run without ESM loader errors");
+    assert.equal(report.templateRoot, globalTemplateRoot);
+    assert.equal(fs.readFileSync(path.join(tmpDir, "README.md"), "utf8"), "Hello esmproj from global\n");
     assert.ok(
       fs.existsSync(
         path.join(tmpDir, ".agents", "skills", "update-agent-infra", "scripts", "sync-templates.js")
@@ -214,7 +238,6 @@ test("agent-infra update refreshes seed files and syncs file registry", () => {
     project: "seedproj",
     org: "seedorg",
     language: "zh-CN",
-    templateSource: "templates/",
     templateVersion: "stale",
     files: {
       managed: [],

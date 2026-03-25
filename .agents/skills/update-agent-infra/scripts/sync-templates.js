@@ -116,18 +116,45 @@ function renderPathname(p, project) {
   return p.replace(/_project_/g, project);
 }
 
-function resolveProjectTemplateDir(projectRoot, templateSource) {
-  if (!templateSource) return null;
+function isTemplateDir(dir) {
+  try {
+    return fs.statSync(dir).isDirectory();
+  } catch {
+    return false;
+  }
+}
 
-  const candidate = path.isAbsolute(templateSource)
-    ? templateSource
-    : path.resolve(projectRoot, templateSource);
+function resolveInstalledTemplateDir(nodeModulesRoot) {
+  if (!nodeModulesRoot) return null;
+  const candidate = path.join(nodeModulesRoot, '@fitlab-ai', 'agent-infra', 'templates');
+  return isTemplateDir(candidate) ? candidate : null;
+}
+
+function resolveTemplateRoot(projectRoot) {
+  try {
+    const globalRoot = childProcess.execSync('npm root -g', {
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+    const globalTemplateRoot = resolveInstalledTemplateDir(globalRoot);
+    if (globalTemplateRoot) return globalTemplateRoot;
+  } catch {
+    // npm may be unavailable or not configured.
+  }
 
   try {
-    return fs.statSync(candidate).isDirectory() ? candidate : null;
+    const localRoot = childProcess.execSync('npm root', {
+      cwd: projectRoot,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe']
+    }).trim();
+    const localTemplateRoot = resolveInstalledTemplateDir(localRoot);
+    if (localTemplateRoot) return localTemplateRoot;
   } catch {
-    return null;
+    // npm may be unavailable or the project may not have a local install.
   }
+
+  return null;
 }
 
 function isBinary(fp) {
@@ -175,7 +202,7 @@ function langSelect(rels, lang, allSet, project) {
   return sel;
 }
 
-function syncTemplates(projectRoot) {
+function syncTemplates(projectRoot, templateRootOverride) {
   const configDir = path.join(projectRoot, '.agents');
   const cfgPath = path.join(configDir, '.airc.json');
 
@@ -185,11 +212,12 @@ function syncTemplates(projectRoot) {
 
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   const configPathRel = norm(path.relative(projectRoot, cfgPath));
-  const templateRoot = resolveProjectTemplateDir(projectRoot, cfg.templateSource);
+  const templateRoot = templateRootOverride || resolveTemplateRoot(projectRoot);
   if (!templateRoot) {
     return { error: 'Template source not found. Install via npm: npm install -g @fitlab-ai/agent-infra' };
   }
   const version = INSTALLER_VERSION;
+  const hadTemplateSource = Object.prototype.hasOwnProperty.call(cfg, 'templateSource');
 
   const { project, org, language: lang = 'en' } = cfg;
   const vars = { project, org };
@@ -362,8 +390,9 @@ function syncTemplates(projectRoot) {
   cfg.files.merged  = merged;
   cfg.files.ejected = ejected;
   cfg.templateVersion = version;
+  delete cfg.templateSource;
 
-  report.configUpdated = hasChanges || prevVersion !== version;
+  report.configUpdated = hasChanges || prevVersion !== version || hadTemplateSource;
 
   fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n', 'utf8');
 

@@ -2,7 +2,6 @@
   "project": "agent-infra",
   "org": "fitlab-ai",
   "language": "zh-CN",
-  "templateSource": "templates/",
   "templateVersion": "v0.4.0",
   "files": {
     "managed": [
