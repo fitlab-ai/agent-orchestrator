@@ -8,6 +8,16 @@ This guide walks you through using multiple AI coding assistants together on a p
 - A project with `.agents/` directory set up (this project)
 - Familiarity with your project's codebase
 
+## Git Hook Setup
+
+Enable the shared Git hooks path before relying on the template hook chain:
+
+```bash
+git config core.hooksPath .github/hooks
+```
+
+This makes Git invoke the hooks synced into `.github/hooks/`, including `pre-commit` and `check-version-format.sh`.
+
 ## Creating Your First Task
 
 1. Copy the task template to the active workspace:

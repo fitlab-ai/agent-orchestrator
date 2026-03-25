@@ -49,6 +49,10 @@ test("agent-infra init generates seed files in a temp directory", () => {
     assert.equal(config.templateVersion, `v${JSON.parse(read("package.json")).version}`);
     assert.ok(!config.branchPrefix, "branchPrefix should not exist");
     assert.ok(!config.source, "consumer projects should not have source: self");
+    assert.ok(
+      config.files.managed.includes(".github/hooks/check-version-format.sh"),
+      ".github/hooks/check-version-format.sh should be managed"
+    );
     assert.ok(config.files.managed.includes(".claude/hooks/"), ".claude/hooks/ should be managed");
     assert.ok(!config.files.managed.includes(".editorconfig"), ".editorconfig should not be managed");
     assert.ok(!config.files.merged.includes(".mailmap"), ".mailmap should not be merged");
@@ -254,6 +258,7 @@ test("agent-infra update refreshes seed files and syncs file registry", () => {
     const updated = JSON.parse(
       fs.readFileSync(path.join(tmpDir, ".agents", ".airc.json"), "utf8")
     );
+    assert.ok(updated.files.managed.includes(".github/hooks/check-version-format.sh"));
     assert.ok(updated.files.managed.includes(".agents/skills/"));
     assert.ok(updated.files.merged.includes("**/test.*"));
 

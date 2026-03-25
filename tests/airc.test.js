@@ -14,6 +14,7 @@ test(".agents/.airc.json merged patterns use recursive command globs and explici
   const merged = collaborator.files.merged;
 
   [
+    ".github/hooks/pre-commit",
     "**/test.*",
     "**/test-integration.*",
     "**/release.*",
@@ -45,6 +46,10 @@ test(".agents/.airc.json does not contain license field", () => {
 test(".agents/.airc.json excludes deprecated codex prompt paths", () => {
   const collaborator = JSON.parse(read(".agents/.airc.json"));
 
+  assert.ok(
+    collaborator.files.managed.includes(".github/hooks/check-version-format.sh"),
+    ".github/hooks/check-version-format.sh should be in managed list"
+  );
   assert.ok(
     collaborator.files.managed.includes(".claude/hooks/"),
     ".claude/hooks/ should be in managed list"

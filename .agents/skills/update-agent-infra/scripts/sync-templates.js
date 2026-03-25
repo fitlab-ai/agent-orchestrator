@@ -29,6 +29,7 @@ const DEFAULTS = {
       ".claude/commands/",
       ".claude/hooks/",
       ".gemini/commands/",
+      ".github/hooks/check-version-format.sh",
       ".opencode/commands/"
     ],
     "merged": [
@@ -47,6 +48,7 @@ const DEFAULTS = {
       ".claude/settings.json",
       ".codex/README.md",
       ".gemini/settings.json",
+      ".github/hooks/pre-commit",
       ".gitignore",
       ".opencode/COMMAND_STYLE_GUIDE.md",
       ".opencode/README.md",

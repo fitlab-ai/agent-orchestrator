@@ -8,6 +8,16 @@
 - 项目已设置 `.agents/` 目录（本项目已就绪）
 - 熟悉你的项目代码库
 
+## Git Hook 配置
+
+在依赖模板中的 Git hook 链路前，先启用共享 hooks 路径：
+
+```bash
+git config core.hooksPath .github/hooks
+```
+
+这样 Git 才会调用同步到 `.github/hooks/` 下的 hook，包括 `pre-commit` 和 `check-version-format.sh`。
+
 ## 创建第一个任务
 
 1. 将任务模板复制到活跃工作区：

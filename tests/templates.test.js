@@ -29,6 +29,8 @@ test("required template files were migrated into templates/", () => {
     "templates/.agents/skills/update-agent-infra/scripts/sync-templates.js",
     "templates/.agents/workspace/README.md",
     "templates/.agents/workspace/README.zh-CN.md",
+    "templates/.github/hooks/check-version-format.sh",
+    "templates/.github/hooks/pre-commit",
     "templates/.claude/CLAUDE.md",
     "templates/.claude/project-rules.md",
     "templates/.claude/hooks/check-version-format.sh",
@@ -94,6 +96,7 @@ test("update-agent-infra template copies stay in sync with working files", () =>
     [".agents/skills/update-agent-infra/SKILL.md", "templates/.agents/skills/update-agent-infra/SKILL.md"],
     [".agents/skills/update-agent-infra/scripts/package.json", "templates/.agents/skills/update-agent-infra/scripts/package.json"],
     [".agents/skills/update-agent-infra/scripts/sync-templates.js", "templates/.agents/skills/update-agent-infra/scripts/sync-templates.js"],
+    [".github/hooks/check-version-format.sh", "templates/.github/hooks/check-version-format.sh"],
     [".claude/hooks/check-version-format.sh", "templates/.claude/hooks/check-version-format.sh"],
     ...buildCommandSyncFiles(project),
     ...referenceSyncFiles
@@ -123,9 +126,14 @@ test("version format validation hooks are wired into templates and local config"
   const rootClaudeSettings = JSON.parse(read(".claude/settings.json"));
   const templateClaudeSettings = JSON.parse(read("templates/.claude/settings.json"));
   const localCheckScript = read(".github/hooks/check-version-format.sh");
+  const templateCheckScript = read("templates/.github/hooks/check-version-format.sh");
   const localClaudeHook = read(".claude/hooks/check-version-format.sh");
   const templateClaudeHook = read("templates/.claude/hooks/check-version-format.sh");
   const localPreCommit = read(".github/hooks/pre-commit");
+  const templatePreCommit = read("templates/.github/hooks/pre-commit");
+  const templateQuickstart = read("templates/.agents/QUICKSTART.md");
+  const templateQuickstartZh = read("templates/.agents/QUICKSTART.zh-CN.md");
+  const localQuickstart = read(".agents/QUICKSTART.md");
 
   assert.equal(
     packageJson.scripts.prepare,
@@ -140,12 +148,12 @@ test("version format validation hooks are wired into templates and local config"
   );
 
   [
-    [".github/hooks/check-version-format.sh", localCheckScript]
+    [".github/hooks/check-version-format.sh", localCheckScript],
+    ["templates/.github/hooks/check-version-format.sh", templateCheckScript]
   ].forEach(([relativePath, content]) => {
     assert.match(content, /templateVersion must use v-prefixed semver/, `${relativePath} should validate the templateVersion format`);
-    assert.match(content, /package\.json version must use plain semver/, `${relativePath} should validate the package version format`);
-    assert.match(content, /templateVersion and package\.json version do not match/, `${relativePath} should validate version parity`);
     assert.match(content, /Version format check passed\./, `${relativePath} should log successful validation`);
+    assert.doesNotMatch(content, /package\.json/, `${relativePath} should not depend on package.json`);
     assert.doesNotMatch(content, /--pre-tool-use/, `${relativePath} should remain a pure git hook`);
     assert.doesNotMatch(content, /tool_input/, `${relativePath} should not parse Claude hook payloads`);
   });
@@ -168,6 +176,22 @@ test("version format validation hooks are wired into templates and local config"
   ].forEach(([relativePath, content]) => {
     assert.match(content, /check-utf8-encoding\.sh/, `${relativePath} should run the UTF-8 validation hook`);
     assert.match(content, /check-version-format\.sh/, `${relativePath} should run the version format validation hook`);
+  });
+
+  [
+    ["templates/.github/hooks/pre-commit", templatePreCommit]
+  ].forEach(([relativePath, content]) => {
+    assert.match(content, /check-version-format\.sh/, `${relativePath} should run the version format validation hook`);
+    assert.doesNotMatch(content, /check-utf8-encoding\.sh/, `${relativePath} should not run the UTF-8 validation hook`);
+  });
+
+  [
+    ["templates/.agents/QUICKSTART.md", templateQuickstart],
+    ["templates/.agents/QUICKSTART.zh-CN.md", templateQuickstartZh],
+    [".agents/QUICKSTART.md", localQuickstart]
+  ].forEach(([relativePath, content]) => {
+    assert.match(content, /git config core\.hooksPath \.github\/hooks/, `${relativePath} should document core.hooksPath setup`);
+    assert.match(content, /\.github\/hooks\/.*pre-commit|pre-commit.*\.github\/hooks\//s, `${relativePath} should explain the shared hook path`);
   });
 
   [
@@ -205,7 +229,6 @@ test("version format validation hook only blocks git commit in PreToolUse mode",
   fs.copyFileSync(".github/hooks/check-version-format.sh", path.join(hooksDir, "check-version-format.sh"));
   fs.copyFileSync(".claude/hooks/check-version-format.sh", path.join(claudeHooksDir, "check-version-format.sh"));
   fs.writeFileSync(path.join(configDir, ".airc.json"), JSON.stringify({ templateVersion: "v1.2.3" }));
-  fs.writeFileSync(path.join(tempRoot, "package.json"), JSON.stringify({ version: "1.2.3" }));
 
   const runClaudeHook = (input) => spawnSync(
     "sh",

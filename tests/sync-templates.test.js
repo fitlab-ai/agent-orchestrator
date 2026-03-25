@@ -258,3 +258,118 @@ test("syncTemplates preserves stale files that match merged glob patterns", asyn
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test("syncTemplates syncs the managed github hook as a single file", async () => {
+  const originalExecSync = childProcess.execSync;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-github-hook-"));
+
+  try {
+    const projectRoot = path.join(tmpDir, "project");
+    const templateRoot = path.join(tmpDir, "template-root");
+
+    fs.mkdirSync(projectRoot, { recursive: true });
+    fs.mkdirSync(templateRoot, { recursive: true });
+
+    writeFile(
+      templateRoot,
+      ".github/hooks/check-version-format.sh",
+      "#!/bin/sh\necho github hook\n"
+    );
+
+    writeJson(projectRoot, ".agents/.airc.json", {
+      project: "demo",
+      org: "acme",
+      language: "en",
+      templateSource: templateRoot,
+      files: {
+        managed: [],
+        merged: [],
+        ejected: []
+      }
+    });
+
+    writeFile(projectRoot, ".github/hooks/custom.sh", "#!/bin/sh\necho keep me\n");
+
+    childProcess.execSync = (command) => {
+      if (command === "git remote get-url origin") {
+        throw new Error("not a git repo");
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    };
+
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
+    const report = syncTemplates(projectRoot);
+
+    assert.ok(
+      report.registryAdded.some(
+        (entry) => entry.entry === ".github/hooks/check-version-format.sh" && entry.list === "managed"
+      )
+    );
+    assert.deepEqual(report.managed.created, [".github/hooks/check-version-format.sh"]);
+    assert.equal(
+      fs.readFileSync(path.join(projectRoot, ".github/hooks/check-version-format.sh"), "utf8"),
+      "#!/bin/sh\necho github hook\n"
+    );
+    assert.notEqual(
+      fs.statSync(path.join(projectRoot, ".github/hooks/check-version-format.sh")).mode & 0o111,
+      0
+    );
+    assert.equal(
+      fs.readFileSync(path.join(projectRoot, ".github/hooks/custom.sh"), "utf8"),
+      "#!/bin/sh\necho keep me\n"
+    );
+  } finally {
+    childProcess.execSync = originalExecSync;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("syncTemplates reports github pre-commit as a merged pending file", async () => {
+  const originalExecSync = childProcess.execSync;
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "ai-collab-sync-github-pre-commit-"));
+
+  try {
+    const projectRoot = path.join(tmpDir, "project");
+    const templateRoot = path.join(tmpDir, "template-root");
+
+    fs.mkdirSync(projectRoot, { recursive: true });
+    fs.mkdirSync(templateRoot, { recursive: true });
+
+    writeFile(templateRoot, ".github/hooks/pre-commit", "#!/bin/sh\n");
+
+    writeJson(projectRoot, ".agents/.airc.json", {
+      project: "demo",
+      org: "acme",
+      language: "en",
+      templateSource: templateRoot,
+      files: {
+        managed: [],
+        merged: [],
+        ejected: []
+      }
+    });
+
+    childProcess.execSync = (command) => {
+      if (command === "git remote get-url origin") {
+        throw new Error("not a git repo");
+      }
+      throw new Error(`Unexpected command: ${command}`);
+    };
+
+    const { syncTemplates } = await loadFreshEsm(".agents/skills/update-agent-infra/scripts/sync-templates.js");
+    const report = syncTemplates(projectRoot);
+
+    assert.ok(
+      report.registryAdded.some(
+        (entry) => entry.entry === ".github/hooks/pre-commit" && entry.list === "merged"
+      )
+    );
+    assert.deepEqual(
+      report.merged.pending.filter((entry) => entry.target === ".github/hooks/pre-commit"),
+      [{ target: ".github/hooks/pre-commit", template: ".github/hooks/pre-commit" }]
+    );
+  } finally {
+    childProcess.execSync = originalExecSync;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
