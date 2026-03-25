@@ -95,10 +95,15 @@ For task workflow, the typical sequence is:
 
 ## Language Conventions
 
+For scenarios not listed in the table below, default to English.
+
 | Context | Language |
 |---------|----------|
 | Code identifiers, docs | English |
 | Git commit messages | English (Conventional Commits) |
+| Task titles & GitHub Issue titles | Follow user's input language |
+| Task workspace artifacts | Follow deployed skill language |
+| Activity Log step names | English (structured identifiers) |
 | Project documentation | English (primary) + Chinese translation |
 | AI responses | Follow user's input language |
 

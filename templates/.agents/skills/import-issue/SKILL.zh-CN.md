@@ -22,6 +22,7 @@ gh issue view <issue-number> --json number,title,body,labels
 ```
 
 提取：issue 编号、标题、描述、标签。
+任务标题直接使用 Issue 的原始标题（保持 Issue 标题的原始语言）。
 
 ### 2. 检查已有任务
 

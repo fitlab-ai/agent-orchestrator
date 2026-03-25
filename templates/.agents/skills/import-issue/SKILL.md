@@ -22,6 +22,7 @@ gh issue view <issue-number> --json number,title,body,labels
 ```
 
 Extract: issue number, title, description, and labels.
+Use the Issue title as-is for the task title (preserve the Issue's original language).
 
 ### 2. Check for an Existing Task
 

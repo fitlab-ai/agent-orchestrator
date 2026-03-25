@@ -13,10 +13,10 @@
 已有评论必须通过 Issues comments API 获取，而不是单独的 PR comments API。
 
 推荐摘要章节：
-- `## Review Summary`
-- `### Key Technical Decisions`
-- `### Review History`
-- `### Test Results`
+- `## 审查摘要`
+- `### 关键技术决策`
+- `### 审查历程`
+- `### 测试结果`
 
 摘要内容规则：
 - 面向 reviewer 编写，而不是面向终端用户

@@ -75,12 +75,16 @@ refactor(module): refactor internal logic
 **语言规范**：
 
 项目代码层面统一使用**英文**，文档提供**多语言版本**（英文为主版本）。
+未在下表中列出的场景，默认使用中文。
 
 | 场景 | 语言 | 说明 |
 |------|------|------|
 | 代码标识符、JSDoc/TSDoc | 英文 | 代码即文档 |
 | CLI 帮助文本、错误信息 | 英文 | 面向所有用户 |
 | Git commit message | 英文 | Conventional Commits 祈使语气 |
+| 任务标题与 GitHub Issue 标题 | 跟随用户输入语言 | 通过 `/create-task` 或 `/import-issue` 创建 |
+| 任务工作区产物 | 跟随已部署的技能语言 | `.agents/workspace/` 文件使用 `.airc.json` 选定的 SKILL.md 语言 |
+| Activity Log 步骤名 | 英文 | 工具链使用的结构化标识符（如 `**Commit** by`） |
 | 项目文档 | 英文（主） + 中文翻译 | 如 `README.md` + `README.zh-CN.md` |
 | AI 回复 | 跟随用户输入语言 | 中文问→中文答 |
 

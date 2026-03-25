@@ -95,10 +95,15 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 
 ## 语言规范
 
+未在下表中列出的场景，默认使用中文。
+
 | 场景 | 语言 |
 |------|------|
 | 代码标识符、文档 | 英文 |
 | Git commit message | 英文 (Conventional Commits) |
+| 任务标题与 GitHub Issue 标题 | 跟随用户输入语言 |
+| 任务工作区产物 | 跟随已部署的技能语言 |
+| Activity Log 步骤名 | 英文（结构化标识符） |
 | 项目文档 | 英文（主） + 中文翻译 |
 | AI 回复 | 跟随用户输入语言 |
 

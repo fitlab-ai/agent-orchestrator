@@ -75,12 +75,16 @@ This project supports Claude Code, Codex, Gemini CLI, OpenCode and other AI tool
 **Language conventions**:
 
 All code-level content uses **English**. Documentation provides **multilingual versions** (English as primary).
+For scenarios not listed in the table below, default to English.
 
 | Context | Language | Notes |
 |---------|----------|-------|
 | Code identifiers, JSDoc/TSDoc | English | Code is documentation |
 | CLI help text, error messages | English | For all users |
 | Git commit messages | English | Conventional Commits imperative mood |
+| Task titles & GitHub Issue titles | Follow user's input language | Created via `/create-task` or `/import-issue` |
+| Task workspace artifacts | Follow deployed skill language | `.agents/workspace/` files use the SKILL.md language selected by `.airc.json` |
+| Activity Log step names | English | Structured identifiers used by tooling (e.g. `**Commit** by`) |
 | Project documentation | English (primary) + Chinese translation | e.g. `README.md` + `README.zh-CN.md` |
 | AI responses | Follow user's input language | Chinese question -> Chinese answer |
 
