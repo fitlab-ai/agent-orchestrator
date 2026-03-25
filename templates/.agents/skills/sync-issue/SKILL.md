@@ -58,6 +58,10 @@ If `pr_number` exists, make sure the PR body contains one of:
 
 > Existing-comment discovery, hidden markers, the artifact timeline, summary comment ordering, and absolute artifact-link rules live in `reference/comment-publish.md`. Read `reference/comment-publish.md` before publishing Issue comments.
 
+> **Shell Safety Rules** (read before publishing comments):
+> 1. `{comment-body}` must be replaced with **actual inline text**. Read the file with the Read tool first, then paste the full content into the heredoc body. **Do NOT** use `$(cat ...)`, `$(< ...)`, `$(...)`, or `${...}` inside `<<'EOF'`. Quoted heredocs suppress all command substitution and variable expansion, so those expressions will be output as literal text.
+> 2. When constructing strings that contain `<!-- -->`, **do NOT use `echo`**. In bash/zsh, `echo` escapes `!` as `\!`, which makes hidden markers visible. Build all comment content with `cat <<'EOF'` heredocs or `printf '%s\n'`.
+
 ### 10. Update Task Status
 
 Get the current time:
@@ -77,6 +81,7 @@ Summarize synced labels, milestone, development linkage, published comments, and
 - The hidden comment marker format must stay `<!-- sync-issue:{task-id}:{file-stem} -->`
 - Use absolute links such as `https://github.com/{owner}/{repo}/commit/{commit-hash}` and `https://github.com/{owner}/{repo}/pull/{pr-number}`
 - Build the artifact timeline from Activity Log order, not a fixed `analysis -> plan -> implementation -> review -> summary` sequence
+- Follow the Step 9 shell safety rules when publishing comments: do not rely on command substitution inside quoted heredocs, and do not use `echo` for HTML comment markers
 
 ## Error Handling
 

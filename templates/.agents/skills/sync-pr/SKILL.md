@@ -39,6 +39,10 @@ If `issue_number` exists, ensure the PR body contains `Closes #{issue-number}` o
 
 > Hidden markers, idempotent summary comment updates, review-history formatting, and comment create/update rules live in `reference/comment-publish.md`. Read `reference/comment-publish.md` before publishing the summary.
 
+> **Shell Safety Rules** (read before publishing comments):
+> 1. `{comment-body}` must be replaced with **actual inline text**. Read the file with the Read tool first, then paste the full content into the heredoc body. **Do NOT** use `$(cat ...)`, `$(< ...)`, `$(...)`, or `${...}` inside `<<'EOF'`. Quoted heredocs suppress all command substitution and variable expansion, so those expressions will be output as literal text.
+> 2. When constructing strings that contain `<!-- -->`, **do NOT use `echo`**. In bash/zsh, `echo` escapes `!` as `\!`, which makes hidden markers visible. Build all comment content with `cat <<'EOF'` heredocs or `printf '%s\n'`.
+
 ### 8. Update Task Status
 
 Get the current time:
@@ -58,6 +62,7 @@ Report the synchronized labels, milestone, development status, summary result, a
 - The hidden summary marker must stay `<!-- sync-pr:{task-id}:summary -->`
 - Keep exactly one summary comment for reviewers
 - If the PR is already closed or merged, report `PR #{number} is closed/merged, metadata sync skipped`
+- Follow the Step 7 shell safety rules when publishing comments: do not rely on command substitution inside quoted heredocs, and do not use `echo` for HTML comment markers
 
 ## Error Handling
 

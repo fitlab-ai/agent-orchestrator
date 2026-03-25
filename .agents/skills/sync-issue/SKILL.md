@@ -58,6 +58,10 @@ grep -rl "^issue_number: {issue-number}$" \
 
 > 已有评论探测、隐藏标记、产物时间线、summary 评论顺序，以及绝对产物链接规则见 `reference/comment-publish.md`。发布 Issue 评论前先读取 `reference/comment-publish.md`。
 
+> **Shell 安全规则**（发布评论前必读）：
+> 1. `{comment-body}` 必须替换为**实际的内联文本**。先用 Read 工具读取文件，再将全文粘贴到 heredoc body 中。**禁止**在 `<<'EOF'` 内部使用 `$(cat ...)`、`$(< ...)`、`$(...)`、`${...}`。带引号 heredoc 会阻止所有命令替换和变量展开，它们会被当作字面文本输出。
+> 2. 构造含 `<!-- -->` 的字符串时，**禁止使用 `echo`**。bash/zsh 中 `echo` 会将 `!` 转义为 `\!`，导致隐藏标识可见。所有评论内容统一使用 `cat <<'EOF'` heredoc 或 `printf '%s\n'` 构造。
+
 ### 10. 更新任务状态
 
 获取当前时间：
@@ -77,6 +81,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - 隐藏评论标记必须保持为 `<!-- sync-issue:{task-id}:{file-stem} -->`
 - 必须使用绝对链接，例如 `https://github.com/{owner}/{repo}/commit/{commit-hash}` 和 `https://github.com/{owner}/{repo}/pull/{pr-number}`
 - 产物时间线按 Activity Log 顺序构建，而不是固定的 `analysis -> plan -> implementation -> review -> summary`
+- 发布评论时遵守步骤 9 的 Shell 安全规则，不要在带引号 heredoc 中依赖命令替换，也不要用 `echo` 构造 HTML 注释标记
 
 ## 错误处理
 

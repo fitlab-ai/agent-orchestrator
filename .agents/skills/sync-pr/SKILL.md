@@ -39,6 +39,10 @@ description: "将任务进度同步到 Pull Request"
 
 > 隐藏标记、幂等 summary 评论更新、review history 格式，以及评论创建/更新规则见 `reference/comment-publish.md`。发布摘要前先读取 `reference/comment-publish.md`。
 
+> **Shell 安全规则**（发布评论前必读）：
+> 1. `{comment-body}` 必须替换为**实际的内联文本**。先用 Read 工具读取文件，再将全文粘贴到 heredoc body 中。**禁止**在 `<<'EOF'` 内部使用 `$(cat ...)`、`$(< ...)`、`$(...)`、`${...}`。带引号 heredoc 会阻止所有命令替换和变量展开，它们会被当作字面文本输出。
+> 2. 构造含 `<!-- -->` 的字符串时，**禁止使用 `echo`**。bash/zsh 中 `echo` 会将 `!` 转义为 `\!`，导致隐藏标识可见。所有评论内容统一使用 `cat <<'EOF'` heredoc 或 `printf '%s\n'` 构造。
+
 ### 8. 更新任务状态
 
 获取当前时间：
@@ -58,6 +62,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - 隐藏 summary 标记必须保持 `<!-- sync-pr:{task-id}:summary -->`
 - 面向 reviewer 只保留一条摘要评论
 - 如果 PR 已关闭或已合并，必须报告 `PR #{number} is closed/merged, metadata sync skipped`
+- 发布摘要时遵守步骤 7 的 Shell 安全规则，不要在带引号 heredoc 中依赖命令替换，也不要用 `echo` 构造 HTML 注释标记
 
 ## 错误处理
 
