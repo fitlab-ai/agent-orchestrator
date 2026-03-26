@@ -95,7 +95,12 @@ refactor(module): refactor internal logic
 **协作配置目录**：
 - `.agents/` - AI 配置和工作流定义（版本控制）
 
-**语言规范**：
+**协作指南**：`.agents/README.md`
+
+**Skill 维护强制要求**：
+- 修改或新增 `.agents/skills/*/SKILL.md` 及其模板前，必须先读取 `.agents/README.md` 中的 “Skill 编写规范” 和 “SKILL.md 体积控制” 章节。
+
+## 语言规范
 
 项目代码层面统一使用**英文**，文档提供**多语言版本**（英文为主版本）。
 未在下表中列出的场景，默认使用中文。
@@ -111,30 +116,5 @@ refactor(module): refactor internal logic
 | 项目文档 | 英文（主） + 中文翻译 | 如 `README.md` + `README.zh-CN.md` |
 | AI 回复 | 跟随用户输入语言 | 中文问→中文答 |
 
-**技术栈**：Shell（POSIX sh）、Node.js（内置测试运行器 `node:test`）、Markdown、TOML、JSON
-
-## Skill 编写规范
-
-编写或维护 `.agents/skills/*/SKILL.md` 及其模板时，步骤编号遵循以下规则：
-
-1. 顶级步骤使用连续整数：`1.`、`2.`、`3.`。
-2. 只有父步骤下的从属动作才使用子步骤：`1.1`、`1.2`、`2.1`。
-3. 同一步中的从属选项、条件分支或并列可能性使用 `a`、`b`、`c` 标记；仅用于步骤内部的子项展开，不用于命名独立的决策路径或输出模板。
-4. 不要使用 `1.5`、`2.5` 这类中间编号；如新增独立步骤，应整体顺延后续编号。
-5. 调整编号时，必须同步更新文中的步骤引用，确保说明、命令和检查点一致。
-6. 长 bash 脚本应从 SKILL.md 提取到同级 `scripts/` 目录中，SKILL.md 只保留单行调用（如 `bash .agents/skills/<skill>/scripts/<script>.sh`）和对脚本职责的概要说明。
-7. 在 SKILL.md 及其 `reference/` 模板中，如需为独立的条件分流、决策路径或输出模板命名，统一使用“场景”命名（例如使用“场景 A”）。
-
-### SKILL.md 体积控制
-
-- SKILL.md 正文控制在约 500 tokens（约 80 行 / 2KB）以内。
-- 超过阈值的内容拆分到同级 `reference/` 目录。
-- 骨架中使用明确导航，例如：`执行此步骤前，先读取 reference/xxx.md。`
-- 长脚本继续放在 `scripts/` 目录，优先执行脚本而不是内联大段 bash。
-- 当 skill 提供双语 `SKILL.md` / `SKILL.zh-CN.md` 时，面向用户的 `reference/` 文件也必须提供对应的双语版本。
-
-<!-- Canonical source: .agents/README.zh-CN.md - keep in sync -->
-
----
-
-**基于标准**: [AGENTS.md](https://agents.md) (Linux Foundation AAIF)
+**提交代码或创建 PR 时**，必须先读取 `.agents/rules/commit-and-pr.md`。
+**执行任务工作流命令时**，必须先读取 `.agents/rules/task-management.md`。

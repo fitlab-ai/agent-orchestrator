@@ -4,7 +4,7 @@ This guide walks you through using multiple AI coding assistants together on a p
 
 ## Prerequisites
 
-- At least one AI coding tool installed (Claude Code, Codex CLI, Gemini CLI, or Cursor)
+- At least one AI coding tool installed (Claude Code, Codex CLI, Gemini CLI, or OpenCode)
 - A project with `.agents/` directory set up (this project)
 - Familiarity with your project's codebase
 
@@ -32,7 +32,7 @@ cp .agents/templates/task.md .agents/workspace/active/task-001.md
 id: task-001
 type: feature          # feature | bugfix | refactor | docs | review
 status: open           # open | in-progress | review | blocked | completed
-assigned_to: claude    # claude | codex | gemini | cursor | human
+assigned_to: claude    # claude | codex | gemini | opencode | human
 ```
 
 3. Describe the task in the body of the document.
@@ -63,7 +63,7 @@ gemini
 #  create a technical design. Define interfaces and outline the approach."
 ```
 
-### Phase 3: Implementation (Recommended: Codex CLI or Cursor)
+### Phase 3: Implementation (Recommended: Codex CLI or OpenCode)
 
 ```bash
 # Switch to Codex CLI for implementation
@@ -91,7 +91,7 @@ claude
 ### Bug Fix
 
 1. **Reproduce & Analyze** (Claude Code): Identify the root cause.
-2. **Implement Fix** (Codex CLI / Cursor): Write the fix and tests.
+2. **Implement Fix** (Codex CLI / OpenCode): Write the fix and tests.
 3. **Review** (Claude Code): Verify the fix is correct and complete.
 4. **Commit**: Create PR with bug fix description.
 
@@ -100,7 +100,7 @@ claude
 cp .agents/templates/task.md .agents/workspace/active/bugfix-001.md
 # Edit the task, then:
 # 1. Use Claude Code to analyze
-# 2. Use Codex/Cursor to fix
+# 2. Use Codex/OpenCode to fix
 # 3. Use Claude Code to review
 ```
 
@@ -119,7 +119,7 @@ cp .agents/templates/review-report.md .agents/workspace/active/review-pr-42.md
 
 1. **Analyze Scope** (Claude Code / Gemini CLI): Map all affected areas.
 2. **Design** (Claude Code): Plan the refactoring approach.
-3. **Implement** (Codex CLI / Cursor): Execute the refactoring.
+3. **Implement** (Codex CLI / OpenCode): Execute the refactoring.
 4. **Verify** (Claude Code): Ensure no regressions, run tests.
 
 ```bash
@@ -156,7 +156,7 @@ Even if you're switching between AIs quickly, a brief handoff note saves time an
 ### 3. Use the Right Tool for the Job
 
 - Complex analysis? Use Claude Code or Gemini CLI.
-- Straightforward implementation? Use Codex CLI or Cursor.
+- Straightforward implementation? Use Codex CLI or OpenCode.
 - Large file review? Use Gemini CLI.
 
 ### 4. Keep Tasks Small

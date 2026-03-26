@@ -73,8 +73,6 @@ test("required template files were migrated into templates/", () => {
     "templates/.agents/workspace/README.zh-CN.md",
     "templates/.github/hooks/check-version-format.sh",
     "templates/.github/hooks/pre-commit",
-    "templates/.claude/CLAUDE.md",
-    "templates/.claude/project-rules.md",
     "templates/.claude/hooks/check-version-format.sh",
     "templates/.claude/settings.json",
     "templates/.claude/commands/init-milestones.md",
@@ -82,21 +80,17 @@ test("required template files were migrated into templates/", () => {
     "templates/.claude/commands/init-labels.md",
     "templates/.claude/commands/init-labels.zh-CN.md",
     "templates/.claude/commands/update-agent-infra.md",
-    "templates/.codex/README.md",
     "templates/.gemini/settings.json",
     "templates/.gemini/commands/_project_/init-milestones.toml",
     "templates/.gemini/commands/_project_/init-milestones.zh-CN.toml",
     "templates/.gemini/commands/_project_/init-labels.toml",
     "templates/.gemini/commands/_project_/init-labels.zh-CN.toml",
     "templates/.gemini/commands/_project_/update-agent-infra.toml",
-    "templates/.opencode/README.md",
-    "templates/.opencode/COMMAND_STYLE_GUIDE.md",
     "templates/.opencode/commands/init-milestones.md",
     "templates/.opencode/commands/init-milestones.zh-CN.md",
     "templates/.opencode/commands/init-labels.md",
     "templates/.opencode/commands/init-labels.zh-CN.md",
     "templates/.opencode/commands/update-agent-infra.md",
-    "templates/AGENTS.md",
     "templates/.gitignore"
   ];
 
@@ -134,6 +128,8 @@ test("update-agent-infra template copies stay in sync with working files", () =>
     .map((templatePath) => [templatePath.replace(/^templates\//, ""), templatePath]);
 
   const syncFiles = [
+    [".agents/QUICKSTART.md", "templates/.agents/QUICKSTART.md"],
+    [".agents/README.md", "templates/.agents/README.md"],
     [".agents/skills/init-labels/SKILL.md", "templates/.agents/skills/init-labels/SKILL.md"],
     [".agents/skills/update-agent-infra/SKILL.md", "templates/.agents/skills/update-agent-infra/SKILL.md"],
     [".agents/skills/update-agent-infra/scripts/package.json", "templates/.agents/skills/update-agent-infra/scripts/package.json"],

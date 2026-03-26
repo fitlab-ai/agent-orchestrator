@@ -1,8 +1,8 @@
-# 项目 - Claude Code 指令
+# agent-infra - AI 开发指南
 
-本仓库使用 agent-infra 进行多 AI 协作基础设施管理。
+本仓库包含 agent-infra 模板和技能仓库，用于多 AI 协作基础设施。
 
-## 快速命令
+## 快速开始命令
 
 ```bash
 # 安装依赖：无需安装，仅使用 Node.js 内置模块
@@ -15,41 +15,37 @@ node --test tests/*.test.js
 # 代码检查：暂未配置 lint 工具
 ```
 
-## 项目结构
-
-```
-├── bin/                           # CLI 可执行文件
-│   └── cli.js                     # 主 CLI（Node.js）
-├── templates/                     # 模板源文件（镜像项目目录结构）
-│   ├── .agents/                   # AI 代理配置模板
-│   ├── .claude/                   # Claude Code 配置模板
-│   ├── .codex/                    # Codex 配置模板
-│   ├── .gemini/                   # Gemini CLI 配置模板
-│   ├── .opencode/                 # OpenCode 配置模板
-│   └── *.md                       # 根级模板文件
-├── .agents/                       # agent-infra 配置与工作区
-│   ├── .airc.json                 # 项目配置
-│   ├── workspace/                 # 任务工作区（已被 git ignore）
-│   ├── skills/                    # 技能仓库
-│   └── workflows/                 # 工作流定义
-├── tests/                         # 测试（Node.js 内置测试运行器）
-├── install.sh                     # 引导安装脚本
-└── package.json                   # npm 测试脚本定义
-```
-
-## 编码规范
+## 编码规范（必须遵守）
 
 - `install.sh` 保持 POSIX sh 兼容，使用 `set -e` 进行错误处理
 - 模板文件使用 `{{project}}` 和 `{{org}}` 作为渲染占位符
 - Markdown 文件提供双语版本（英文为主 + 中文翻译）
 
-### 版权头更新
+### 版权头更新规则
 修改任意带版权头的文件时，必须更新版权年份：
 1. 先运行 `date +%Y` 获取当前年份（不要硬编码）
-2. 更新格式：`2024-2025` -> `2024-2026`（假设当前年份为 2026）
+2. 更新格式示例（假设当前年份为 2026）：
+   - `2024-2025` -> `2024-2026`
+   - `2024` -> `2024-2026`
 
 ### 分支命名
 使用项目前缀：`agent-infra-feature-xxx`、`agent-infra-bugfix-yyy`
+
+## 项目结构
+
+```
+├── bin/                           # CLI 可执行文件
+│   └── cli.js                     # 主 CLI（Node.js）
+├── .agents/                       # AI 协作配置与工作区
+│   ├── .airc.json                 # 项目配置
+│   ├── workspace/                 # 任务工作区
+│   ├── skills/                    # 技能仓库
+│   └── workflows/                 # 工作流定义
+├── templates/                     # 模板源文件（镜像项目目录结构）
+├── tests/                         # 测试（Node.js 内置测试运行器）
+├── install.sh                     # 引导安装脚本
+└── package.json                   # npm 测试脚本定义
+```
 
 ## 测试要求
 
@@ -67,101 +63,58 @@ node --test tests/*.test.js
 ### 提交信息格式（Conventional Commits）
 ```
 <type>(<scope>): <subject>
+
+示例：
+feat(module): add new feature
+fix(module): fix critical bug
+docs(module): update documentation
+refactor(module): refactor internal logic
 ```
+
 - **type**: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`
 - **scope**: 模块名（可省略）
 - **subject**: 英文，简洁祈使语气，不超过 50 字符
 
-### Claude 提交署名
-```
-Co-Authored-By: Claude <noreply@anthropic.com>
-```
-
 ### PR 检查清单
-- [ ] 测试通过
+提交 PR 前必须确保：
+- [ ] 所有测试通过
 - [ ] 代码检查通过
 - [ ] 构建成功
 - [ ] 公共 API 有文档
-- [ ] 版权头年份已更新
-
-## Claude 特定规则
-
-### 关键规则
-1. **禁止自动提交**：绝对不要自动执行 `git commit`/`git add`，提醒用户使用 `/commit`
-2. **版权年份更新**：运行 `date +%Y` 获取当前年份，使用 Edit 工具更新
-3. **任务状态管理**：执行命令后更新 `task.md` 字段
-
-### 重要规则
-4. **任务语义识别**：自动识别用户意图（如"分析 issue 207" -> `/import-issue 207`；"分析任务 TASK-20260306-143022" -> `/analyze-task TASK-20260306-143022`）
-5. **PR 规范**：创建 PR 时添加生成标记
-
-**详细规则**：`.claude/project-rules.md`
-
-## 工具使用偏好
-
-| 操作 | 推荐 | 不推荐 |
-|------|------|--------|
-| 文件搜索 | `Glob` | `find`、`ls` |
-| 内容搜索 | `Grep` | `grep`、`rg` |
-| 读取文件 | `Read` | `cat`、`head`、`tail` |
-| 编辑文件 | `Edit` | `sed`、`awk` |
-| 创建文件 | `Write` | `echo >`、`cat <<EOF` |
-
-**Bash 仅用于**：Git 操作、构建/测试、系统信息查询
-
-## Slash Commands
-
-可用命令从 `.claude/commands/` 自动发现。在提示符中输入 `/` 查看完整列表和描述。
-
-任务工作流的典型顺序：
-`/create-task` -> `/analyze-task` -> `/plan-task` -> `/implement-task` -> `/review-task` -> `/complete-task`
-
-## 语言规范
-
-未在下表中列出的场景，默认使用中文。
-
-| 场景 | 语言 |
-|------|------|
-| 代码标识符、文档 | 英文 |
-| Git commit message | 英文 (Conventional Commits) |
-| 任务标题与 GitHub Issue 标题 | 跟随用户输入语言 |
-| 任务工作区产物 | 跟随已部署的技能语言 |
-| Activity Log 步骤名 | 英文（结构化标识符） |
-| 项目文档 | 英文（主） + 中文翻译 |
-| AI 回复 | 跟随用户输入语言 |
-
-## 多 AI 协作
-
-本项目支持 Claude Code、Codex、Gemini CLI、OpenCode。
-
-- `.agents/` - 共享协作配置
-- `.agents/workspace/` - 任务工作区（已被 git ignore）
-
-**协作指南**：`.agents/README.md`
-
-## Skill 编写规范
-
-编写或维护 `.agents/skills/*/SKILL.md` 及其模板时，步骤编号遵循以下规则：
-
-1. 顶级步骤使用连续整数：`1.`、`2.`、`3.`。
-2. 只有父步骤下的从属动作才使用子步骤：`1.1`、`1.2`、`2.1`。
-3. 同一步中的从属选项、条件分支或并列可能性使用 `a`、`b`、`c` 标记；仅用于步骤内部的子项展开，不用于命名独立的决策路径或输出模板。
-4. 不要使用 `1.5`、`2.5` 这类中间编号；如新增独立步骤，应整体顺延后续编号。
-5. 调整编号时，必须同步更新文中的步骤引用，确保说明、命令和检查点一致。
-6. 长 bash 脚本应从 SKILL.md 提取到同级 `scripts/` 目录中，SKILL.md 只保留单行调用（如 `bash .agents/skills/<skill>/scripts/<script>.sh`）和对脚本职责的概要说明。
-7. 在 SKILL.md 及其 `reference/` 模板中，如需为独立的条件分流、决策路径或输出模板命名，统一使用“场景”命名（例如使用“场景 A”）。
-
-### SKILL.md 体积控制
-
-- SKILL.md 正文控制在约 500 tokens（约 80 行 / 2KB）以内。
-- 超过阈值的内容拆分到同级 `reference/` 目录。
-- 骨架中使用明确导航，例如：`执行此步骤前，先读取 reference/xxx.md。`
-- 长脚本继续放在 `scripts/` 目录，优先执行脚本而不是内联大段 bash。
-- 当 skill 提供双语 `SKILL.md` / `SKILL.zh-CN.md` 时，面向用户的 `reference/` 文件也必须提供对应的双语版本。
-
-<!-- Canonical source: .agents/README.zh-CN.md - keep in sync -->
+- [ ] 版权头年份已更新（如适用）
 
 ## 安全注意事项
 
-- 不要提交：`.env`、credentials、密钥
-- 安全问题请按 `SECURITY.md` 指引
+- 不要提交敏感文件：`.env`, `credentials.json`, 密钥等
+- 安全问题请按 `SECURITY.md` 指引私下提交（不要公开 Issue）
+
+## 多 AI 协作支持
+
+本项目支持 Claude Code、Codex、Gemini CLI、OpenCode 等多个 AI 工具协同工作。
+
+**协作配置目录**：
+- `.agents/` - AI 配置和工作流定义（版本控制）
+
+**协作指南**：`.agents/README.md`
+
+**Skill 维护强制要求**：
+- 修改或新增 `.agents/skills/*/SKILL.md` 及其模板前，必须先读取 `.agents/README.md` 中的 “Skill 编写规范” 和 “SKILL.md 体积控制” 章节。
+
+## 语言规范
+
+项目代码层面统一使用**英文**，文档提供**多语言版本**（英文为主版本）。
+未在下表中列出的场景，默认使用中文。
+
+| 场景 | 语言 | 说明 |
+|------|------|------|
+| 代码标识符、JSDoc/TSDoc | 英文 | 代码即文档 |
+| CLI 帮助文本、错误信息 | 英文 | 面向所有用户 |
+| Git commit message | 英文 | Conventional Commits 祈使语气 |
+| 任务标题与 GitHub Issue 标题 | 跟随用户输入语言 | 通过 `/create-task` 或 `/import-issue` 创建 |
+| 任务工作区产物 | 跟随已部署的技能语言 | `.agents/workspace/` 文件使用 `.airc.json` 选定的 SKILL.md 语言 |
+| Activity Log 步骤名 | 英文 | 工具链使用的结构化标识符（如 `**Commit** by`） |
+| 项目文档 | 英文（主） + 中文翻译 | 如 `README.md` + `README.zh-CN.md` |
+| AI 回复 | 跟随用户输入语言 | 中文问→中文答 |
+
+**提交代码或创建 PR 时**，必须先读取 `.agents/rules/commit-and-pr.md`。
+**执行任务工作流命令时**，必须先读取 `.agents/rules/task-management.md`。

@@ -4,7 +4,7 @@
 
 ## 前提条件
 
-- 至少安装一个 AI 编程工具（Claude Code、Codex CLI、Gemini CLI 或 Cursor）
+- 至少安装一个 AI 编程工具（Claude Code、Codex CLI、Gemini CLI 或 OpenCode）
 - 项目已设置 `.agents/` 目录（本项目已就绪）
 - 熟悉你的项目代码库
 
@@ -23,7 +23,7 @@ git config core.hooksPath .github/hooks
 1. 将任务模板复制到活跃工作区：
 
 ```bash
-cp .agents/templates/task.zh-CN.md .agents/workspace/active/task-001.md
+cp .agents/templates/task.md .agents/workspace/active/task-001.md
 ```
 
 2. 填写任务元数据：
@@ -32,7 +32,7 @@ cp .agents/templates/task.zh-CN.md .agents/workspace/active/task-001.md
 id: task-001
 type: feature          # feature | bugfix | refactor | docs | review
 status: open           # open | in-progress | review | blocked | completed
-assigned_to: claude    # claude | codex | gemini | cursor | human
+assigned_to: claude    # claude | codex | gemini | opencode | human
 ```
 
 3. 在文档正文中描述任务。
@@ -63,7 +63,7 @@ gemini
 #  创建技术设计方案。定义接口并概述实现思路。"
 ```
 
-### 阶段 3：实现（推荐：Codex CLI 或 Cursor）
+### 阶段 3：实现（推荐：Codex CLI 或 OpenCode）
 
 ```bash
 # 切换到 Codex CLI 进行实现
@@ -91,16 +91,16 @@ claude
 ### 缺陷修复
 
 1. **复现和分析**（Claude Code）：识别根本原因。
-2. **实现修复**（Codex CLI / Cursor）：编写修复代码和测试。
+2. **实现修复**（Codex CLI / OpenCode）：编写修复代码和测试。
 3. **审查**（Claude Code）：验证修复是否正确和完整。
 4. **提交**：创建包含缺陷修复描述的 PR。
 
 ```bash
 # 快速缺陷修复工作流
-cp .agents/templates/task.zh-CN.md .agents/workspace/active/bugfix-001.md
+cp .agents/templates/task.md .agents/workspace/active/bugfix-001.md
 # 编辑任务，然后：
 # 1. 使用 Claude Code 分析
-# 2. 使用 Codex/Cursor 修复
+# 2. 使用 Codex/OpenCode 修复
 # 3. 使用 Claude Code 审查
 ```
 
@@ -111,7 +111,7 @@ cp .agents/templates/task.zh-CN.md .agents/workspace/active/bugfix-001.md
 3. **报告**：从模板生成审查报告。
 
 ```bash
-cp .agents/templates/review-report.zh-CN.md .agents/workspace/active/review-pr-42.md
+cp .agents/templates/review-report.md .agents/workspace/active/review-pr-42.md
 # 使用 Claude Code 填写审查内容
 ```
 
@@ -119,12 +119,12 @@ cp .agents/templates/review-report.zh-CN.md .agents/workspace/active/review-pr-4
 
 1. **分析范围**（Claude Code / Gemini CLI）：映射所有受影响区域。
 2. **设计**（Claude Code）：规划重构方案。
-3. **实现**（Codex CLI / Cursor）：执行重构。
+3. **实现**（Codex CLI / OpenCode）：执行重构。
 4. **验证**（Claude Code）：确保没有回归问题，运行测试。
 
 ```bash
-cp .agents/templates/task.zh-CN.md .agents/workspace/active/refactor-001.md
-# 按照 .agents/workflows/refactoring.zh-CN.yaml 中的重构工作流执行
+cp .agents/templates/task.md .agents/workspace/active/refactor-001.md
+# 按照 .agents/workflows/refactoring.yaml 中的重构工作流执行
 ```
 
 ## 创建交接文档
@@ -132,7 +132,7 @@ cp .agents/templates/task.zh-CN.md .agents/workspace/active/refactor-001.md
 在 AI 工具之间切换时，创建交接文档：
 
 ```bash
-cp .agents/templates/handoff.zh-CN.md .agents/workspace/active/handoff-task-001-phase2.md
+cp .agents/templates/handoff.md .agents/workspace/active/handoff-task-001-phase2.md
 ```
 
 填写：
@@ -156,7 +156,7 @@ cp .agents/templates/handoff.zh-CN.md .agents/workspace/active/handoff-task-001-
 ### 3. 选择合适的工具
 
 - 复杂分析？使用 Claude Code 或 Gemini CLI。
-- 直接的实现工作？使用 Codex CLI 或 Cursor。
+- 直接的实现工作？使用 Codex CLI 或 OpenCode。
 - 大文件审查？使用 Gemini CLI。
 
 ### 4. 保持任务小而精
