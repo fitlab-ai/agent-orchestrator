@@ -71,6 +71,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - `current_step`：implementation
 - `assigned_to`：{当前代理}
 - `updated_at`：{当前时间}
+- 审查 `## 需求` 段落，仅把本轮已由代码实现且有测试通过支撑的条目从 `- [ ]` 勾为 `- [x]`
 - 记录 Round `{implementation-round}` 的 `{implementation-artifact}`
 - 追加：
   `- {yyyy-MM-dd HH:mm:ss} — **Implementation (Round {N})** by {agent} — Code implemented, {n} files modified, {n} tests passed → {implementation-artifact}`
