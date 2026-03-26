@@ -1,6 +1,6 @@
 # Multi-AI Collaboration Guide
 
-This project supports collaboration across multiple AI coding assistants, including Claude Code, OpenAI Codex CLI, Gemini CLI, Cursor, and others.
+This project supports collaboration across multiple AI coding assistants, including Claude Code, OpenAI Codex CLI, Gemini CLI, OpenCode, and others.
 
 ## Dual-Config Architecture
 
@@ -8,10 +8,10 @@ Different AI tools read configuration from different locations:
 
 | AI Tool | Primary Config | Fallback |
 |---------|---------------|----------|
-| Claude Code | `.claude/` (CLAUDE.md, commands/, settings/) | - |
+| Claude Code | `.claude/` (CLAUDE.md, commands/, settings.json) | - |
 | OpenAI Codex CLI | `AGENTS.md` | - |
 | Gemini CLI | `AGENTS.md` | - |
-| Cursor | `.cursorrules` or `.cursor/rules/` | `AGENTS.md` |
+| OpenCode | `AGENTS.md` | - |
 | Other AI Tools | `AGENTS.md` | Project README |
 
 - **Claude Code** uses its dedicated `.claude/` directory for project instructions, slash commands, and settings.
@@ -23,10 +23,8 @@ This dual-config approach ensures every AI tool receives appropriate project con
 
 ```
 .agents/                        # AI collaboration config (version-controlled)
-  README.md                     # This file (English)
-  README.zh-CN.md               # Chinese version
+  README.md                     # Collaboration guide
   QUICKSTART.md                 # Quick start guide
-  QUICKSTART.zh-CN.md           # Quick start guide (Chinese)
   templates/                    # Task and document templates
     task.md                     # Task template
     handoff.md                  # AI-to-AI handoff template
@@ -45,7 +43,7 @@ This dual-config approach ensures every AI tool receives appropriate project con
 .claude/                        # Claude Code specific config
   CLAUDE.md                     # Project instructions for Claude
   commands/                     # Slash commands
-  settings/                     # Claude settings
+  settings.json                 # Claude settings
 ```
 
 ## Collaboration Model
@@ -76,21 +74,21 @@ When one AI completes a phase, it produces a **handoff document** (see `.agents/
 
 Each AI tool has different strengths. Use them accordingly:
 
-| Capability | Claude Code | Codex CLI | Gemini CLI | Cursor |
-|-----------|-------------|-----------|------------|--------|
+| Capability | Claude Code | Codex CLI | Gemini CLI | OpenCode |
+|-----------|-------------|-----------|------------|----------|
 | Codebase analysis | Excellent | Good | Excellent | Good |
-| Code review | Excellent | Good | Good | Fair |
+| Code review | Excellent | Good | Good | Good |
 | Implementation | Good | Excellent | Good | Excellent |
-| Large context | Good | Fair | Excellent | Good |
-| Refactoring | Good | Good | Good | Excellent |
-| Documentation | Excellent | Good | Good | Fair |
+| Large context | Good | Fair | Excellent | Fair |
+| Refactoring | Good | Good | Good | Good |
+| Documentation | Excellent | Good | Good | Good |
 
 ### Recommended Assignments
 
 - **Analysis & Review** - Claude Code (strong reasoning, thorough exploration)
-- **Implementation** - Codex CLI or Cursor (fast code generation, inline editing)
+- **Implementation** - Codex CLI or OpenCode (fast code generation, command-driven editing)
 - **Large Context Tasks** - Gemini CLI (large context window for cross-file analysis)
-- **Quick Edits** - Cursor (IDE integration, fast iteration)
+- **Command-Driven Iteration** - OpenCode (workflow-friendly TUI execution)
 
 ## Quick Start
 
@@ -118,10 +116,11 @@ When writing or updating `.agents/skills/*/SKILL.md` files and their templates, 
 
 1. Use consecutive integers for top-level steps: `1.`, `2.`, `3.`.
 2. Use nested numbering only for child actions that belong to a parent step: `1.1`, `1.2`, `2.1`.
-3. Use `a`, `b`, and `c` markers for branches, conditions, or alternative paths within the same step.
+3. Use `a`, `b`, and `c` markers for branches, conditions, or alternative paths within the same step; keep them scoped to child options rather than standalone decision tracks or output templates.
 4. Do not use intermediate numbers such as `1.5` or `2.5`; if a new standalone step is needed, renumber the following top-level steps.
 5. When renumbering, update every in-document step reference so the instructions remain accurate.
 6. Extract long bash scripts into a sibling `scripts/` directory; the SKILL.md should contain only a single-line invocation (e.g., `bash .agents/skills/<skill>/scripts/<script>.sh`) and a brief summary of the script's responsibilities.
+7. In SKILL.md files and their `reference/` templates, use “Scenario” naming for standalone condition branches, decision paths, or output templates (for example, “Scenario A”).
 
 ### SKILL.md Size Control
 

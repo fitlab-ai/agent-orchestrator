@@ -1,3 +1,8 @@
 {
-  "theme": "Default"
+  "theme": "Default",
+  "context": {
+    "fileName": [
+      "AGENTS.md"
+    ]
+  }
 }

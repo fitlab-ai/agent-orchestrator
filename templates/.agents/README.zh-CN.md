@@ -1,6 +1,6 @@
 # 多 AI 协作指南
 
-本项目支持多个 AI 编程助手协同工作，包括 Claude Code、OpenAI Codex CLI、Gemini CLI、Cursor 等。
+本项目支持多个 AI 编程助手协同工作，包括 Claude Code、OpenAI Codex CLI、Gemini CLI、OpenCode 等。
 
 ## 双配置架构
 
@@ -8,10 +8,10 @@
 
 | AI 工具 | 主要配置 | 备选配置 |
 |---------|---------|---------|
-| Claude Code | `.claude/`（CLAUDE.md、commands/、settings/） | - |
+| Claude Code | `.claude/`（CLAUDE.md、commands/、settings.json） | - |
 | OpenAI Codex CLI | `AGENTS.md` | - |
 | Gemini CLI | `AGENTS.md` | - |
-| Cursor | `.cursorrules` 或 `.cursor/rules/` | `AGENTS.md` |
+| OpenCode | `AGENTS.md` | - |
 | 其他 AI 工具 | `AGENTS.md` | 项目 README |
 
 - **Claude Code** 使用专属的 `.claude/` 目录存放项目指令、斜杠命令和设置。
@@ -23,10 +23,8 @@
 
 ```
 .agents/                        # AI 协作配置（版本控制）
-  README.md                     # 本文件（英文）
-  README.zh-CN.md               # 中文版本
+  README.md                     # 协作指南
   QUICKSTART.md                 # 快速入门指南
-  QUICKSTART.zh-CN.md           # 快速入门指南（中文）
   templates/                    # 任务和文档模板
     task.md                     # 任务模板
     handoff.md                  # AI 间交接模板
@@ -45,7 +43,7 @@
 .claude/                        # Claude Code 专属配置
   CLAUDE.md                     # Claude 项目指令
   commands/                     # 斜杠命令
-  settings/                     # Claude 设置
+  settings.json                 # Claude 设置
 ```
 
 ## 协作模型
@@ -76,26 +74,26 @@
 
 每个 AI 工具有不同的优势，请据此分配任务：
 
-| 能力 | Claude Code | Codex CLI | Gemini CLI | Cursor |
-|-----|-------------|-----------|------------|--------|
+| 能力 | Claude Code | Codex CLI | Gemini CLI | OpenCode |
+|-----|-------------|-----------|------------|----------|
 | 代码库分析 | 优秀 | 良好 | 优秀 | 良好 |
-| 代码审查 | 优秀 | 良好 | 良好 | 一般 |
+| 代码审查 | 优秀 | 良好 | 良好 | 良好 |
 | 代码实现 | 良好 | 优秀 | 良好 | 优秀 |
-| 大上下文处理 | 良好 | 一般 | 优秀 | 良好 |
-| 重构 | 良好 | 良好 | 良好 | 优秀 |
-| 文档编写 | 优秀 | 良好 | 良好 | 一般 |
+| 大上下文处理 | 良好 | 一般 | 优秀 | 一般 |
+| 重构 | 良好 | 良好 | 良好 | 良好 |
+| 文档编写 | 优秀 | 良好 | 良好 | 良好 |
 
 ### 推荐分配
 
 - **分析和审查** - Claude Code（推理能力强，探索全面）
-- **代码实现** - Codex CLI 或 Cursor（代码生成快，内联编辑）
+- **代码实现** - Codex CLI 或 OpenCode（代码生成快，命令式工作流顺手）
 - **大上下文任务** - Gemini CLI（大上下文窗口，适合跨文件分析）
-- **快速编辑** - Cursor（IDE 集成，快速迭代）
+- **命令式迭代** - OpenCode（适合按工作流连续推进）
 
 ## 快速入门
 
-1. **阅读快速入门指南**：参见 `QUICKSTART.zh-CN.md` 获取分步说明。
-2. **创建任务**：将 `.agents/templates/task.zh-CN.md` 复制到 `.agents/workspace/active/`。
+1. **阅读快速入门指南**：参见 `QUICKSTART.md` 获取分步说明。
+2. **创建任务**：将 `.agents/templates/task.md` 复制到 `.agents/workspace/active/`。
 3. **分配给 AI**：更新任务元数据中的 `assigned_to` 字段。
 4. **执行工作流**：按照 `.agents/workflows/` 中相应的工作流执行。
 5. **交接**：切换 AI 时，从模板创建交接文档。
@@ -118,10 +116,11 @@
 
 1. 顶级步骤使用连续整数：`1.`、`2.`、`3.`。
 2. 只有父步骤下的从属动作才使用子步骤：`1.1`、`1.2`、`2.1`。
-3. 同一步中的分支、条件或多种可能性使用 `a`、`b`、`c` 标记。
+3. 同一步中的从属选项、条件分支或并列可能性使用 `a`、`b`、`c` 标记；仅用于步骤内部的子项展开，不用于命名独立的决策路径或输出模板。
 4. 不要使用 `1.5`、`2.5` 这类中间编号；如新增独立步骤，应整体顺延后续编号。
 5. 调整编号时，必须同步更新文中的步骤引用，确保说明、命令和检查点一致。
 6. 长 bash 脚本应从 SKILL.md 提取到同级 `scripts/` 目录中，SKILL.md 只保留单行调用（如 `bash .agents/skills/<skill>/scripts/<script>.sh`）和对脚本职责的概要说明。
+7. 在 SKILL.md 及其 `reference/` 模板中，如需为独立的条件分流、决策路径或输出模板命名，统一使用“场景”命名（例如使用“场景 A”）。
 
 ### SKILL.md 体积控制
 

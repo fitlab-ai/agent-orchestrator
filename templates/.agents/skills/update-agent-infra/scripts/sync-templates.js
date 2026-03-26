@@ -22,6 +22,8 @@ import { fileURLToPath } from 'node:url';
 const DEFAULTS = {
   "files": {
     "managed": [
+      ".agents/QUICKSTART.md",
+      ".agents/README.md",
       ".agents/skills/",
       ".agents/templates/",
       ".agents/workflows/",
@@ -37,22 +39,14 @@ const DEFAULTS = {
       "**/test-integration.*",
       "**/test.*",
       "**/upgrade-dependency.*",
-      ".agents/QUICKSTART.md",
-      ".agents/README.md",
       ".agents/skills/release/SKILL.*",
       ".agents/skills/test-integration/SKILL.*",
       ".agents/skills/test/SKILL.*",
       ".agents/skills/upgrade-dependency/SKILL.*",
-      ".claude/CLAUDE.md",
-      ".claude/project-rules.md",
       ".claude/settings.json",
-      ".codex/README.md",
       ".gemini/settings.json",
       ".github/hooks/pre-commit",
-      ".gitignore",
-      ".opencode/COMMAND_STYLE_GUIDE.md",
-      ".opencode/README.md",
-      "AGENTS.md"
+      ".gitignore"
     ],
     "ejected": []
   }
