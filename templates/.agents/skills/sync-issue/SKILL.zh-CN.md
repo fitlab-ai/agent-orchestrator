@@ -5,7 +5,7 @@ description: "将任务进度同步到 GitHub Issue"
 
 # 同步进度到 Issue
 
-把任务状态、交付摘要和产物发布时间线同步到关联的 GitHub Issue。
+把任务状态、摘要评论和产物发布时间线同步到关联的 GitHub Issue。
 
 ## 执行流程
 
@@ -35,34 +35,30 @@ grep -rl "^issue_number: {issue-number}$" \
 
 读取最高轮次的 `analysis.md` / `analysis-r{N}.md`、`plan.md` / `plan-r{N}.md`，以及仍然存在的实现、修复、审查产物。
 
-### 5. 探测交付状态
-
-> 交付模式探测、受保护分支检查、PR 状态判断、绝对 commit/PR 链接，以及完成/PR 阶段/开发中模式矩阵见 `reference/delivery-detection.md`。汇总交付状态前先读取 `reference/delivery-detection.md`。
-
-### 6. 同步 Labels 和 Issue Type
+### 5. 同步 Labels 和 Issue Type
 
 > label 初始化、`status:` 替换规则、`in:` label 发现，以及 `issue-types` 映射逻辑见 `reference/label-sync.md`。编辑 Issue 元数据前先读取 `reference/label-sync.md`。
 
-### 7. 同步 Development 关联
+### 6. 同步 Development 关联
 
 如果存在 `pr_number`，确保 PR 正文包含以下任一项：
 - `Closes #{issue-number}`
 - `Fixes #{issue-number}`
 - `Resolves #{issue-number}`
 
-### 8. 同步里程碑
+### 7. 同步里程碑
 
 > milestone 继承、版本分支推断和 `General Backlog` 回退规则见 `reference/milestone-sync.md`。编辑 Issue milestone 前先读取 `reference/milestone-sync.md`。
 
-### 9. 发布上下文产物
+### 8. 发布上下文产物
 
-> 已有评论探测、隐藏标记、产物时间线、summary 评论顺序，以及绝对产物链接规则见 `reference/comment-publish.md`。发布 Issue 评论前先读取 `reference/comment-publish.md`。
+> 已有评论探测、隐藏标记、产物时间线和 summary 评论顺序见 `reference/comment-publish.md`。发布 Issue 评论前先读取 `reference/comment-publish.md`。
 
 > **Shell 安全规则**（发布评论前必读）：
 > 1. `{comment-body}` 必须替换为**实际的内联文本**。先用 Read 工具读取文件，再将全文粘贴到 heredoc body 中。**禁止**在 `<<'EOF'` 内部使用 `$(cat ...)`、`$(< ...)`、`$(...)`、`${...}`。带引号 heredoc 会阻止所有命令替换和变量展开，它们会被当作字面文本输出。
 > 2. 构造含 `<!-- -->` 的字符串时，**禁止使用 `echo`**。bash/zsh 中 `echo` 会将 `!` 转义为 `\!`，导致隐藏标识可见。所有评论内容统一使用 `cat <<'EOF'` heredoc 或 `printf '%s\n'` 构造。
 
-### 10. 更新任务状态
+### 9. 更新任务状态
 
 获取当前时间：
 
@@ -72,16 +68,15 @@ date "+%Y-%m-%d %H:%M:%S"
 
 更新 task.md 中的 `last_synced_at`，并追加 Sync to Issue 的 Activity Log。
 
-### 11. 告知用户
+### 10. 告知用户
 
 汇总已同步的 labels、milestone、development 关联、已发布评论，并给出 Issue URL。
 
 ## 注意事项
 
 - 隐藏评论标记必须保持为 `<!-- sync-issue:{task-id}:{file-stem} -->`
-- 必须使用绝对链接，例如 `https://github.com/{owner}/{repo}/commit/{commit-hash}` 和 `https://github.com/{owner}/{repo}/pull/{pr-number}`
 - 产物时间线按 Activity Log 顺序构建，而不是固定的 `analysis -> plan -> implementation -> review -> summary`
-- 发布评论时遵守步骤 9 的 Shell 安全规则，不要在带引号 heredoc 中依赖命令替换，也不要用 `echo` 构造 HTML 注释标记
+- 发布评论时遵守步骤 8 的 Shell 安全规则，不要在带引号 heredoc 中依赖命令替换，也不要用 `echo` 构造 HTML 注释标记
 
 ## 错误处理
 

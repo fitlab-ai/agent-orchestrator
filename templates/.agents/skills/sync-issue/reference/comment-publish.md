@@ -81,8 +81,4 @@ EOF
 )"
 ```
 
-Required link formats:
-- `https://github.com/{owner}/{repo}/commit/{commit-hash}`
-- `https://github.com/{owner}/{repo}/pull/{pr-number}`
-
 Do not fall back to a fixed `analysis -> plan -> implementation -> review -> summary` order.

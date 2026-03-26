@@ -81,8 +81,4 @@ EOF
 )"
 ```
 
-必须使用以下绝对链接格式：
-- `https://github.com/{owner}/{repo}/commit/{commit-hash}`
-- `https://github.com/{owner}/{repo}/pull/{pr-number}`
-
 不要回退到固定的 `analysis -> plan -> implementation -> review -> summary` 顺序。

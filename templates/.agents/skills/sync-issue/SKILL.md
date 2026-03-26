@@ -5,7 +5,7 @@ description: "Sync task progress to a GitHub Issue"
 
 # Sync Progress to Issue
 
-Sync the task state, delivery summary, and published artifacts to the related GitHub Issue.
+Sync the task state, summary comment, and published artifacts to the related GitHub Issue.
 
 ## Execution Flow
 
@@ -35,34 +35,30 @@ Extract `issue_number`, `type`, task title, status, `current_step`, and timestam
 
 Read the highest-round `analysis.md` / `analysis-r{N}.md`, `plan.md` / `plan-r{N}.md`, and the current implementation, refinement, and review artifacts that still exist.
 
-### 5. Detect Delivery Status
-
-> Delivery-mode detection, protected-branch checks, PR-state rules, absolute commit/PR links, and the completed/PR/in-development mode matrix live in `reference/delivery-detection.md`. Read `reference/delivery-detection.md` before summarizing delivery status.
-
-### 6. Sync Labels and Issue Type
+### 5. Sync Labels and Issue Type
 
 > Label initialization, `status:` replacement rules, `in:` label discovery, and the `issue-types` mapping logic live in `reference/label-sync.md`. Read `reference/label-sync.md` before editing Issue metadata.
 
-### 7. Sync Development Linking
+### 6. Sync Development Linking
 
 If `pr_number` exists, make sure the PR body contains one of:
 - `Closes #{issue-number}`
 - `Fixes #{issue-number}`
 - `Resolves #{issue-number}`
 
-### 8. Sync the Milestone
+### 7. Sync the Milestone
 
 > Milestone inheritance, line-branch inference, and `General Backlog` fallback rules live in `reference/milestone-sync.md`. Read `reference/milestone-sync.md` before editing the Issue milestone.
 
-### 9. Publish Context Artifacts
+### 8. Publish Context Artifacts
 
-> Existing-comment discovery, hidden markers, the artifact timeline, summary comment ordering, and absolute artifact-link rules live in `reference/comment-publish.md`. Read `reference/comment-publish.md` before publishing Issue comments.
+> Existing-comment discovery, hidden markers, the artifact timeline, and summary comment ordering live in `reference/comment-publish.md`. Read `reference/comment-publish.md` before publishing Issue comments.
 
 > **Shell Safety Rules** (read before publishing comments):
 > 1. `{comment-body}` must be replaced with **actual inline text**. Read the file with the Read tool first, then paste the full content into the heredoc body. **Do NOT** use `$(cat ...)`, `$(< ...)`, `$(...)`, or `${...}` inside `<<'EOF'`. Quoted heredocs suppress all command substitution and variable expansion, so those expressions will be output as literal text.
 > 2. When constructing strings that contain `<!-- -->`, **do NOT use `echo`**. In bash/zsh, `echo` escapes `!` as `\!`, which makes hidden markers visible. Build all comment content with `cat <<'EOF'` heredocs or `printf '%s\n'`.
 
-### 10. Update Task Status
+### 9. Update Task Status
 
 Get the current time:
 
@@ -72,16 +68,15 @@ date "+%Y-%m-%d %H:%M:%S"
 
 Update `last_synced_at` in task.md and append the Sync to Issue Activity Log entry.
 
-### 11. Inform User
+### 10. Inform User
 
 Summarize synced labels, milestone, development linkage, published comments, and include the Issue URL.
 
 ## Notes
 
 - The hidden comment marker format must stay `<!-- sync-issue:{task-id}:{file-stem} -->`
-- Use absolute links such as `https://github.com/{owner}/{repo}/commit/{commit-hash}` and `https://github.com/{owner}/{repo}/pull/{pr-number}`
 - Build the artifact timeline from Activity Log order, not a fixed `analysis -> plan -> implementation -> review -> summary` sequence
-- Follow the Step 9 shell safety rules when publishing comments: do not rely on command substitution inside quoted heredocs, and do not use `echo` for HTML comment markers
+- Follow the Step 8 shell safety rules when publishing comments: do not rely on command substitution inside quoted heredocs, and do not use `echo` for HTML comment markers
 
 ## Error Handling
 

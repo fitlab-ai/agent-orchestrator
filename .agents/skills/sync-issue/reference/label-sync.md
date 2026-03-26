@@ -24,12 +24,10 @@ gh issue edit {issue-number} --add-label "{status-label}"
 
 | 条件 | 操作 |
 |---|---|
+| 任务位于 `completed/` 目录下 | 不新增 `status:` label |
 | 任务位于 `blocked/` 目录下 | 添加 `status: blocked` |
-| 场景 A：已完成 | 不新增 `status:` label |
-| 场景 B：PR 状态为 `MERGED` | 不新增 `status:` label |
-| 场景 B：PR 状态为 `OPEN` | 添加 `status: in-progress` |
-| 场景 C + `current_step` ∈ {`requirement-analysis`, `technical-design`} | 添加 `status: pending-design-work` |
-| 场景 C + `current_step` ∈ {`implementation`, `code-review`, `refinement`} | 添加 `status: in-progress` |
+| `current_step` ∈ {`requirement-analysis`, `technical-design`} | 添加 `status: pending-design-work` |
+| `current_step` ∈ {`implementation`, `code-review`, `refinement`} | 添加 `status: in-progress` |
 
 `in:` label 工作流：
 
