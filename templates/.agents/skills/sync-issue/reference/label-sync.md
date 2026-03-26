@@ -24,6 +24,7 @@ Status decision table:
 
 | Condition | Action |
 |---|---|
+| Issue is closed (`state = CLOSED`) | add no new `status:` label |
 | task lives under `completed/` | add no new `status:` label |
 | task lives under `blocked/` | add `status: blocked` |
 | `current_step` ∈ {`requirement-analysis`, `technical-design`} | add `status: pending-design-work` |

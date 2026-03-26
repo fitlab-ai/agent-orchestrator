@@ -24,6 +24,7 @@ gh issue edit {issue-number} --add-label "{status-label}"
 
 | 条件 | 操作 |
 |---|---|
+| Issue 已关闭（`state = CLOSED`） | 不新增 `status:` label |
 | 任务位于 `completed/` 目录下 | 不新增 `status:` label |
 | 任务位于 `blocked/` 目录下 | 添加 `status: blocked` |
 | `current_step` ∈ {`requirement-analysis`, `technical-design`} | 添加 `status: pending-design-work` |
