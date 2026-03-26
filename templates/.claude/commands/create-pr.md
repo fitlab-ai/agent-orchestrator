@@ -1,6 +1,6 @@
 ---
 description: "Create a Pull Request to a target branch"
-usage: "/create-pr [target-branch]"
+usage: "/create-pr [task-id] [target-branch]"
 ---
 
 Read and execute the create-pr skill from `.agents/skills/create-pr/SKILL.md`.

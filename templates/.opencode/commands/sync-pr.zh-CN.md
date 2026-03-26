@@ -4,7 +4,7 @@ agent: general
 subtask: false
 ---
 
-同步任务 $1 到 PR。
+同步 PR 上下文：$ARGUMENTS
 
 读取并执行 `.agents/skills/sync-pr/SKILL.md` 中的 sync-pr 技能。
 

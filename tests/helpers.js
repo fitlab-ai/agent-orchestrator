@@ -182,7 +182,7 @@ const commandSpecs = {
     zh: "为任务 $1 创建 Issue。"
   },
   "create-pr": {
-    usage: "[target-branch]",
+    usage: "[task-id] [target-branch]",
     en: "Create PR: $ARGUMENTS",
     zh: "创建 PR：$ARGUMENTS"
   },
@@ -238,9 +238,9 @@ const commandSpecs = {
     zh: "同步任务 $1 到 Issue。"
   },
   "sync-pr": {
-    usage: "<task-id>",
-    en: "Sync task $1 to PR.",
-    zh: "同步任务 $1 到 PR。"
+    usage: "<task-id | pr-number>",
+    en: "Sync PR context: $ARGUMENTS",
+    zh: "同步 PR 上下文：$ARGUMENTS"
   },
   test: {},
   "test-integration": {},

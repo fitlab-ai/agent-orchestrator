@@ -82,7 +82,7 @@ Required next-step commands:
 
 ```text
 Next step - create Pull Request:
-  - Claude Code / OpenCode: /create-pr
-  - Gemini CLI: /agent-infra:create-pr
-  - Codex CLI: $create-pr
+  - Claude Code / OpenCode: /create-pr {task-id}
+  - Gemini CLI: /agent-infra:create-pr {task-id}
+  - Codex CLI: $create-pr {task-id}
 ```

@@ -1,6 +1,6 @@
 ---
 description: "将任务进度同步到 Pull Request"
-usage: "/sync-pr <task-id>"
+usage: "/sync-pr <task-id | pr-number>"
 ---
 
 读取并执行 `.agents/skills/sync-pr/SKILL.md` 中的 sync-pr 技能。

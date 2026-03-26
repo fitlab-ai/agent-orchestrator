@@ -4,7 +4,7 @@ agent: general
 subtask: false
 ---
 
-Sync task $1 to PR.
+Sync PR context: $ARGUMENTS
 
 Read and execute the sync-pr skill from `.agents/skills/sync-pr/SKILL.md`.
 

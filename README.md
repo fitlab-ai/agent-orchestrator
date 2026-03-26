@@ -74,7 +74,7 @@ Just fix it at the application layer in LoginService.
 
 ```bash
 /commit
-/create-pr
+/create-pr TASK-20260319-100000
 /complete-task TASK-20260319-100000
 ```
 
@@ -264,8 +264,8 @@ agent-infra ships with **28 built-in AI skills**. They are organized by use case
 |-------|-------------|------------|----------------------|
 | `create-issue` | Create a GitHub Issue from a task file. | `task-id` | Push a local task into GitHub tracking. |
 | `sync-issue` | Post task progress updates back to the linked GitHub Issue. | `task-id` or `issue-number` | Keep stakeholders updated as the task evolves. |
-| `create-pr` | Open a Pull Request to an inferred or explicit target branch. | `target-branch` (optional) | Publish reviewed changes for merge. |
-| `sync-pr` | Sync task progress and review metadata into the Pull Request. | `task-id` | Keep PR metadata aligned with the local task record. |
+| `create-pr` | Open a Pull Request to an inferred or explicit target branch. | `task-id` (optional), `target-branch` (optional) | Publish reviewed changes for merge, with optional explicit task linkage after a fresh session. |
+| `sync-pr` | Sync task progress and review metadata into the Pull Request. | `task-id` or `pr-number` | Keep PR metadata aligned with the local task record from either task or PR entrypoints. |
 
 <a id="code-quality"></a>
 
