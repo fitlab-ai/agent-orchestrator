@@ -71,6 +71,7 @@ Update `.agents/workspace/active/{task-id}/task.md`:
 - `current_step`: implementation
 - `assigned_to`: {current agent}
 - `updated_at`: {current time}
+- review the `## Requirements` section and only change items from `- [ ]` to `- [x]` when they are clearly satisfied by this round's implemented code and passing tests
 - record `{implementation-artifact}` for Round `{implementation-round}`
 - append:
   `- {yyyy-MM-dd HH:mm:ss} — **Implementation (Round {N})** by {agent} — Code implemented, {n} files modified, {n} tests passed → {implementation-artifact}`

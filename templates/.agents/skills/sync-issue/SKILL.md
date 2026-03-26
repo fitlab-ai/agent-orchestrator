@@ -50,15 +50,22 @@ If `pr_number` exists, make sure the PR body contains one of:
 
 > Milestone inheritance, line-branch inference, and `General Backlog` fallback rules live in `reference/milestone-sync.md`. Read `reference/milestone-sync.md` before editing the Issue milestone.
 
-### 8. Publish Context Artifacts
+### 8. Sync Requirement Checkboxes
+
+Extract checked `- [x]` items from the `## Requirements` section of task.md; if none exist, skip this step.
+Read the current Issue body with `gh issue view {issue-number} --json body --jq '.body'`.
+Match by checkbox text and replace only `- [ ] {text}` with `- [x] {text}` in the Issue body; keep existing `- [x]` items, unmatched items, and non-requirement checkboxes unchanged.
+Only when the body actually changes, update the full body with `gh api` PATCH and build the request payload with `cat <<'EOF'` heredoc.
+
+### 9. Publish Context Artifacts
 
 > Existing-comment discovery, hidden markers, the artifact timeline, and summary comment ordering live in `reference/comment-publish.md`. Read `reference/comment-publish.md` before publishing Issue comments.
 
 > **Shell Safety Rules** (read before publishing comments):
 > 1. `{comment-body}` must be replaced with **actual inline text**. Read the file with the Read tool first, then paste the full content into the heredoc body. **Do NOT** use `$(cat ...)`, `$(< ...)`, `$(...)`, or `${...}` inside `<<'EOF'`. Quoted heredocs suppress all command substitution and variable expansion, so those expressions will be output as literal text.
-> 2. When constructing strings that contain `<!-- -->`, **do NOT use `echo`**. In bash/zsh, `echo` escapes `!` as `\!`, which makes hidden markers visible. Build all comment content with `cat <<'EOF'` heredocs or `printf '%s\n'`.
+> 2. When constructing strings that contain `<!-- -->`, **do NOT use `echo`**. In bash/zsh, `echo` escapes `!` as `\!`, which makes hidden markers visible. Build all comment content and the Step 8 Issue body update with `cat <<'EOF'` heredocs or `printf '%s\n'`.
 
-### 9. Update Task Status
+### 10. Update Task Status
 
 Get the current time:
 
@@ -68,7 +75,7 @@ date "+%Y-%m-%d %H:%M:%S"
 
 Update `last_synced_at` in task.md and append the Sync to Issue Activity Log entry.
 
-### 10. Inform User
+### 11. Inform User
 
 Summarize synced labels, milestone, development linkage, published comments, and include the Issue URL.
 
@@ -76,7 +83,7 @@ Summarize synced labels, milestone, development linkage, published comments, and
 
 - The hidden comment marker format must stay `<!-- sync-issue:{task-id}:{file-stem} -->`
 - Build the artifact timeline from Activity Log order, not a fixed `analysis -> plan -> implementation -> review -> summary` sequence
-- Follow the Step 8 shell safety rules when publishing comments: do not rely on command substitution inside quoted heredocs, and do not use `echo` for HTML comment markers
+- Follow the Step 9 shell safety rules when publishing comments or updating the Issue body: do not rely on command substitution inside quoted heredocs, and do not use `echo` for HTML comment markers
 
 ## Error Handling
 
