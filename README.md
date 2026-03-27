@@ -1,7 +1,7 @@
 # Agent Infra
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/fitlab-ai/agent-infra/main/assets/logo.svg" alt="Agent Infra Logo" width="200">
+  <img src="./assets/logo.svg" alt="Agent Infra Logo" width="200">
 </p>
 
 [![npm version](https://img.shields.io/npm/v/@fitlab-ai/agent-infra)](https://www.npmjs.com/package/@fitlab-ai/agent-infra)
