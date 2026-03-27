@@ -24,7 +24,20 @@ description: "根据技术方案实施任务并输出报告"
 
 如果缺少任一文件，立即停止并提示用户先完成前置步骤。
 
-### 2. 确定输入方案与实现轮次
+### 2. 确保任务分支
+
+先读取 `task.md` 中 `## 上下文` 的分支字段，并检查当前 Git 分支是否匹配。
+
+- 已记录任务分支：当前分支不匹配时切换到该分支
+- 未记录任务分支：判断当前分支是否符合命名规范且属于当前任务
+  - 符合：记录当前分支并继续
+  - 不符合：按规范创建并切换到新的任务分支
+
+完成后，把最终使用的分支名回写到 `task.md`。
+
+> 分支命名规则、Git 命令和边界处理见 `reference/branch-management.md`。执行此步骤前，先读取 `reference/branch-management.md`。
+
+### 3. 确定输入方案与实现轮次
 
 扫描 `.agents/workspace/active/{task-id}/` 并记录：
 - 最高轮次的方案文件为 `{plan-artifact}`
@@ -33,7 +46,7 @@ description: "根据技术方案实施任务并输出报告"
 
 如果存在 `plan-r{N}.md`，读取最高轮次的方案文件；否则读取 `plan.md`。
 
-### 3. 阅读技术方案
+### 4. 阅读技术方案
 
 仔细阅读 `{plan-artifact}`，提取：
 - 实施步骤
@@ -41,25 +54,25 @@ description: "根据技术方案实施任务并输出报告"
 - 测试策略
 - 约束、风险与已批准的取舍
 
-### 4. 执行代码实现
+### 5. 执行代码实现
 
 按照 `.agents/workflows/feature-development.yaml` 和方案顺序实施。
 
 > 详细实现规则、测试纪律和偏离处理见 `reference/implementation-rules.md`。执行此步骤前，先读取 `reference/implementation-rules.md`。
 
-### 5. 运行测试验证
+### 6. 运行测试验证
 
 使用 `test` 技能中的项目测试命令，直到所有必需测试通过。
 
 如果测试失败，先尝试修复并重新运行测试。只有在确认存在外部阻塞、环境缺失或需求不明确且超出任务范围时，才可以停止。
 
-### 6. 编写实现报告
+### 7. 编写实现报告
 
 创建 `.agents/workspace/active/{task-id}/{implementation-artifact}`。
 
 > 报告结构、必填章节和完整模板见 `reference/report-template.md`。写报告前先读取 `reference/report-template.md`。
 
-### 7. 更新任务状态
+### 8. 更新任务状态
 
 获取当前时间：
 
@@ -76,7 +89,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - 追加：
   `- {yyyy-MM-dd HH:mm:ss} — **Implementation (Round {N})** by {agent} — Code implemented, {n} files modified, {n} tests passed → {implementation-artifact}`
 
-### 8. 告知用户
+### 9. 告知用户
 
 输出实现摘要，并完整展示下一步代码审查的所有 TUI 命令格式。
 
