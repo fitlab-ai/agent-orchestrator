@@ -232,11 +232,6 @@ const commandSpecs = {
     en: "Review task $1.",
     zh: "审查任务 $1。"
   },
-  "sync-pr": {
-    usage: "<task-id | pr-number>",
-    en: "Sync PR context: $ARGUMENTS",
-    zh: "同步 PR 上下文：$ARGUMENTS"
-  },
   test: {},
   "test-integration": {},
   "update-agent-infra": {},

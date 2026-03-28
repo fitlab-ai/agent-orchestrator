@@ -54,10 +54,23 @@ Type label 映射：
 5. 按 `PR -> task.md -> Issue -> branch/tag inference -> General Backlog` 的顺序解析 milestone
 6. 确保 PR 正文包含 `Closes #{issue-number}` 或等价的 closing keyword
 
+Milestone 推断算法：
+1. 如果 PR 当前已经设置了 milestone，优先保留
+2. 否则使用 task.md 中显式设置的 `milestone`
+3. 否则继承 Issue milestone
+4. 否则按以下分支 / tag 规则推断：
+   - 当前分支匹配 `{major}.{minor}.x`，直接使用该 release line
+   - 当前分支是 `main` 或 `master`，检查现有 `{major}.{minor}.x` 分支，并目标设为 `(X+1).0.x`
+   - 如果不存在 release line 分支，则检查最新的 `vX.Y.Z` tag，并回退到 `X.Y.x`
+   - 如果以上都无法得出结果，则回退到 `General Backlog`
+5. 如果推断出的 milestone 不可用，则回退到 `General Backlog`
+6. 如果连 `General Backlog` 都不可用，则记录 `Milestone: skipped (not found)`
+
 ## 创建 PR
 
 - 当当前工作属于活动任务时，从 task.md 中提取 `issue_number`
 - 如果存在 `issue_number`，用 `gh issue view {issue-number} --json number,title --jq '.number'` 尽力查询对应 Issue
+- 在调用 `gh pr create` 前，先检查当前分支是否已经存在 PR；如果已存在，直接告知用户 PR URL 和状态并结束，不要重复同步元数据或摘要
 - 使用 HEREDOC 传递 PR 正文
 - 如果模板中存在 `{$IssueNumber}`，替换它
 - PR 正文结尾必须带上 `Generated with AI assistance`
@@ -71,14 +84,10 @@ EOF
 )"
 ```
 
-最终用户输出必须按顺序包含这两类后续动作：
+最终用户输出必须按顺序包含以下后续动作：
 
 ```text
 下一步：
-  - 可选：同步 reviewer 摘要：
-    - Claude Code / OpenCode: /sync-pr #{pr_number}
-    - Gemini CLI: /agent-infra:sync-pr #{pr_number}
-    - Codex CLI: $sync-pr #{pr_number}
   - 工作流真正结束后完成任务：
     - Claude Code / OpenCode: /complete-task {task-id}
     - Gemini CLI: /agent-infra:complete-task {task-id}
