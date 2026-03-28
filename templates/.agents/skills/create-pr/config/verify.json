@@ -1,0 +1,22 @@
+{
+  "skill": "create-pr",
+  "checks": {
+    "task-meta": {
+      "required_fields": [
+        "id",
+        "type",
+        "workflow",
+        "status",
+        "created_at",
+        "updated_at",
+        "current_step",
+        "assigned_to"
+      ]
+    },
+    "activity-log": {
+      "expected_action_pattern": "PR Created",
+      "freshness_minutes": 30
+    },
+    "github-sync": null
+  }
+}

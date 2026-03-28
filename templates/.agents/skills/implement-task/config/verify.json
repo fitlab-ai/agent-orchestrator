@@ -1,0 +1,39 @@
+{
+  "skill": "implement-task",
+  "checks": {
+    "task-meta": {
+      "required_fields": [
+        "id",
+        "type",
+        "workflow",
+        "status",
+        "created_at",
+        "updated_at",
+        "current_step",
+        "assigned_to"
+      ],
+      "expected_step": "implementation"
+    },
+    "artifact": {
+      "file_pattern": "implementation.md|implementation-r{N}.md",
+      "required_sections": [
+        "变更文件",
+        "关键代码说明",
+        "测试结果",
+        "与方案的差异",
+        "供审查关注的内容"
+      ],
+      "freshness_minutes": 30
+    },
+    "activity-log": {
+      "expected_action_pattern": "Implementation \\(Round \\d+\\)",
+      "freshness_minutes": 30
+    },
+    "github-sync": {
+      "when": "issue_number_exists",
+      "expected_status_label": "status: in-progress",
+      "expected_comment_marker": "<!-- sync-issue:{task-id}:{artifact-stem} -->",
+      "sync_checked_requirements": true
+    }
+  }
+}

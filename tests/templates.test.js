@@ -70,6 +70,7 @@ test("required template files were migrated into templates/", () => {
     "templates/.agents/skills/update-agent-infra/scripts/sync-templates.js",
     "templates/.agents/workspace/README.md",
     "templates/.agents/workspace/README.zh-CN.md",
+    "templates/.agents/scripts/validate-artifact.js",
     "templates/.github/hooks/check-version-format.sh",
     "templates/.github/hooks/pre-commit",
     "templates/.claude/hooks/check-version-format.sh",
@@ -133,6 +134,7 @@ test("update-agent-infra template copies stay in sync with working files", () =>
     [".agents/skills/update-agent-infra/SKILL.md", "templates/.agents/skills/update-agent-infra/SKILL.md"],
     [".agents/skills/update-agent-infra/scripts/package.json", "templates/.agents/skills/update-agent-infra/scripts/package.json"],
     [".agents/skills/update-agent-infra/scripts/sync-templates.js", "templates/.agents/skills/update-agent-infra/scripts/sync-templates.js"],
+    [".agents/scripts/validate-artifact.js", "templates/.agents/scripts/validate-artifact.js"],
     [".github/hooks/check-version-format.sh", "templates/.github/hooks/check-version-format.sh"],
     [".claude/hooks/check-version-format.sh", "templates/.claude/hooks/check-version-format.sh"],
     ...buildCommandSyncFiles(project),
@@ -281,6 +283,7 @@ test("version format validation hooks are wired into templates and local config"
       ],
       `${relativePath} should configure the PreToolUse version format validation hook`
     );
+    assert.equal(settings.hooks?.PostToolUse, undefined, `${relativePath} should not configure a PostToolUse reminder hook`);
   });
 });
 

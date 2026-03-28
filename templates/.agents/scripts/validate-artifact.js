@@ -1,0 +1,766 @@
+#!/usr/bin/env node
+
+import fs from "node:fs";
+import path from "node:path";
+import process from "node:process";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+const EXIT_CODE = {
+  pass: 0,
+  fail: 1,
+  blocked: 2
+};
+
+const TASK_ENUMS = {
+  type: ["feature", "bugfix", "refactor", "docs", "chore"],
+  workflow: ["feature-development", "bug-fix", "refactoring"],
+  status: ["active", "blocked", "completed"]
+};
+
+const DEFAULT_REQUIRED_FIELDS = [
+  "id",
+  "type",
+  "workflow",
+  "status",
+  "created_at",
+  "updated_at",
+  "current_step",
+  "assigned_to"
+];
+
+const DEFAULT_RETRY_DELAYS_MS = [3000, 10000];
+const DEFAULT_FRESHNESS_MINUTES = 30;
+const DATE_TIME_PATTERN = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/;
+const ACTIVITY_LOG_PATTERN = /^- (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}) — \*\*(.+?)\*\* by (.+?) — (.+)$/;
+
+const scriptPath = fileURLToPath(import.meta.url);
+const repoRoot = path.resolve(path.dirname(scriptPath), "..", "..");
+
+// === CLI Entry ===
+
+function main(argv) {
+  const [mode, ...rest] = argv;
+
+  if (mode === "gate") {
+    runGate(rest);
+    return;
+  }
+
+  if (mode === "check") {
+    runSingleCheck(rest);
+    return;
+  }
+
+  printUsageAndExit();
+}
+
+function runGate(args) {
+  const [skillName, taskDirArg, artifactFile] = args;
+
+  if (!skillName || !taskDirArg) {
+    printUsageAndExit();
+  }
+
+  const taskDir = path.resolve(taskDirArg);
+  const verifyConfig = loadVerifyConfig(skillName);
+  const checks = [];
+
+  for (const [type, checkConfig] of Object.entries(verifyConfig.checks || {})) {
+    if (checkConfig === null) {
+      continue;
+    }
+
+    const result = runCheck(type, {
+      skillName,
+      taskDir,
+      artifactFile,
+      config: checkConfig
+    });
+
+    checks.push(result);
+
+    if (result.status === "blocked") {
+      break;
+    }
+  }
+
+  const gate = summarizeGate(checks);
+  const output = {
+    gate,
+    skill: skillName,
+    checks,
+    summary: summarizeChecks(checks),
+    action: buildAction(gate, checks)
+  };
+
+  writeJson(output);
+  process.exit(EXIT_CODE[gate]);
+}
+
+function runSingleCheck(args) {
+  const skillIndex = args.indexOf("--skill");
+  if (skillIndex === -1 || !args[skillIndex + 1]) {
+    printUsageAndExit();
+  }
+
+  const skillName = args[skillIndex + 1];
+  const positional = args.filter((_, index) => index !== skillIndex && index !== skillIndex + 1);
+  const [type, taskDirArg, artifactFile] = positional;
+
+  if (!type || !taskDirArg) {
+    printUsageAndExit();
+  }
+
+  const verifyConfig = loadVerifyConfig(skillName);
+  const config = (verifyConfig.checks || {})[type];
+
+  if (config === undefined) {
+    failUsage(`Unknown check type '${type}' for skill '${skillName}'.`);
+  }
+
+  if (config === null) {
+    writeJson({
+      type,
+      status: "pass",
+      message: `Check '${type}' is disabled for skill '${skillName}'.`
+    });
+    process.exit(0);
+  }
+
+  const result = runCheck(type, {
+    skillName,
+    taskDir: path.resolve(taskDirArg),
+    artifactFile,
+    config
+  });
+
+  writeJson(result);
+  process.exit(EXIT_CODE[result.status] ?? 1);
+}
+
+function runCheck(type, context) {
+  switch (type) {
+    case "task-meta":
+      return checkTaskMeta(context);
+    case "artifact":
+      return checkArtifact(context);
+    case "activity-log":
+      return checkActivityLog(context);
+    case "github-sync":
+      return checkGithubSync(context);
+    default:
+      return failResult(type, `Unsupported check type '${type}'.`);
+  }
+}
+
+// === Check Implementations ===
+
+function checkTaskMeta({ taskDir, config }) {
+  const task = loadTask(taskDir);
+  if (!task.ok) {
+    return failResult("task-meta", task.message);
+  }
+
+  const metadata = task.metadata;
+  const requiredFields = config.required_fields || DEFAULT_REQUIRED_FIELDS;
+  const missingFields = requiredFields.filter((field) => isBlank(metadata[field]));
+  if (missingFields.length > 0) {
+    return failResult("task-meta", `Missing required fields: ${missingFields.join(", ")}`);
+  }
+
+  const invalidDates = ["created_at", "updated_at", "completed_at", "blocked_at"]
+    .filter((field) => !isBlank(metadata[field]) && !DATE_TIME_PATTERN.test(metadata[field]));
+  if (invalidDates.length > 0) {
+    return failResult("task-meta", `Invalid date format in: ${invalidDates.join(", ")}`);
+  }
+
+  for (const [field, allowedValues] of Object.entries(TASK_ENUMS)) {
+    if (!isBlank(metadata[field]) && !allowedValues.includes(metadata[field])) {
+      return failResult("task-meta", `Invalid ${field}: ${metadata[field]}`);
+    }
+  }
+
+  const expectedStep = config.expected_step;
+  if (expectedStep && metadata.current_step !== expectedStep) {
+    return failResult(
+      "task-meta",
+      `Expected current_step '${expectedStep}', got '${metadata.current_step || "(empty)"}'`
+    );
+  }
+
+  const expectedStatus = config.expected_status;
+  if (expectedStatus && metadata.status !== expectedStatus) {
+    return failResult(
+      "task-meta",
+      `Expected status '${expectedStatus}', got '${metadata.status || "(empty)"}'`
+    );
+  }
+
+  if (config.require_issue_number && !parseIssueNumber(metadata.issue_number)) {
+    return failResult("task-meta", "Expected a valid issue_number in task metadata");
+  }
+
+  if (config.require_completed_at && isBlank(metadata.completed_at)) {
+    return failResult("task-meta", "Expected completed_at to be present");
+  }
+
+  if (config.require_blocked_at && isBlank(metadata.blocked_at)) {
+    return failResult("task-meta", "Expected blocked_at to be present");
+  }
+
+  if (config.match_task_dir !== false) {
+    const expectedTaskId = path.basename(taskDir);
+    if (metadata.id !== expectedTaskId) {
+      return failResult("task-meta", `Task id '${metadata.id}' does not match directory '${expectedTaskId}'`);
+    }
+  }
+
+  return passResult("task-meta", `Task metadata valid (${requiredFields.length} required fields checked)`);
+}
+
+function checkArtifact({ taskDir, config, artifactFile }) {
+  const resolvedArtifact = resolveArtifactPath(taskDir, config.file_pattern, artifactFile);
+  if (!resolvedArtifact.ok) {
+    return failResult("artifact", resolvedArtifact.message);
+  }
+
+  const artifactPath = resolvedArtifact.path;
+  const stat = safeStat(artifactPath);
+  if (!stat) {
+    return failResult("artifact", `Artifact not found: ${path.basename(artifactPath)}`);
+  }
+
+  if (stat.size === 0) {
+    return failResult("artifact", `Artifact is empty: ${path.basename(artifactPath)}`);
+  }
+
+  const content = fs.readFileSync(artifactPath, "utf8");
+  const requiredSections = config.required_sections || [];
+  const missingSections = requiredSections.filter(
+    (section) => !new RegExp(`^##\\s+${escapeRegExp(section)}\\s*$`, "m").test(content)
+  );
+
+  if (missingSections.length > 0) {
+    return failResult(
+      "artifact",
+      `${path.basename(artifactPath)} is missing sections: ${missingSections.join(", ")}`
+    );
+  }
+
+  const requiredPatterns = config.required_patterns || [];
+  for (const pattern of requiredPatterns) {
+    if (!new RegExp(pattern, "m").test(content)) {
+      return failResult("artifact", `${path.basename(artifactPath)} is missing required pattern: ${pattern}`);
+    }
+  }
+
+  const freshnessMinutes = Number(config.freshness_minutes ?? DEFAULT_FRESHNESS_MINUTES);
+  const ageMinutes = (Date.now() - stat.mtimeMs) / 60000;
+  if (Number.isFinite(freshnessMinutes) && ageMinutes > freshnessMinutes) {
+    return failResult(
+      "artifact",
+      `${path.basename(artifactPath)} is stale (${ageMinutes.toFixed(1)}m old, limit ${freshnessMinutes}m)`
+    );
+  }
+
+  return passResult(
+    "artifact",
+    `${path.basename(artifactPath)} passed (${requiredSections.length} sections, ${Math.max(0, freshnessMinutes)}m freshness window)`
+  );
+}
+
+function checkActivityLog({ taskDir, config }) {
+  const task = loadTask(taskDir);
+  if (!task.ok) {
+    return failResult("activity-log", task.message);
+  }
+
+  const logSection = getSectionContent(task.content, ["活动日志", "Activity Log"]);
+  if (!logSection) {
+    return failResult("activity-log", "Activity Log section not found");
+  }
+
+  const entries = logSection
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("- "));
+
+  if (entries.length === 0) {
+    return failResult("activity-log", "Activity Log has no entries");
+  }
+
+  let previousTimestamp = "";
+  let latestAction = "";
+  let latestTimestamp = "";
+
+  for (const entry of entries) {
+    const match = entry.match(ACTIVITY_LOG_PATTERN);
+    if (!match) {
+      return failResult("activity-log", `Invalid Activity Log entry format: ${entry}`);
+    }
+
+    const [, timestamp, action] = match;
+    if (previousTimestamp && timestamp < previousTimestamp) {
+      return failResult("activity-log", "Activity Log timestamps are not in ascending order");
+    }
+
+    previousTimestamp = timestamp;
+    latestTimestamp = timestamp;
+    latestAction = action;
+  }
+
+  if (config.expected_action_pattern && !new RegExp(config.expected_action_pattern).test(latestAction)) {
+    return failResult(
+      "activity-log",
+      `Latest action '${latestAction}' does not match '${config.expected_action_pattern}'`
+    );
+  }
+
+  const freshnessMinutes = Number(config.freshness_minutes ?? DEFAULT_FRESHNESS_MINUTES);
+  if (Number.isFinite(freshnessMinutes)) {
+    const ageMinutes = minutesSinceTimestamp(latestTimestamp);
+    if (ageMinutes > freshnessMinutes) {
+      return failResult(
+        "activity-log",
+        `Latest Activity Log entry is stale (${ageMinutes.toFixed(1)}m old, limit ${freshnessMinutes}m)`
+      );
+    }
+  }
+
+  return passResult("activity-log", `Latest entry '${latestAction}' at ${latestTimestamp}`);
+}
+
+function checkGithubSync({ taskDir, config, artifactFile }) {
+  const task = loadTask(taskDir);
+  if (!task.ok) {
+    return failResult("github-sync", task.message);
+  }
+
+  const issueNumber = parseIssueNumber(task.metadata.issue_number);
+  if (config.when === "issue_number_exists" && !issueNumber) {
+    return passResult("github-sync", "Skipped: task has no issue_number");
+  }
+
+  if (!issueNumber) {
+    return passResult("github-sync", "Skipped: github-sync not required for this task");
+  }
+
+  const ownerRepo = resolveOwnerRepo(taskDir);
+  if (!ownerRepo.ok) {
+    return blockedResult("github-sync", ownerRepo.message, "network_error");
+  }
+
+  const issueResult = withRetry(() => ghJson(["issue", "view", String(issueNumber), "--json", "state,labels,body"], taskDir));
+  if (!issueResult.ok) {
+    return issueResult.type === "check_failed"
+      ? failResult("github-sync", issueResult.message, issueResult.type)
+      : blockedResult("github-sync", issueResult.message, issueResult.type);
+  }
+
+  const issue = issueResult.value;
+
+  if (config.issue_must_exist !== false && !issue) {
+    return failResult("github-sync", `Issue #${issueNumber} not found`, "check_failed");
+  }
+
+  if (config.expected_status_label && issue.state === "OPEN") {
+    const labels = (issue.labels || []).map((label) => typeof label === "string" ? label : label.name);
+    if (!labels.includes(config.expected_status_label)) {
+      return failResult(
+        "github-sync",
+        `Expected label '${config.expected_status_label}' not found on Issue #${issueNumber}`,
+        "check_failed"
+      );
+    }
+  }
+
+  if (config.expected_comment_marker) {
+    const marker = interpolate(config.expected_comment_marker, taskDir, artifactFile);
+    const commentsResult = withRetry(() => ghPaginatedJson([
+      "api",
+      "--paginate",
+      "--slurp",
+      `repos/${ownerRepo.value}/issues/${issueNumber}/comments?per_page=100`
+    ], taskDir));
+
+    if (!commentsResult.ok) {
+      return commentsResult.type === "check_failed"
+        ? failResult("github-sync", commentsResult.message, commentsResult.type)
+        : blockedResult("github-sync", commentsResult.message, commentsResult.type);
+    }
+
+    const comments = Array.isArray(commentsResult.value)
+      ? commentsResult.value.flatMap((page) => Array.isArray(page) ? page : [])
+      : [];
+    const found = comments.some((comment) => typeof comment.body === "string" && comment.body.includes(marker));
+    if (!found) {
+      return failResult(
+        "github-sync",
+        `Expected comment marker '${marker}' not found on Issue #${issueNumber}`,
+        "check_failed"
+      );
+    }
+  }
+
+  if (config.sync_checked_requirements) {
+    const checkedRequirements = getCheckedRequirements(task.content);
+    if (checkedRequirements.length > 0) {
+      const issueBody = issue.body || "";
+      const missingRequirements = checkedRequirements.filter(
+        (item) => !new RegExp(`^- \\[x\\] ${escapeRegExp(item)}$`, "m").test(issueBody)
+      );
+      if (missingRequirements.length > 0) {
+        return failResult(
+          "github-sync",
+          `Issue body is missing checked requirements: ${missingRequirements.join(", ")}`,
+          "check_failed"
+        );
+      }
+    }
+  }
+
+  return passResult("github-sync", `GitHub sync checks passed for Issue #${issueNumber}`);
+}
+
+// === File & Config Loaders ===
+
+function loadVerifyConfig(skillName) {
+  const verifyPath = path.join(repoRoot, ".agents", "skills", skillName, "config", "verify.json");
+  if (!fs.existsSync(verifyPath)) {
+    failUsage(`config/verify.json not found for skill '${skillName}'`);
+  }
+
+  return JSON.parse(fs.readFileSync(verifyPath, "utf8"));
+}
+
+function loadTask(taskDir) {
+  const taskPath = path.join(taskDir, "task.md");
+  if (!fs.existsSync(taskPath)) {
+    return { ok: false, message: `Task file not found: ${taskPath}` };
+  }
+
+  const content = fs.readFileSync(taskPath, "utf8");
+  const metadata = parseFrontmatter(content);
+  if (!metadata) {
+    return { ok: false, message: "task.md frontmatter not found or invalid" };
+  }
+
+  return { ok: true, content, metadata };
+}
+
+function resolveArtifactPath(taskDir, filePattern, artifactFile) {
+  if (artifactFile) {
+    return { ok: true, path: path.join(taskDir, artifactFile) };
+  }
+
+  if (!filePattern) {
+    return { ok: false, message: "Artifact file is required for this check" };
+  }
+
+  const entries = fs.existsSync(taskDir) ? fs.readdirSync(taskDir) : [];
+  const matches = [];
+
+  for (const pattern of filePattern.split("|").map((value) => value.trim()).filter(Boolean)) {
+    const regex = new RegExp(`^${escapePattern(pattern)}$`);
+    for (const entry of entries) {
+      const match = entry.match(regex);
+      if (!match) {
+        continue;
+      }
+
+      matches.push({
+        fileName: entry,
+        round: match[1] ? Number(match[1]) : 0
+      });
+    }
+  }
+
+  if (matches.length === 0) {
+    return { ok: false, message: `No artifact matched pattern '${filePattern}'` };
+  }
+
+  matches.sort((left, right) => right.round - left.round || left.fileName.localeCompare(right.fileName));
+  return { ok: true, path: path.join(taskDir, matches[0].fileName) };
+}
+
+function parseFrontmatter(content) {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!match) {
+    return null;
+  }
+
+  const metadata = {};
+  for (const line of match[1].split(/\r?\n/)) {
+    const parsed = line.match(/^([A-Za-z0-9_]+):\s*(.*)$/);
+    if (!parsed) {
+      continue;
+    }
+
+    const [, key, rawValue] = parsed;
+    metadata[key] = rawValue.trim().replace(/^['"]|['"]$/g, "");
+  }
+
+  return metadata;
+}
+
+function getSectionContent(content, names) {
+  const lines = content.split(/\r?\n/);
+
+  for (const name of names) {
+    const heading = `## ${name}`;
+    const startIndex = lines.findIndex((line) => line.trim() === heading);
+    if (startIndex === -1) {
+      continue;
+    }
+
+    const sectionLines = [];
+    for (let index = startIndex + 1; index < lines.length; index += 1) {
+      if (lines[index].startsWith("## ")) {
+        break;
+      }
+      sectionLines.push(lines[index]);
+    }
+
+    return sectionLines.join("\n").trim();
+  }
+
+  return "";
+}
+
+function getCheckedRequirements(content) {
+  const section = getSectionContent(content, ["需求", "Requirements"]);
+  if (!section) {
+    return [];
+  }
+
+  return section
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .map((line) => line.match(/^- \[x\] (.+)$/i))
+    .filter(Boolean)
+    .map((match) => match[1].trim());
+}
+
+// === GitHub API ===
+
+function parseIssueNumber(value) {
+  if (isBlank(value) || value === "N/A") {
+    return null;
+  }
+
+  const match = String(value).match(/\d+/);
+  return match ? Number(match[0]) : null;
+}
+
+function resolveOwnerRepo(taskDir) {
+  const gitResult = spawnSync("git", ["remote", "get-url", "origin"], {
+    cwd: taskDir,
+    encoding: "utf8"
+  });
+
+  if (gitResult.status !== 0) {
+    return { ok: false, message: `Unable to resolve git remote: ${gitResult.stderr.trim() || gitResult.stdout.trim()}` };
+  }
+
+  const remote = gitResult.stdout.trim();
+  const sshMatch = remote.match(/[:/]([^/]+\/[^/]+?)(?:\.git)?$/);
+  if (!sshMatch) {
+    return { ok: false, message: `Unable to parse owner/repo from remote '${remote}'` };
+  }
+
+  return { ok: true, value: sshMatch[1] };
+}
+
+function ghJson(args, cwd) {
+  const result = spawnSync("gh", args, {
+    cwd,
+    encoding: "utf8",
+    env: process.env
+  });
+
+  if (result.status !== 0) {
+    const stderr = `${result.stderr || ""}${result.stdout || ""}`.trim();
+    const classified = classifyGhFailure(stderr, args);
+    return { ok: false, type: classified.type, message: classified.message };
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(result.stdout || "null") };
+  } catch (error) {
+    return { ok: false, type: "network_error", message: `Invalid JSON from gh: ${error.message}` };
+  }
+}
+
+function ghPaginatedJson(args, cwd) {
+  return ghJson(args, cwd);
+}
+
+function withRetry(operation) {
+  const delays = getRetryDelays();
+  let lastFailure = null;
+
+  for (let attempt = 0; attempt <= delays.length; attempt += 1) {
+    const result = operation();
+    if (result.ok) {
+      return result;
+    }
+
+    lastFailure = result;
+    if (result.type === "check_failed") {
+      return result;
+    }
+
+    if (attempt < delays.length) {
+      sleep(delays[attempt]);
+    }
+  }
+
+  return lastFailure || { ok: false, type: "network_error", message: "Unknown GitHub sync failure" };
+}
+
+function classifyGhFailure(stderr, args) {
+  const message = stderr || `gh ${args.join(" ")} failed`;
+
+  if (/not found|could not resolve to an issue|http 404/i.test(message)) {
+    return { type: "check_failed", message };
+  }
+
+  return { type: "network_error", message };
+}
+
+function getRetryDelays() {
+  const override = process.env.VALIDATE_ARTIFACT_RETRY_DELAYS_MS;
+  if (!override) {
+    return DEFAULT_RETRY_DELAYS_MS;
+  }
+
+  const parsed = override
+    .split(",")
+    .map((value) => Number(value.trim()))
+    .filter((value) => Number.isFinite(value) && value >= 0);
+
+  return parsed.length > 0 ? parsed : DEFAULT_RETRY_DELAYS_MS;
+}
+
+function sleep(delayMs) {
+  if (delayMs <= 0) {
+    return;
+  }
+
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
+}
+
+// === Utilities ===
+
+function minutesSinceTimestamp(timestamp) {
+  const normalized = timestamp.replace(" ", "T");
+  const parsed = Date.parse(normalized);
+  if (Number.isNaN(parsed)) {
+    return Number.POSITIVE_INFINITY;
+  }
+
+  return (Date.now() - parsed) / 60000;
+}
+
+function interpolate(template, taskDir, artifactFile) {
+  const artifactStem = artifactFile ? path.basename(artifactFile, path.extname(artifactFile)) : "";
+  return template
+    .replace(/\{task-id\}/g, path.basename(taskDir))
+    .replace(/\{artifact-stem\}/g, artifactStem);
+}
+
+function summarizeGate(checks) {
+  if (checks.some((check) => check.status === "blocked")) {
+    return "blocked";
+  }
+
+  if (checks.some((check) => check.status === "fail")) {
+    return "fail";
+  }
+
+  return "pass";
+}
+
+function summarizeChecks(checks) {
+  const counts = {
+    pass: checks.filter((check) => check.status === "pass").length,
+    fail: checks.filter((check) => check.status === "fail").length,
+    blocked: checks.filter((check) => check.status === "blocked").length
+  };
+
+  if (counts.blocked > 0) {
+    return `${counts.pass} passed, ${counts.fail} failed, ${counts.blocked} blocked`;
+  }
+
+  return `${counts.pass} passed, ${counts.fail} failed`;
+}
+
+function buildAction(gate, checks) {
+  if (gate === "pass") {
+    return "All declared checks passed";
+  }
+
+  const firstFailure = checks.find((check) => check.status !== "pass");
+  if (!firstFailure) {
+    return "Review validation output";
+  }
+
+  if (gate === "blocked") {
+    return `Resolve blocked ${firstFailure.type} check and re-run gate`;
+  }
+
+  return `Fix ${firstFailure.type} issues and re-run gate`;
+}
+
+function passResult(type, message) {
+  return { type, status: "pass", message };
+}
+
+function failResult(type, message, failType = "check_failed") {
+  return { type, status: "fail", fail_type: failType, message };
+}
+
+function blockedResult(type, message, failType = "network_error") {
+  return { type, status: "blocked", fail_type: failType, message };
+}
+
+function safeStat(filePath) {
+  try {
+    return fs.statSync(filePath);
+  } catch {
+    return null;
+  }
+}
+
+function escapePattern(pattern) {
+  return escapeRegExp(pattern)
+    .replace(/\\\{N\\\}/g, "(\\d+)");
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function isBlank(value) {
+  return value === undefined || value === null || String(value).trim() === "";
+}
+
+function writeJson(value) {
+  process.stdout.write(`${JSON.stringify(value, null, 2)}\n`);
+}
+
+function printUsageAndExit() {
+  failUsage(
+    "Usage:\n" +
+      "  node .agents/scripts/validate-artifact.js gate <skill-name> <task-dir> [artifact-file]\n" +
+      "  node .agents/scripts/validate-artifact.js check <type> <task-dir> [artifact-file] --skill <skill-name>"
+  );
+}
+
+function failUsage(message) {
+  process.stderr.write(`${message}\n`);
+  process.exit(1);
+}
+
+main(process.argv.slice(2));

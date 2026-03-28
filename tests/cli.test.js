@@ -54,6 +54,7 @@ test("agent-infra init generates seed files in a temp directory", () => {
       config.files.managed.includes(".github/hooks/check-version-format.sh"),
       ".github/hooks/check-version-format.sh should be managed"
     );
+    assert.ok(config.files.managed.includes(".agents/scripts/"), ".agents/scripts/ should be managed");
     assert.ok(config.files.managed.includes(".claude/hooks/"), ".claude/hooks/ should be managed");
     assert.ok(!config.files.managed.includes(".editorconfig"), ".editorconfig should not be managed");
     assert.ok(!config.files.merged.includes(".mailmap"), ".mailmap should not be merged");

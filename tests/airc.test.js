@@ -51,6 +51,10 @@ test(".agents/.airc.json excludes deprecated codex prompt paths", () => {
     ".github/hooks/check-version-format.sh should be in managed list"
   );
   assert.ok(
+    collaborator.files.managed.includes(".agents/scripts/"),
+    ".agents/scripts/ should be in managed list"
+  );
+  assert.ok(
     collaborator.files.managed.includes(".claude/hooks/"),
     ".claude/hooks/ should be in managed list"
   );

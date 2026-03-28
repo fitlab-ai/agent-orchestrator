@@ -125,8 +125,21 @@ When writing or updating `.agents/skills/*/SKILL.md` files and their templates, 
 ### SKILL.md Size Control
 
 - Keep SKILL.md as concise as possible; move detailed rules, long templates, and large script blocks into a sibling `reference/` or `scripts/` directory.
+- Store declarative configuration in a sibling `config/` directory, for example `config/verify.json`.
 - Use explicit navigation in the skeleton, such as: `Read reference/xxx.md before executing this step.`
 - Keep scripts in `scripts/` and execute them instead of inlining long bash blocks.
+
+## Verification Gate
+
+For skills that produce structured artifacts or mutate task state, run the verification gate before claiming completion:
+
+```bash
+node .agents/scripts/validate-artifact.js gate <skill-name> <task-dir> [artifact-file]
+```
+
+- Each skill declares its own checks in `config/verify.json`; keep the file focused on what that skill must validate
+- Shared validation logic belongs in `.agents/scripts/validate-artifact.js`; do not move detailed rules back into SKILL.md
+- Keep the gate output in the reply as fresh evidence; without output from the current run, do not claim completion
 
 ## FAQ
 

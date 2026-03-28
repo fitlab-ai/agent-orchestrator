@@ -1,0 +1,28 @@
+{
+  "skill": "block-task",
+  "checks": {
+    "task-meta": {
+      "required_fields": [
+        "id",
+        "type",
+        "workflow",
+        "status",
+        "created_at",
+        "updated_at",
+        "current_step",
+        "assigned_to",
+        "blocked_at"
+      ],
+      "expected_status": "blocked",
+      "require_blocked_at": true
+    },
+    "activity-log": {
+      "expected_action_pattern": "Blocked",
+      "freshness_minutes": 30
+    },
+    "github-sync": {
+      "when": "issue_number_exists",
+      "expected_status_label": "status: blocked"
+    }
+  }
+}

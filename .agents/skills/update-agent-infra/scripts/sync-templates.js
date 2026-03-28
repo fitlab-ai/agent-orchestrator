@@ -25,6 +25,7 @@ const DEFAULTS = {
       ".agents/QUICKSTART.md",
       ".agents/README.md",
       ".agents/skills/",
+      ".agents/scripts/",
       ".agents/templates/",
       ".agents/workflows/",
       ".agents/workspace/README.md",
