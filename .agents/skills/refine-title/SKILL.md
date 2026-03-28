@@ -74,14 +74,7 @@ gh pr edit <id> --title "<new-title>"
 
 如果修改了 Issue 标题，提示无需额外同步命令；后续按任务当前阶段继续执行对应工作流技能。
 
-如果修改了 PR 标题，提示：
-
-```
-下一步 - 同步任务进度到 PR：
-  - Claude Code / OpenCode：/sync-pr #{pr_number}
-  - Gemini CLI：/agent-infra:sync-pr #{pr_number}
-  - Codex CLI：$sync-pr #{pr_number}
-```
+如果修改了 PR 标题，提示 `create-pr` 已内联发布 reviewer 摘要，无需额外同步命令；后续按任务当前阶段继续执行对应工作流技能。
 
 ## 优势
 

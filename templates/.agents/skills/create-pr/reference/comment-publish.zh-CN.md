@@ -1,6 +1,6 @@
 # PR 摘要评论发布
 
-在创建或更新面向 reviewer 的唯一 PR 摘要评论之前先读取本文件。
+在 `create-pr` 中创建或更新面向 reviewer 的唯一 PR 摘要评论之前先读取本文件。
 
 ## 创建或更新唯一且幂等的审查摘要
 
@@ -76,7 +76,6 @@ EOF
 *由 AI 自动生成 · 内部追踪：{task-id}*
 ```
 
-## 更新任务状态
+## 结果回传
 
-追加：
-`- {yyyy-MM-dd HH:mm:ss} — **Sync to PR** by {agent} — PR metadata synced, summary {created|updated|skipped} on PR #{pr-number}`
+将摘要结果整理为 `summary created`、`summary updated` 或 `summary skipped`，供 `create-pr` 在用户输出和 PR Created Activity Log 中复用。

@@ -24,6 +24,6 @@ Feature branch 父分支推断细则：
 - 如果无法可靠推断父分支，不要猜测，直接停止并询问用户
 
 创建 PR 后的下一步规则：
-- 如果存在 `issue_number`，且面向 reviewer 的上下文还未发布，优先推荐 `sync-pr #{pr_number}`
-- 如果 PR 创建后工作流已经真正结束，再把 `complete-task {task-id}` 作为第二步推荐
-- 当 PR 上下文仍需同步时，绝对不要把 `complete-task` 作为唯一下一步
+- `create-pr` 已内联发布 reviewer 摘要，不再推荐额外的 PR 同步命令
+- 如果 PR 创建后工作流已经真正结束，推荐 `complete-task {task-id}`
+- 如果工作流尚未结束，只说明当前结果，不要虚构额外命令

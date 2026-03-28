@@ -5,7 +5,7 @@ description: "创建 Pull Request 到目标分支"
 
 # 创建 Pull Request
 
-创建 Pull Request，并在与任务关联时立即补齐核心元数据。
+创建 Pull Request，并在与任务关联时立即补齐核心元数据和 reviewer 摘要。
 
 ## 执行流程
 
@@ -36,6 +36,8 @@ description: "创建 Pull Request 到目标分支"
 
 ### 5. 创建 PR
 
+先检查当前分支是否已经存在 PR；如果已存在，直接告知用户 PR URL 并结束，不要重复执行元数据同步或摘要发布。
+
 使用 `gh pr create --base <target-branch> --title "<title>" --assignee @me --body ...` 创建 PR。
 
 如果获取到 `{task-id}` 且对应任务提供了 `issue_number`，必须在 PR 正文中保留 `Closes #{issue-number}`。
@@ -49,7 +51,19 @@ description: "创建 Pull Request 到目标分支"
 - 使用 `gh pr edit {pr-number} --milestone "{milestone-title}"` 设置里程碑
 - 通过 `Closes #{issue-number}` 保持 Development 关联
 
-### 7. 更新任务状态
+### 7. 发布审查摘要
+
+读取最新的上下文产物：`plan.md` / `plan-r{N}.md`、`implementation.md` / `implementation-r{N}.md`、`review.md` / `review-r{N}.md`、`refinement.md` / `refinement-r{N}.md`（存在时）。
+
+基于这些产物聚合 reviewer 摘要，并使用隐藏标记维护唯一且幂等的摘要评论。
+
+> 隐藏标记、幂等 summary 评论更新、review history 格式，以及评论创建/更新规则见 `reference/comment-publish.md`。发布摘要前先读取 `reference/comment-publish.md`。
+>
+> **Shell 安全规则**（发布评论前必读）：
+> 1. `{comment-body}` 必须替换为**实际的内联文本**。先读取文件，再将全文粘贴到 heredoc body 中。**禁止**在 `<<'EOF'` 内部使用 `$(cat ...)`、`$(< ...)`、`$(...)`、`${...}`。
+> 2. 构造含 `<!-- -->` 的字符串时，**禁止使用 `echo`**。统一使用 `cat <<'EOF'` heredoc 或 `printf '%s\n'` 构造。
+
+### 8. 更新任务状态
 
 获取当前时间：
 
@@ -57,15 +71,15 @@ description: "创建 Pull Request 到目标分支"
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-如果获取到了 `{task-id}`，更新 task.md 的 `pr_number`、`updated_at`，并追加 PR Created 的 Activity Log。
+如果获取到了 `{task-id}`，更新 task.md 的 `pr_number`、`updated_at`，并追加 PR Created 的 Activity Log，记录元数据同步和摘要发布结果。
 
-### 8. 告知用户
+### 9. 告知用户
 
-说明 PR URL、元数据同步结果，并按顺序给出两个后续动作：
-- 可选执行 `sync-pr #{pr_number}`，发布面向 reviewer 的上下文摘要
-- 当整个工作流真正完成后执行 `complete-task {task-id}`
+> **重要**：以下「下一步」中列出的所有 TUI 命令格式必须完整输出，不要只展示当前 AI 代理对应的格式。
 
-### 9. 完成校验
+说明 PR URL、元数据同步结果、摘要评论结果，并在工作流真正完成后推荐执行 `complete-task {task-id}`。
+
+### 10. 完成校验
 
 如果本次操作关联了 `{task-id}`，运行完成校验，确认任务元数据和同步状态符合规范；如果没有任务上下文，跳过本步骤。
 
@@ -83,12 +97,14 @@ node .agents/scripts/validate-artifact.js gate create-pr .agents/workspace/activ
 ## 注意事项
 
 - 必须检查分支中的全部提交，而不是只看最后一个
-- `create-pr` 不能把 type label 映射委托给 `sync-pr`，必须在获取到 `{task-id}` 时于本技能内内联处理
+- `create-pr` 不能把 type label 映射委托给其他技能，必须在获取到 `{task-id}` 时于本技能内内联处理
+- 隐藏 summary 标记必须保持 `<!-- sync-pr:{task-id}:summary -->` 以兼容已有 PR 评论
+- 如果当前分支已存在 PR，直接告知用户 PR URL 并结束，不做重复同步
 - 如果从 Issue 继承元数据失败，继续使用 task.md 和分支推断兜底
 
 ## 错误处理
 
 - `{target}` 与 `HEAD` 之间没有可提交内容
 - 推送被拒绝：建议执行 `git pull --rebase`
-- 已存在 PR：直接输出当前 PR URL
+- 已存在 PR：直接输出当前 PR URL 并结束
 - 无法访问 Issue 元数据：跳过继承并继续

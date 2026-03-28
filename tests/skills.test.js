@@ -179,8 +179,7 @@ test("skills that write timestamps require date command guidance", () => {
     "implement-task",
     "plan-task",
     "refine-task",
-    "review-task",
-    "sync-pr"
+    "review-task"
   ];
 
   timestampSkills.forEach((skill) => {

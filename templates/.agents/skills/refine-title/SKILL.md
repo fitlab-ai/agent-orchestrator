@@ -74,14 +74,7 @@ gh pr edit <id> --title "<new-title>"
 
 If the skill updated an Issue title, explain that no extra sync command is required; continue with the workflow skill that matches the task's current stage.
 
-If the skill updated a PR title, show:
-
-```
-Next step - sync task progress to the PR:
-  - Claude Code / OpenCode: /sync-pr #{pr_number}
-  - Gemini CLI: /{{project}}:sync-pr #{pr_number}
-  - Codex CLI: $sync-pr #{pr_number}
-```
+If the skill updated a PR title, explain that `create-pr` now publishes the reviewer summary inline, so no extra sync command is needed; continue with the workflow skill that matches the task's current stage.
 
 ## Advantages
 

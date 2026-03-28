@@ -5,7 +5,7 @@ description: "Create a Pull Request to a target branch"
 
 # Create Pull Request
 
-Create a Pull Request and, when task-related, sync the essential metadata immediately.
+Create a Pull Request and, when task-related, sync the essential metadata and reviewer summary immediately.
 
 ## Execution Flow
 
@@ -36,6 +36,8 @@ Confirm whether the current branch already has an upstream. Push with `git push 
 
 ### 5. Create the PR
 
+Check whether the current branch already has a PR first; if one exists, show the PR URL and stop without repeating metadata sync or summary publication.
+
 Create the PR with `gh pr create --base <target-branch> --title "<title>" --assignee @me --body ...`.
 
 If `{task-id}` is available and the related task provides `issue_number`, keep `Closes #{issue-number}` in the PR body.
@@ -49,7 +51,19 @@ For PRs where `{task-id}` is available, sync the core metadata immediately:
 - set the milestone with `gh pr edit {pr-number} --milestone "{milestone-title}"`
 - keep Development linking in the PR body with `Closes #{issue-number}` when applicable
 
-### 7. Update Task Status
+### 7. Publish the Review Summary
+
+Read the latest context artifacts when they exist: `plan.md` / `plan-r{N}.md`, `implementation.md` / `implementation-r{N}.md`, `review.md` / `review-r{N}.md`, and `refinement.md` / `refinement-r{N}.md`.
+
+Aggregate a reviewer-facing summary from those artifacts and maintain a single idempotent summary comment via the hidden marker.
+
+> Hidden marker handling, idempotent summary updates, review-history structure, and comment creation/update rules live in `reference/comment-publish.md`. Read `reference/comment-publish.md` before publishing the summary.
+>
+> **Shell safety rules** (required before publishing the comment):
+> 1. Replace `{comment-body}` with the actual inline text. Read files first, then paste the full content into the heredoc body. Do **not** use `$(cat ...)`, `$(< ...)`, `$(...)`, or `${...}` inside `<<'EOF'`.
+> 2. Do **not** use `echo` when constructing strings that contain `<!-- -->`. Use `cat <<'EOF'` heredoc or `printf '%s\n'` instead.
+
+### 8. Update Task Status
 
 Get the current time:
 
@@ -57,15 +71,15 @@ Get the current time:
 date "+%Y-%m-%d %H:%M:%S"
 ```
 
-If `{task-id}` is available, update task.md with `pr_number`, `updated_at`, and append the PR Created Activity Log entry.
+If `{task-id}` is available, update task.md with `pr_number`, `updated_at`, and append the PR Created Activity Log entry including metadata-sync and summary results.
 
-### 8. Inform the User
+### 9. Inform the User
 
-Explain the created PR URL, summarize metadata sync results, and present both follow-up commands in order:
-- optional `sync-pr #{pr_number}` to publish reviewer-facing context
-- `complete-task {task-id}` once the workflow is truly done
+> **IMPORTANT**: All TUI command formats listed below must be output in full. Do not show only the format for the current AI agent.
 
-### 9. Verification Gate
+Explain the created PR URL, summarize metadata sync and summary-comment results, and recommend `complete-task {task-id}` once the workflow is truly done.
+
+### 10. Verification Gate
 
 If this operation is associated with `{task-id}`, run the verification gate to confirm task metadata and sync state. If there is no task context, skip this step.
 
@@ -83,12 +97,14 @@ Keep the gate output in your reply as fresh evidence. Do not claim completion wi
 ## Notes
 
 - Review every commit in the branch, not only the latest one
-- `create-pr` must not defer type-label mapping to `sync-pr`; inline the mapping here when `{task-id}` is available
+- `create-pr` must not defer type-label mapping to another skill; inline the mapping here when `{task-id}` is available
+- Keep the hidden summary marker as `<!-- sync-pr:{task-id}:summary -->` for compatibility with existing PR comments
+- If the current branch already has a PR, show its URL and stop without repeating sync work
 - When metadata inheritance from the Issue fails, continue with task.md and branch-based fallbacks
 
 ## Error Handling
 
 - No commits found between `{target}` and `HEAD`
 - Push rejected: suggest `git pull --rebase`
-- Existing PR found: show the current PR URL
+- Existing PR found: show the current PR URL and stop
 - Inaccessible Issue metadata: skip inheritance and continue
