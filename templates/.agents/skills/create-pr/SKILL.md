@@ -65,6 +65,21 @@ Explain the created PR URL, summarize metadata sync results, and present both fo
 - optional `sync-pr #{pr_number}` to publish reviewer-facing context
 - `complete-task {task-id}` once the workflow is truly done
 
+### 9. Verification Gate
+
+If this operation is associated with `{task-id}`, run the verification gate to confirm task metadata and sync state. If there is no task context, skip this step.
+
+```bash
+node .agents/scripts/validate-artifact.js gate create-pr .agents/workspace/active/{task-id}
+```
+
+Handle the result as follows:
+- exit code 0 (all checks passed) -> continue to the completion checklist
+- exit code 1 (validation failed) -> fix the reported issues and run the gate again
+- exit code 2 (network blocked) -> stop and tell the user that human intervention is required
+
+Keep the gate output in your reply as fresh evidence. Do not claim completion without output from this run.
+
 ## Notes
 
 - Review every commit in the branch, not only the latest one

@@ -97,6 +97,21 @@ date "+%Y-%m-%d %H:%M:%S"
 
 > **重要**：以下「下一步」中列出的所有 TUI 命令格式必须完整输出，不要只展示当前 AI 代理对应的格式。输出格式见 `reference/output-template.md`。
 
+### 10. 完成校验
+
+运行完成校验，确认任务产物和同步状态符合规范：
+
+```bash
+node .agents/scripts/validate-artifact.js gate implement-task .agents/workspace/active/{task-id} {implementation-artifact}
+```
+
+处理结果：
+- 退出码 0（全部通过）-> 继续完成检查清单
+- 退出码 1（校验失败）-> 根据输出修复问题后重新运行校验
+- 退出码 2（网络中断）-> 停止执行并告知用户需要人工介入
+
+将校验输出保留在回复中作为当次验证输出。没有当次校验输出，不得声明完成。
+
 ## 完成检查清单
 
 - [ ] 已完成批准范围内的代码实现

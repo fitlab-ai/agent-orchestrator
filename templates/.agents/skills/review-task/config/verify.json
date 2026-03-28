@@ -1,0 +1,38 @@
+{
+  "skill": "review-task",
+  "checks": {
+    "task-meta": {
+      "required_fields": [
+        "id",
+        "type",
+        "workflow",
+        "status",
+        "created_at",
+        "updated_at",
+        "current_step",
+        "assigned_to"
+      ]
+    },
+    "artifact": {
+      "file_pattern": "review.md|review-r{N}.md",
+      "required_sections": [
+        "审查摘要",
+        "问题清单",
+        "结论与建议"
+      ],
+      "required_patterns": [
+        "^### 审查决定$"
+      ],
+      "freshness_minutes": 30
+    },
+    "activity-log": {
+      "expected_action_pattern": "Code Review \\(Round \\d+\\)",
+      "freshness_minutes": 30
+    },
+    "github-sync": {
+      "when": "issue_number_exists",
+      "expected_status_label": "status: in-progress",
+      "expected_comment_marker": "<!-- sync-issue:{task-id}:{artifact-stem} -->"
+    }
+  }
+}

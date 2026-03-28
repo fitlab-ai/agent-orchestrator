@@ -1,0 +1,35 @@
+{
+  "skill": "refine-task",
+  "checks": {
+    "task-meta": {
+      "required_fields": [
+        "id",
+        "type",
+        "workflow",
+        "status",
+        "created_at",
+        "updated_at",
+        "current_step",
+        "assigned_to"
+      ]
+    },
+    "artifact": {
+      "file_pattern": "refinement.md|refinement-r{N}.md",
+      "required_sections": [
+        "审查反馈处理",
+        "修复后的测试结果"
+      ],
+      "freshness_minutes": 30
+    },
+    "activity-log": {
+      "expected_action_pattern": "Refinement \\(Round \\d+, for .+\\)",
+      "freshness_minutes": 30
+    },
+    "github-sync": {
+      "when": "issue_number_exists",
+      "expected_status_label": "status: in-progress",
+      "expected_comment_marker": "<!-- sync-issue:{task-id}:{artifact-stem} -->",
+      "sync_checked_requirements": true
+    }
+  }
+}

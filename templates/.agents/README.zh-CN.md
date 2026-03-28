@@ -125,8 +125,21 @@
 ### SKILL.md 体积控制
 
 - SKILL.md 正文尽可能精简，把详细规则、长模板和大段脚本拆分到同级 `reference/` 或 `scripts/` 目录。
+- 声明式配置统一放在同级 `config/` 目录，例如 `config/verify.json`。
 - 骨架中使用明确导航，例如：`执行此步骤前，先读取 reference/xxx.md。`
 - 长脚本继续放在 `scripts/` 目录，优先执行脚本而不是内联大段 bash。
+
+## 完成校验
+
+对会产生结构化产物或任务状态变更的 skill，统一在结束前运行完成校验：
+
+```bash
+node .agents/scripts/validate-artifact.js gate <skill-name> <task-dir> [artifact-file]
+```
+
+- 每个 skill 在自己的 `config/verify.json` 中声明需要检查的事项
+- 共享逻辑集中在 `.agents/scripts/validate-artifact.js`，不要把详细校验规则重新塞回 SKILL.md
+- 在回复中保留当次校验输出作为当次验证输出；没有当次校验输出，不得声明完成
 
 ## 常见问题
 

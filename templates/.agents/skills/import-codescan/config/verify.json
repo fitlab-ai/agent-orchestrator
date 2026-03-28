@@ -1,0 +1,24 @@
+{
+  "skill": "import-codescan",
+  "checks": {
+    "task-meta": {
+      "required_fields": [
+        "id",
+        "type",
+        "workflow",
+        "status",
+        "created_at",
+        "updated_at",
+        "current_step",
+        "assigned_to"
+      ],
+      "expected_step": "requirement-analysis",
+      "expected_status": "active"
+    },
+    "activity-log": {
+      "expected_action_pattern": "Import Code Scanning Alert",
+      "freshness_minutes": 30
+    },
+    "github-sync": null
+  }
+}

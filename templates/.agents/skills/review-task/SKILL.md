@@ -70,6 +70,21 @@ Choose exactly one branch based on the findings:
 
 Include all TUI command formats in the next-step output.
 
+### 8. Verification Gate
+
+Run the verification gate to confirm the task artifact and sync state are valid:
+
+```bash
+node .agents/scripts/validate-artifact.js gate review-task .agents/workspace/active/{task-id} {review-artifact}
+```
+
+Handle the result as follows:
+- exit code 0 (all checks passed) -> continue to the completion checklist
+- exit code 1 (validation failed) -> fix the reported issues and run the gate again
+- exit code 2 (network blocked) -> stop and tell the user that human intervention is required
+
+Keep the gate output in your reply as fresh evidence. Do not claim completion without output from this run.
+
 ## Completion Checklist
 
 - [ ] Reviewed the latest implementation context

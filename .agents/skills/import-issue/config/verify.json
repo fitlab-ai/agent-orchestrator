@@ -1,0 +1,27 @@
+{
+  "skill": "import-issue",
+  "checks": {
+    "task-meta": {
+      "required_fields": [
+        "id",
+        "type",
+        "workflow",
+        "status",
+        "created_at",
+        "updated_at",
+        "current_step",
+        "assigned_to"
+      ],
+      "expected_step": "requirement-analysis",
+      "require_issue_number": true
+    },
+    "activity-log": {
+      "expected_action_pattern": "Import Issue",
+      "freshness_minutes": 30
+    },
+    "github-sync": {
+      "when": "issue_number_exists",
+      "issue_must_exist": true
+    }
+  }
+}
