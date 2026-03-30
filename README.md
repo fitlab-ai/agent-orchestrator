@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <strong>Semi-automated programming, powered by AI agents.</strong> Define a requirement, let AI handle analysis, planning, coding, review, and delivery — you only step in when it matters.
+  <strong>From issue to merged PR in 9 commands.</strong> Define a requirement, let AI handle analysis, planning, coding, review, and delivery — you only step in when it matters.
 </p>
 
 <p align="center">
@@ -188,30 +188,29 @@ agent-infra is intentionally simple: a bootstrap CLI creates the seed configurat
 ### Layered Architecture
 
 ```mermaid
-block-beta
-    columns 4
-
-    block:tui:4
-        columns 4
-        claude["Claude Code"] codex["Codex"] gemini["Gemini CLI"] opencode["OpenCode"]
+graph TD
+    subgraph TUI["AI TUI Layer"]
+        claude["Claude Code"]
+        codex["Codex"]
+        gemini["Gemini CLI"]
+        opencode["OpenCode"]
     end
 
-    space:4
-
-    block:shared:4
-        columns 3
-        skills["Skills"] workflows["4 Workflows"] templates["Templates"]
+    subgraph Shared["Shared Layer"]
+        skills["Skills"]
+        workflows["Workflows"]
+        templates["Templates"]
     end
 
-    space:4
-
-    block:project:4
-        columns 4
-        agents[".agents/"] config[".agents/.airc.json"] workspace[".agents/workspace/"] governance["AGENTS.md"]
+    subgraph Project["Project Layer"]
+        agents[".agents/"]
+        config[".airc.json"]
+        workspace["workspace/"]
+        governance["AGENTS.md"]
     end
 
-    tui -- "slash commands" --> shared
-    shared -- "renders into" --> project
+    TUI -- "slash commands" --> Shared
+    Shared -- "renders into" --> Project
 ```
 
 GitHub renders Mermaid diagrams natively. If a downstream renderer does not, the text above still explains the system structure.
@@ -265,6 +264,7 @@ agent-infra ships with **a rich set of built-in AI skills**. They are organized 
 |-------|-------------|------------|----------------------|
 | `check-task` | Inspect the current task status, workflow progress, and next step. | `task-id` | Check progress without modifying task state. |
 | `block-task` | Move a task to blocked state and record the blocker reason. | `task-id`, `reason` (optional) | Pause work when an external dependency or decision is missing. |
+| `restore-task` | Restore local task files from GitHub Issue sync comments. | `issue-number`, `task-id` (optional) | Recover a task workspace after switching machines or clearing local state. |
 
 <a id="issue-and-pr"></a>
 
