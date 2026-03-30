@@ -66,10 +66,11 @@ Follow the `technical-design` step in `.agents/workflows/feature-development.yam
 - [ ] Assess impact and risks
 
 **Design principles**:
-1. **Simplicity**: prefer the simplest approach that satisfies the requirement
-2. **Consistency**: follow existing code patterns and conventions
-3. **Testability**: design for straightforward testing
-4. **Reversibility**: prefer changes that are easy to roll back
+1. **Architectural soundness**: choose the structurally correct approach; diff size is not the primary criterion. Do not pile changes onto an unsound structure just to keep the diff small
+2. **Simplicity**: given a sound architecture, prefer the simplest approach and avoid over-engineering
+3. **Consistency**: follow existing code patterns and conventions
+4. **Testability**: design for straightforward testing
+5. **Reversibility**: prefer changes that are easy to roll back
 
 ### 6. Output Plan Document
 

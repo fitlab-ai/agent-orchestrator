@@ -339,95 +339,34 @@ function checkActivityLog({ taskDir, config }) {
 }
 
 function checkGithubSync({ taskDir, config, artifactFile }) {
-  const task = loadTask(taskDir);
-  if (!task.ok) {
-    return failResult("github-sync", task.message);
+  const context = buildSyncContext({ taskDir, config, artifactFile });
+  if (context.earlyReturn) {
+    return context.earlyReturn;
   }
 
-  const issueNumber = parseIssueNumber(task.metadata.issue_number);
-  if (config.when === "issue_number_exists" && !issueNumber) {
-    return passResult("github-sync", "Skipped: task has no issue_number");
+  const remoteData = fetchRemoteData(context);
+  if (remoteData.earlyReturn) {
+    return remoteData.earlyReturn;
   }
 
-  if (!issueNumber) {
-    return passResult("github-sync", "Skipped: github-sync not required for this task");
-  }
+  const subChecks = [
+    checkStatusLabel,
+    checkCommentMarker,
+    checkPrCommentMarker,
+    checkCommentContent,
+    checkTaskCommentContent,
+    checkInLabelsMatchPr,
+    checkSyncedRequirements
+  ];
 
-  const ownerRepo = resolveOwnerRepo(taskDir);
-  if (!ownerRepo.ok) {
-    return blockedResult("github-sync", ownerRepo.message, "network_error");
-  }
-
-  const issueResult = withRetry(() => ghJson(["issue", "view", String(issueNumber), "--json", "state,labels,body"], taskDir));
-  if (!issueResult.ok) {
-    return issueResult.type === "check_failed"
-      ? failResult("github-sync", issueResult.message, issueResult.type)
-      : blockedResult("github-sync", issueResult.message, issueResult.type);
-  }
-
-  const issue = issueResult.value;
-
-  if (config.issue_must_exist !== false && !issue) {
-    return failResult("github-sync", `Issue #${issueNumber} not found`, "check_failed");
-  }
-
-  if (config.expected_status_label && issue.state === "OPEN") {
-    const labels = (issue.labels || []).map((label) => typeof label === "string" ? label : label.name);
-    if (!labels.includes(config.expected_status_label)) {
-      return failResult(
-        "github-sync",
-        `Expected label '${config.expected_status_label}' not found on Issue #${issueNumber}`,
-        "check_failed"
-      );
+  for (const subCheck of subChecks) {
+    const result = subCheck(context, remoteData);
+    if (result) {
+      return result;
     }
   }
 
-  if (config.expected_comment_marker) {
-    const marker = interpolate(config.expected_comment_marker, taskDir, artifactFile);
-    const commentsResult = withRetry(() => ghPaginatedJson([
-      "api",
-      "--paginate",
-      "--slurp",
-      `repos/${ownerRepo.value}/issues/${issueNumber}/comments?per_page=100`
-    ], taskDir));
-
-    if (!commentsResult.ok) {
-      return commentsResult.type === "check_failed"
-        ? failResult("github-sync", commentsResult.message, commentsResult.type)
-        : blockedResult("github-sync", commentsResult.message, commentsResult.type);
-    }
-
-    const comments = Array.isArray(commentsResult.value)
-      ? commentsResult.value.flatMap((page) => Array.isArray(page) ? page : [])
-      : [];
-    const found = comments.some((comment) => typeof comment.body === "string" && comment.body.includes(marker));
-    if (!found) {
-      return failResult(
-        "github-sync",
-        `Expected comment marker '${marker}' not found on Issue #${issueNumber}`,
-        "check_failed"
-      );
-    }
-  }
-
-  if (config.sync_checked_requirements) {
-    const checkedRequirements = getCheckedRequirements(task.content);
-    if (checkedRequirements.length > 0) {
-      const issueBody = issue.body || "";
-      const missingRequirements = checkedRequirements.filter(
-        (item) => !new RegExp(`^- \\[x\\] ${escapeRegExp(item)}$`, "m").test(issueBody)
-      );
-      if (missingRequirements.length > 0) {
-        return failResult(
-          "github-sync",
-          `Issue body is missing checked requirements: ${missingRequirements.join(", ")}`,
-          "check_failed"
-        );
-      }
-    }
-  }
-
-  return passResult("github-sync", `GitHub sync checks passed for Issue #${issueNumber}`);
+  return passResult("github-sync", `GitHub sync checks passed for Issue #${context.issueNumber}`);
 }
 
 // === File & Config Loaders ===
@@ -549,6 +488,467 @@ function getCheckedRequirements(content) {
     .map((match) => match[1].trim());
 }
 
+function buildSyncContext({ taskDir, config, artifactFile }) {
+  const task = loadTask(taskDir);
+  if (!task.ok) {
+    return { earlyReturn: failResult("github-sync", task.message) };
+  }
+
+  const issueNumber = parseIssueNumber(task.metadata.issue_number);
+  if (config.when === "issue_number_exists" && !issueNumber) {
+    return { earlyReturn: passResult("github-sync", "Skipped: task has no issue_number") };
+  }
+
+  if (!issueNumber) {
+    return { earlyReturn: passResult("github-sync", "Skipped: github-sync not required for this task") };
+  }
+
+  const ownerRepo = resolveOwnerRepo(taskDir);
+  if (!ownerRepo.ok) {
+    return { earlyReturn: blockedResult("github-sync", ownerRepo.message, "network_error") };
+  }
+
+  const marker = config.expected_comment_marker
+    ? interpolate(config.expected_comment_marker, taskDir, artifactFile)
+    : null;
+  const prMarker = config.expected_pr_comment_marker
+    ? interpolate(config.expected_pr_comment_marker, taskDir, artifactFile)
+    : null;
+  const artifactPath = artifactFile ? path.join(taskDir, artifactFile) : null;
+
+  return {
+    task,
+    taskDir,
+    config,
+    artifactFile,
+    artifactPath,
+    issueNumber,
+    prNumber: parsePrNumber(task.metadata.pr_number),
+    ownerRepo: ownerRepo.value,
+    marker,
+    prMarker
+  };
+}
+
+function fetchRemoteData(context) {
+  const issueResult = withRetry(() => ghJson([
+    "issue",
+    "view",
+    String(context.issueNumber),
+    "--json",
+    "state,labels,body"
+  ], context.taskDir));
+  if (!issueResult.ok) {
+    return {
+      earlyReturn: issueResult.type === "check_failed"
+        ? failResult("github-sync", issueResult.message, issueResult.type)
+        : blockedResult("github-sync", issueResult.message, issueResult.type)
+    };
+  }
+
+  const issue = issueResult.value;
+  if (context.config.issue_must_exist !== false && !issue) {
+    return {
+      earlyReturn: failResult("github-sync", `Issue #${context.issueNumber} not found`, "check_failed")
+    };
+  }
+
+  let comments = null;
+  if (shouldFetchComments(context.config)) {
+    const commentsResult = withRetry(() => ghPaginatedJson([
+      "api",
+      "--paginate",
+      "--slurp",
+      `repos/${context.ownerRepo}/issues/${context.issueNumber}/comments?per_page=100`
+    ], context.taskDir));
+
+    if (!commentsResult.ok) {
+      return {
+        earlyReturn: commentsResult.type === "check_failed"
+          ? failResult("github-sync", commentsResult.message, commentsResult.type)
+          : blockedResult("github-sync", commentsResult.message, commentsResult.type)
+      };
+    }
+
+    comments = flattenComments(commentsResult.value);
+  }
+
+  let prComments = null;
+  if (context.config.expected_pr_comment_marker) {
+    if (!context.prNumber) {
+      return {
+        earlyReturn: failResult("github-sync", "Expected a valid pr_number for PR comment verification", "check_failed")
+      };
+    }
+
+    const prCommentsResult = withRetry(() => ghPaginatedJson([
+      "api",
+      "--paginate",
+      "--slurp",
+      `repos/${context.ownerRepo}/issues/${context.prNumber}/comments?per_page=100`
+    ], context.taskDir));
+
+    if (!prCommentsResult.ok) {
+      return {
+        earlyReturn: prCommentsResult.type === "check_failed"
+          ? failResult("github-sync", prCommentsResult.message, prCommentsResult.type)
+          : blockedResult("github-sync", prCommentsResult.message, prCommentsResult.type)
+      };
+    }
+
+    prComments = flattenComments(prCommentsResult.value);
+  }
+
+  let prLabels = null;
+  if (context.config.verify_in_labels_match_pr && context.prNumber) {
+    const prResult = withRetry(() => ghJson([
+      "pr",
+      "view",
+      String(context.prNumber),
+      "--json",
+      "labels"
+    ], context.taskDir));
+
+    if (!prResult.ok) {
+      return {
+        earlyReturn: prResult.type === "check_failed"
+          ? failResult("github-sync", prResult.message, prResult.type)
+          : blockedResult("github-sync", prResult.message, prResult.type)
+      };
+    }
+
+    prLabels = extractLabelNames(prResult.value?.labels);
+  }
+
+  return {
+    issue,
+    comments,
+    prComments,
+    prLabels
+  };
+}
+
+function shouldFetchComments(config) {
+  return Boolean(
+    config.expected_comment_marker
+    || config.expected_pr_comment_marker
+    || config.verify_comment_content
+    || config.verify_task_comment_content
+  );
+}
+
+function flattenComments(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.flatMap((page) => Array.isArray(page) ? page : []);
+}
+
+function checkStatusLabel(context, remoteData) {
+  if (!context.config.expected_status_label || remoteData.issue.state !== "OPEN") {
+    return null;
+  }
+
+  const labels = extractLabelNames(remoteData.issue.labels);
+  if (labels.includes(context.config.expected_status_label)) {
+    return null;
+  }
+
+  return failResult(
+    "github-sync",
+    `Expected label '${context.config.expected_status_label}' not found on Issue #${context.issueNumber}`,
+    "check_failed"
+  );
+}
+
+function checkCommentMarker(context, remoteData) {
+  if (!context.marker) {
+    return null;
+  }
+
+  const comment = findCommentByMarker(remoteData.comments, context.marker);
+  if (comment) {
+    return null;
+  }
+
+  return failResult(
+    "github-sync",
+    `Expected comment marker '${context.marker}' not found on Issue #${context.issueNumber}`,
+    "check_failed"
+  );
+}
+
+function checkPrCommentMarker(context, remoteData) {
+  if (!context.prMarker) {
+    return null;
+  }
+
+  const comment = findCommentByMarker(remoteData.prComments, context.prMarker);
+  if (comment) {
+    return null;
+  }
+
+  return failResult(
+    "github-sync",
+    `Expected PR comment marker '${context.prMarker}' not found on PR #${context.prNumber}`,
+    "check_failed"
+  );
+}
+
+function checkCommentContent(context, remoteData) {
+  if (!context.config.verify_comment_content) {
+    return null;
+  }
+
+  if (!context.marker) {
+    return failResult("github-sync", "verify_comment_content requires expected_comment_marker", "check_failed");
+  }
+
+  if (!context.artifactPath || !safeStat(context.artifactPath)) {
+    return failResult(
+      "github-sync",
+      `Artifact not found for comment verification: ${context.artifactFile || "(missing artifactFile)"}`,
+      "check_failed"
+    );
+  }
+
+  const comment = findCommentByMarker(remoteData.comments, context.marker);
+  const localContent = normalizeContent(fs.readFileSync(context.artifactPath, "utf8"));
+  const commentContent = normalizeContent(extractCommentBody(comment?.body || ""));
+
+  if (localContent === commentContent) {
+    return null;
+  }
+
+  return failResult(
+    "github-sync",
+    buildCommentContentMismatchMessage(
+      path.basename(context.artifactPath, path.extname(context.artifactPath)),
+      context.issueNumber,
+      localContent,
+      commentContent
+    ),
+    "check_failed"
+  );
+}
+
+function checkTaskCommentContent(context, remoteData) {
+  if (!context.config.verify_task_comment_content) {
+    return null;
+  }
+
+  const taskMarker = `<!-- sync-issue:${context.task.metadata.id}:task -->`;
+  const comment = findCommentByMarker(remoteData.comments, taskMarker);
+  if (!comment) {
+    return failResult(
+      "github-sync",
+      `Expected comment marker '${taskMarker}' not found on Issue #${context.issueNumber}`,
+      "check_failed"
+    );
+  }
+
+  const expectedBody = normalizeContent(buildExpectedTaskBody(context.task.content));
+  const commentBody = normalizeContent(extractCommentBody(comment.body || ""));
+
+  if (expectedBody === commentBody) {
+    return null;
+  }
+
+  return failResult(
+    "github-sync",
+    buildCommentContentMismatchMessage("task", context.issueNumber, expectedBody, commentBody),
+    "check_failed"
+  );
+}
+
+function checkInLabelsMatchPr(context, remoteData) {
+  if (!context.config.verify_in_labels_match_pr || !context.prNumber || !remoteData.prLabels) {
+    return null;
+  }
+
+  const issueInLabels = extractLabelNames(remoteData.issue.labels)
+    .filter((label) => label.startsWith("in:"))
+    .sort();
+  const prInLabels = remoteData.prLabels
+    .filter((label) => label.startsWith("in:"))
+    .sort();
+
+  if (arraysEqual(issueInLabels, prInLabels)) {
+    return null;
+  }
+
+  return failResult(
+    "github-sync",
+    `in: labels mismatch — PR #${context.prNumber} has [${formatLabelList(prInLabels)}], Issue #${context.issueNumber} has [${formatLabelList(issueInLabels)}]`,
+    "check_failed"
+  );
+}
+
+function checkSyncedRequirements(context, remoteData) {
+  if (!context.config.sync_checked_requirements) {
+    return null;
+  }
+
+  const checkedRequirements = getCheckedRequirements(context.task.content);
+  if (checkedRequirements.length === 0) {
+    return null;
+  }
+
+  const issueBody = remoteData.issue.body || "";
+  const missingRequirements = checkedRequirements.filter(
+    (item) => !new RegExp(`^- \\[x\\] ${escapeRegExp(item)}$`, "m").test(issueBody)
+  );
+  if (missingRequirements.length === 0) {
+    return null;
+  }
+
+  return failResult(
+    "github-sync",
+    `Issue body is missing checked requirements: ${missingRequirements.join(", ")}`,
+    "check_failed"
+  );
+}
+
+function findCommentByMarker(comments, marker) {
+  return (comments || []).find((comment) => typeof comment.body === "string" && comment.body.includes(marker)) || null;
+}
+
+function extractCommentBody(commentBody) {
+  const lines = String(commentBody || "").split(/\r?\n/);
+
+  let start = 0;
+  while (start < lines.length && (lines[start].trim() === "" || /^<!--.*-->$/.test(lines[start].trim()))) {
+    start += 1;
+  }
+
+  if (start < lines.length && lines[start].startsWith("## ")) {
+    start += 1;
+  }
+
+  while (start < lines.length && lines[start].trim() === "") {
+    start += 1;
+  }
+
+  let end = lines.length;
+  for (let index = lines.length - 1; index >= start; index -= 1) {
+    const trimmed = lines[index].trim();
+    if (trimmed === "") {
+      continue;
+    }
+
+    if (/^\*.*\*$/.test(trimmed)) {
+      end = index;
+      if (end > start && lines[end - 1].trim() === "---") {
+        end -= 1;
+      }
+    }
+    break;
+  }
+
+  return lines.slice(start, end).join("\n");
+}
+
+function buildExpectedTaskBody(taskContent) {
+  const frontmatterMatch = taskContent.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  if (!frontmatterMatch) {
+    return taskContent.trim();
+  }
+
+  const body = taskContent.slice(frontmatterMatch[0].length).trim();
+  return [
+    buildTaskFrontmatterSummary(),
+    "",
+    "```yaml",
+    frontmatterMatch[0].trim(),
+    "```",
+    "",
+    "</details>",
+    "",
+    body
+  ].join("\n").trim();
+}
+
+function buildTaskFrontmatterSummary() {
+  const language = loadProjectLanguage();
+  if (language === "en" || language === "en-US") {
+    return "<details><summary>Metadata (frontmatter)</summary>";
+  }
+
+  return "<details><summary>元数据 (frontmatter)</summary>";
+}
+
+function loadProjectLanguage() {
+  const override = process.env.VALIDATE_ARTIFACT_LANGUAGE;
+  if (!isBlank(override)) {
+    return String(override).trim();
+  }
+
+  const configPath = path.join(repoRoot, ".agents", ".airc.json");
+  if (!fs.existsSync(configPath)) {
+    return "";
+  }
+
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    return String(config.language || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+function normalizeContent(text) {
+  return String(text || "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function buildCommentContentMismatchMessage(fileStem, issueNumber, localContent, commentContent) {
+  const diffIndex = firstDifferenceIndex(localContent, commentContent);
+  const position = indexToLineColumn(localContent, diffIndex);
+
+  return `Comment content mismatch for '${fileStem}' on Issue #${issueNumber}: local file has ${localContent.length} chars, comment body has ${commentContent.length} chars (first difference near char ${diffIndex + 1}, line ${position.line}, column ${position.column})`;
+}
+
+function firstDifferenceIndex(left, right) {
+  const limit = Math.max(left.length, right.length);
+  for (let index = 0; index < limit; index += 1) {
+    if (left[index] !== right[index]) {
+      return index;
+    }
+  }
+
+  return limit;
+}
+
+function indexToLineColumn(text, index) {
+  const prefix = text.slice(0, Math.min(index, text.length));
+  const lines = prefix.split("\n");
+  return {
+    line: lines.length,
+    column: (lines.at(-1) || "").length + 1
+  };
+}
+
+function extractLabelNames(labels) {
+  return (labels || [])
+    .map((label) => typeof label === "string" ? label : label?.name)
+    .filter((label) => typeof label === "string" && label.length > 0);
+}
+
+function arraysEqual(left, right) {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  return left.every((value, index) => value === right[index]);
+}
+
+function formatLabelList(labels) {
+  return labels.length > 0 ? labels.join(", ") : "none";
+}
+
 // === GitHub API ===
 
 function parseIssueNumber(value) {
@@ -558,6 +958,10 @@ function parseIssueNumber(value) {
 
   const match = String(value).match(/\d+/);
   return match ? Number(match[0]) : null;
+}
+
+function parsePrNumber(value) {
+  return parseIssueNumber(value);
 }
 
 function resolveOwnerRepo(taskDir) {

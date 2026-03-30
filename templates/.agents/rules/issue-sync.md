@@ -72,7 +72,6 @@ Publishing flow:
 1. Read the local artifact file in full first
 2. Inline the full file contents as `{artifact body}`
 3. Do not summarize, rewrite, or truncate the artifact body
-4. If the content exceeds the chunking threshold, follow the "Chunked Publishing" rules below
 
 Use this format:
 
@@ -113,7 +112,7 @@ Use an idempotent update path for `task.md`:
 
 1. Read the full `task.md`
 2. Wrap the YAML frontmatter (content between the `---` delimiters) inside a `<details><summary>Metadata (frontmatter)</summary>` block with a `yaml` code fence; render the remaining body as normal Markdown
-3. If the content exceeds the chunking threshold, follow "Chunked Publishing" with `task` as `{file-stem}`
+3. Use `task` as `{file-stem}`
 4. Find an existing comment ID for the marker
 5. Create the comment when none exists
 6. PATCH the comment in place when the body changed
@@ -145,26 +144,6 @@ When restoring, extract the frontmatter from the `<details>` block and reassembl
 
 Title mapping:
 - `task` -> `Task File`
-
-## Chunked Publishing
-
-When the file body exceeds 60000 characters, chunk it before publishing to leave room for markers, titles, and the footer.
-
-Chunk marker:
-
-```html
-<!-- sync-issue:{task-id}:{file-stem}:{part}/{total} -->
-```
-
-Chunking rules:
-
-1. Compute the full character length
-2. When the length is 60000 characters or less, publish a normal single comment
-3. When the length is greater than 60000 characters, split it at roughly 60000 characters and prefer the nearest newline; when no newline exists in range, force the split at 60000 characters
-4. Publish each chunk as an independent comment and append `({part}/{total})` to the title
-5. Reconstruct the file by concatenating chunk bodies in ascending `{part}` order
-
-Apply the same rule set to `task.md` and every artifact file.
 
 ## Backfill Rules (run before `/complete-task` archives)
 

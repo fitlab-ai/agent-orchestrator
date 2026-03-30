@@ -48,6 +48,7 @@ description: "创建 Pull Request 到目标分支"
 - 执行 `gh label list --search "type:" --limit 1 --json name --jq 'length'`
 - 使用 `gh pr edit {pr-number} --add-label "{type-label}"` 添加 type label
 - 使用 `gh pr edit {pr-number} --add-label "in: {module}"` 添加相关 `in:` labels
+- 按 `.agents/rules/issue-sync.md` 的 `in:` label 同步规则，同步更新关联 Issue 的 `in:` label 保持一致
 - 使用 `gh pr edit {pr-number} --milestone "{milestone-title}"` 设置里程碑
 - 通过 `Closes #{issue-number}` 保持 Development 关联
 

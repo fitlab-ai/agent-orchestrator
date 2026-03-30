@@ -48,6 +48,7 @@ For PRs where `{task-id}` is available, sync the core metadata immediately:
 - run `gh label list --search "type:" --limit 1 --json name --jq 'length'`
 - add the mapped type label with `gh pr edit {pr-number} --add-label "{type-label}"`
 - add relevant `in: {module}` labels with `gh pr edit {pr-number} --add-label "in: {module}"`
+- sync the linked Issue `in:` labels to match by following the `in:` label sync rule in `.agents/rules/issue-sync.md`
 - set the milestone with `gh pr edit {pr-number} --milestone "{milestone-title}"`
 - keep Development linking in the PR body with `Closes #{issue-number}` when applicable
 

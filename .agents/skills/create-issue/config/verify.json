@@ -20,7 +20,8 @@
     },
     "github-sync": {
       "when": "issue_number_exists",
-      "issue_must_exist": true
+      "issue_must_exist": true,
+      "verify_task_comment_content": true
     }
   }
 }

@@ -27,6 +27,10 @@ function write(filePathname, content) {
   fs.writeFileSync(filePathname, content, "utf8");
 }
 
+function writeJson(filePathname, value) {
+  write(filePathname, JSON.stringify(value));
+}
+
 function buildTaskFrontmatter(overrides = {}) {
   const now = new Date();
   const metadata = {
@@ -76,6 +80,63 @@ function runValidator(args, options = {}) {
       ...process.env,
       ...options.env
     }
+  });
+}
+
+function initGitRepo(repoRoot) {
+  const initResult = spawnSync("git", ["init", "-q"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(initResult.status, 0, initResult.stderr);
+
+  const remoteResult = spawnSync("git", ["remote", "add", "origin", "git@github.com:fitlab-ai/agent-infra.git"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(remoteResult.status, 0, remoteResult.stderr);
+}
+
+function writeFakeGh(filePathname) {
+  write(filePathname, loadFixture("fake-gh.js"));
+  fs.chmodSync(filePathname, 0o755);
+}
+
+function buildArtifactMarker(taskId, artifactFile) {
+  return `<!-- sync-issue:${taskId}:${path.basename(artifactFile, path.extname(artifactFile))} -->`;
+}
+
+function buildArtifactComment(taskId, artifactFile, title, body) {
+  return loadFixture("artifact-comment.md", {
+    MARKER: buildArtifactMarker(taskId, artifactFile),
+    TITLE: title,
+    BODY: body.trim(),
+    TASK_ID: taskId
+  });
+}
+
+function buildTaskComment(taskId, taskContent, options = {}) {
+  const match = taskContent.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  const body = match ? taskContent.slice(match[0].length).trim() : taskContent.trim();
+  const summaryText = options.summaryText || "元数据 (frontmatter)";
+  const detailsBlock = match
+    ? [
+        `<details><summary>${summaryText}</summary>`,
+        "",
+        "```yaml",
+        match[0].trim(),
+        "```",
+        "",
+        "</details>"
+      ].join("\n")
+    : "";
+  const renderedBody = options.rawBody
+    ? taskContent.trim()
+    : [detailsBlock, body].filter(Boolean).join("\n\n");
+
+  return loadFixture("task-comment.md", {
+    TASK_ID: taskId,
+    BODY: renderedBody
   });
 }
 
@@ -213,6 +274,423 @@ test("validate-artifact github-sync blocks after retry exhaustion on gh network 
     const githubCheck = payload.checks.find((check) => check.type === "github-sync");
     assert.equal(githubCheck.status, "blocked");
     assert.equal(githubCheck.fail_type, "network_error");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact gate passes when synced artifact and task comments match local files", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-pass-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const commentsPath = path.join(tempRoot, "comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    const taskContent = buildTaskContent({ issue_number: "65" });
+    const artifactContent = loadFixture("valid-implementation.md");
+
+    write(path.join(taskDir, "task.md"), taskContent);
+    write(path.join(taskDir, "implementation.md"), artifactContent);
+    writeJson(issuePath, {
+      state: "OPEN",
+      labels: [{ name: "status: in-progress" }],
+      body: "# Issue\n\n- [x] 保留最新验证输出\n"
+    });
+    writeJson(commentsPath, [
+      { body: buildArtifactComment("TASK-20260328-000001", "implementation.md", "实现报告", artifactContent) },
+      { body: buildTaskComment("TASK-20260328-000001", taskContent) }
+    ]);
+
+    const result = runValidator(["gate", "implement-task", taskDir, "implementation.md"], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_COMMENTS_PATH: commentsPath
+      }
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.gate, "pass");
+    assert.deepEqual(
+      payload.checks.map((check) => check.status),
+      ["pass", "pass", "pass", "pass"]
+    );
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails when artifact comment content differs from the local artifact", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-artifact-mismatch-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const commentsPath = path.join(tempRoot, "comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    const taskContent = buildTaskContent({ issue_number: "65" });
+    const artifactContent = loadFixture("valid-implementation.md");
+
+    write(path.join(taskDir, "task.md"), taskContent);
+    write(path.join(taskDir, "implementation.md"), artifactContent);
+    writeJson(issuePath, {
+      state: "OPEN",
+      labels: [{ name: "status: in-progress" }],
+      body: "# Issue\n\n- [x] 保留最新验证输出\n"
+    });
+    writeJson(commentsPath, [
+      { body: buildArtifactComment("TASK-20260328-000001", "implementation.md", "实现报告", "# 摘要\n\n这不是原文。") },
+      { body: buildTaskComment("TASK-20260328-000001", taskContent) }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "implementation.md",
+      "--skill",
+      "implement-task"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_COMMENTS_PATH: commentsPath
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /Comment content mismatch for 'implementation'/);
+    assert.match(payload.message, /first difference near char \d+/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails when the task comment does not use the rendered frontmatter details block", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-task-mismatch-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const commentsPath = path.join(tempRoot, "comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    const taskContent = buildTaskContent({ issue_number: "65" });
+    const artifactContent = loadFixture("valid-implementation.md");
+
+    write(path.join(taskDir, "task.md"), taskContent);
+    write(path.join(taskDir, "implementation.md"), artifactContent);
+    writeJson(issuePath, {
+      state: "OPEN",
+      labels: [{ name: "status: in-progress" }],
+      body: "# Issue\n\n- [x] 保留最新验证输出\n"
+    });
+    writeJson(commentsPath, [
+      { body: buildArtifactComment("TASK-20260328-000001", "implementation.md", "实现报告", artifactContent) },
+      { body: buildTaskComment("TASK-20260328-000001", taskContent, { rawBody: true }) }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "implementation.md",
+      "--skill",
+      "implement-task"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_COMMENTS_PATH: commentsPath
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /Comment content mismatch for 'task'/);
+    assert.match(payload.message, /line \d+, column \d+/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync accepts English task frontmatter summary when language override is en", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-task-en-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const commentsPath = path.join(tempRoot, "comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    const taskContent = buildTaskContent({ issue_number: "65" });
+    const artifactContent = loadFixture("valid-implementation.md");
+
+    write(path.join(taskDir, "task.md"), taskContent);
+    write(path.join(taskDir, "implementation.md"), artifactContent);
+    writeJson(issuePath, {
+      state: "OPEN",
+      labels: [{ name: "status: in-progress" }],
+      body: "# Issue\n\n- [x] 保留最新验证输出\n"
+    });
+    writeJson(commentsPath, [
+      { body: buildArtifactComment("TASK-20260328-000001", "implementation.md", "Implementation Report", artifactContent) },
+      { body: buildTaskComment("TASK-20260328-000001", taskContent, { summaryText: "Metadata (frontmatter)" }) }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "implementation.md",
+      "--skill",
+      "implement-task"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_COMMENTS_PATH: commentsPath,
+        VALIDATE_ARTIFACT_LANGUAGE: "en"
+      }
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails when PR and Issue in: labels diverge", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-in-labels-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prPath = path.join(tempRoot, "pr.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, {
+      state: "OPEN",
+      labels: [{ name: "in: core" }],
+      body: "# Issue\n"
+    });
+    writeJson(prPath, {
+      labels: [{ name: "in: cli" }, { name: "in: core" }]
+    });
+    writeJson(prCommentsPath, [
+      { body: "<!-- sync-pr:TASK-20260328-000001:summary -->\n## Review Summary\n\nLooks good." }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "create-pr"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_PR_PATH: prPath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /in: labels mismatch/);
+    assert.match(payload.message, /PR #77/);
+    assert.match(payload.message, /Issue #65/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync passes when create-pr summary comment exists on the PR", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-pr-comment-pass-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prPath = path.join(tempRoot, "pr.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, {
+      state: "OPEN",
+      labels: [],
+      body: "# Issue\n"
+    });
+    writeJson(prPath, {
+      labels: []
+    });
+    writeJson(prCommentsPath, [
+      { body: "<!-- sync-pr:TASK-20260328-000001:summary -->\n## Review Summary\n\nLooks good." }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "create-pr"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_PR_PATH: prPath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails when create-pr summary comment is missing on the PR", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-pr-comment-fail-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prPath = path.join(tempRoot, "pr.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, {
+      state: "OPEN",
+      labels: [],
+      body: "# Issue\n"
+    });
+    writeJson(prPath, {
+      labels: []
+    });
+    writeJson(prCommentsPath, []);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "create-pr"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_PR_PATH: prPath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /Expected PR comment marker/);
+    assert.match(payload.message, /PR #77/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails for create-issue when the task comment is missing", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-create-issue-task-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const commentsPath = path.join(tempRoot, "comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65" }));
+    writeJson(issuePath, {
+      state: "OPEN",
+      labels: [],
+      body: "# Issue\n"
+    });
+    writeJson(commentsPath, []);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "create-issue"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_COMMENTS_PATH: commentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65"
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /sync-issue:TASK-20260328-000001:task/);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }
