@@ -356,7 +356,9 @@ function checkGithubSync({ taskDir, config, artifactFile }) {
     checkCommentContent,
     checkTaskCommentContent,
     checkInLabelsMatchPr,
-    checkSyncedRequirements
+    checkSyncedRequirements,
+    checkIssueType,
+    checkMilestone
   ];
 
   for (const subCheck of subChecks) {
@@ -536,7 +538,7 @@ function fetchRemoteData(context) {
     "view",
     String(context.issueNumber),
     "--json",
-    "state,labels,body"
+    "state,labels,body,milestone"
   ], context.taskDir));
   if (!issueResult.ok) {
     return {
@@ -599,14 +601,37 @@ function fetchRemoteData(context) {
     prComments = flattenComments(prCommentsResult.value);
   }
 
+  let issueType;
+  if (context.config.verify_issue_type) {
+    const issueTypeResult = withRetry(() => ghText([
+      "api",
+      `repos/${context.ownerRepo}/issues/${context.issueNumber}`,
+      "--jq",
+      ".type.name // empty"
+    ], context.taskDir));
+
+    if (issueTypeResult.ok) {
+      issueType = issueTypeResult.value || null;
+    }
+  }
+
   let prLabels = null;
-  if (context.config.verify_in_labels_match_pr && context.prNumber) {
+  let prMilestone;
+  if ((context.config.verify_in_labels_match_pr || context.config.verify_milestone) && context.prNumber) {
+    const prFields = [];
+    if (context.config.verify_in_labels_match_pr) {
+      prFields.push("labels");
+    }
+    if (context.config.verify_milestone) {
+      prFields.push("milestone");
+    }
+
     const prResult = withRetry(() => ghJson([
       "pr",
       "view",
       String(context.prNumber),
       "--json",
-      "labels"
+      prFields.join(",")
     ], context.taskDir));
 
     if (!prResult.ok) {
@@ -617,14 +642,21 @@ function fetchRemoteData(context) {
       };
     }
 
-    prLabels = extractLabelNames(prResult.value?.labels);
+    prLabels = context.config.verify_in_labels_match_pr
+      ? extractLabelNames(prResult.value?.labels)
+      : null;
+    prMilestone = context.config.verify_milestone
+      ? prResult.value?.milestone ?? null
+      : undefined;
   }
 
   return {
     issue,
     comments,
     prComments,
-    prLabels
+    prLabels,
+    issueType,
+    prMilestone
   };
 }
 
@@ -810,6 +842,59 @@ function checkSyncedRequirements(context, remoteData) {
   );
 }
 
+function checkIssueType(context, remoteData) {
+  if (!context.config.verify_issue_type) {
+    return null;
+  }
+
+  if (remoteData.issueType === undefined) {
+    return null;
+  }
+
+  if (!remoteData.issueType) {
+    return failResult(
+      "github-sync",
+      `Issue #${context.issueNumber} has no Issue Type set`,
+      "check_failed"
+    );
+  }
+
+  const expectedType = mapTaskTypeToIssueType(context.task.metadata.type);
+  if (expectedType && remoteData.issueType !== expectedType) {
+    return failResult(
+      "github-sync",
+      `Issue #${context.issueNumber} has type '${remoteData.issueType}', expected '${expectedType}' (from task type '${context.task.metadata.type}')`,
+      "check_failed"
+    );
+  }
+
+  return null;
+}
+
+function checkMilestone(context, remoteData) {
+  if (!context.config.verify_milestone) {
+    return null;
+  }
+
+  if (!remoteData.issue?.milestone?.title) {
+    return failResult(
+      "github-sync",
+      `Issue #${context.issueNumber} has no milestone set`,
+      "check_failed"
+    );
+  }
+
+  if (context.prNumber && remoteData.prMilestone !== undefined && !remoteData.prMilestone?.title) {
+    return failResult(
+      "github-sync",
+      `PR #${context.prNumber} has no milestone set`,
+      "check_failed"
+    );
+  }
+
+  return null;
+}
+
 function findCommentByMarker(comments, marker) {
   return (comments || []).find((comment) => typeof comment.body === "string" && comment.body.includes(marker)) || null;
 }
@@ -945,6 +1030,24 @@ function extractLabelNames(labels) {
     .filter((label) => typeof label === "string" && label.length > 0);
 }
 
+function mapTaskTypeToIssueType(taskType) {
+  const mapping = {
+    bug: "Bug",
+    bugfix: "Bug",
+    enhancement: "Feature",
+    feature: "Feature",
+    task: "Task",
+    documentation: "Task",
+    "dependency-upgrade": "Task",
+    chore: "Task",
+    docs: "Task",
+    refactor: "Task",
+    refactoring: "Task"
+  };
+
+  return mapping[taskType] || "Task";
+}
+
 function arraysEqual(left, right) {
   if (left.length !== right.length) {
     return false;
@@ -992,6 +1095,28 @@ function resolveOwnerRepo(taskDir) {
 }
 
 function ghJson(args, cwd) {
+  const result = ghCommand(args, cwd);
+  if (!result.ok) {
+    return result;
+  }
+
+  try {
+    return { ok: true, value: JSON.parse(result.value || "null") };
+  } catch (error) {
+    return { ok: false, type: "network_error", message: `Invalid JSON from gh: ${error.message}` };
+  }
+}
+
+function ghText(args, cwd) {
+  const result = ghCommand(args, cwd);
+  if (!result.ok) {
+    return result;
+  }
+
+  return { ok: true, value: String(result.value || "").trim() };
+}
+
+function ghCommand(args, cwd) {
   const result = spawnSync("gh", args, {
     cwd,
     encoding: "utf8",
@@ -1004,11 +1129,7 @@ function ghJson(args, cwd) {
     return { ok: false, type: classified.type, message: classified.message };
   }
 
-  try {
-    return { ok: true, value: JSON.parse(result.stdout || "null") };
-  } catch (error) {
-    return { ok: false, type: "network_error", message: `Invalid JSON from gh: ${error.message}` };
-  }
+  return { ok: true, value: result.stdout };
 }
 
 function ghPaginatedJson(args, cwd) {

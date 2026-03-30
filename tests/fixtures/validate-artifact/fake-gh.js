@@ -23,6 +23,23 @@ if (args[0] === "pr" && args[1] === "view") {
   process.exit(0);
 }
 
+if (args[0] === "api" && args[1] && /repos\/[^/]+\/[^/]+\/issues\/\d+$/.test(args[1])) {
+  if (process.env.GH_FAKE_ISSUE_REST_FAIL) {
+    console.error(process.env.GH_FAKE_ISSUE_REST_FAIL);
+    process.exit(1);
+  }
+
+  const restIssue = readJson("GH_FAKE_ISSUE_REST_PATH") ?? readJson("GH_FAKE_ISSUE_PATH");
+  const jqIndex = args.indexOf("--jq");
+  if (jqIndex !== -1) {
+    process.stdout.write(restIssue?.type?.name || "");
+    process.exit(0);
+  }
+
+  process.stdout.write(JSON.stringify(restIssue));
+  process.exit(0);
+}
+
 if (args[0] === "api" && args.some((arg) => /\/issues\/\d+\/comments\?per_page=100$/.test(arg))) {
   const requestPath = args.find((arg) => /\/issues\/\d+\/comments\?per_page=100$/.test(arg)) || "";
   const match = requestPath.match(/\/issues\/(\d+)\/comments\?per_page=100$/);
