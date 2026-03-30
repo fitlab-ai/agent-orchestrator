@@ -23,6 +23,7 @@
     "github-sync": {
       "when": "issue_number_exists",
       "expected_comment_marker": "<!-- sync-issue:{task-id}:summary -->",
+      "verify_task_comment_content": true,
       "sync_checked_requirements": true
     }
   }

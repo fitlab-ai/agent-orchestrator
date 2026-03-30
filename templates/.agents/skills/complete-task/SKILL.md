@@ -91,6 +91,7 @@ Check whether `task.md` includes a valid `issue_number`. If not, skip this step 
 If a valid `issue_number` exists:
 - First scan and backfill unpublished `task.md`, `analysis*.md`, `plan*.md`, `implementation*.md`, `review*.md`, and `refinement*.md` comments using the backfill rules in `.agents/rules/issue-sync.md` (`task.md` uses the idempotent update path)
 - Backfill checked `## Requirements` items to the Issue body
+- Do not set any `status:` label — status labels are automatically cleared when the Issue is closed
 - Finally create or update the summary comment marked with `<!-- sync-issue:{task-id}:summary -->`
 
 ### 7. Verification Gate
