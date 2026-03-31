@@ -49,7 +49,7 @@ description: "创建 Pull Request 到目标分支"
 - 使用 `gh pr edit {pr-number} --add-label "{type-label}"` 添加 type label
 - 使用 `gh pr edit {pr-number} --add-label "in: {module}"` 添加相关 `in:` labels
 - 按 `.agents/rules/issue-sync.md` 的 `in:` label 同步规则，同步更新关联 Issue 的 `in:` label 保持一致
-- 使用 `gh pr edit {pr-number} --milestone "{milestone-title}"` 设置里程碑
+- 按 `.agents/rules/milestone-inference.md` 的「阶段 3：`create-pr`」复用 Issue milestone
 - 通过 `Closes #{issue-number}` 保持 Development 关联
 
 ### 7. 发布审查摘要

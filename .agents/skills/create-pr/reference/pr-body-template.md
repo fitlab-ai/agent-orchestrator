@@ -51,20 +51,12 @@ Type label 映射：
 2. 用 `gh pr edit {pr-number} --add-label "{type-label}"` 添加映射后的 type label
 3. 用重复的 `gh pr edit ... --add-label` 继承非 `type:`、非 `status:` 的 Issue labels
 4. 按 `.agents/rules/issue-sync.md` 的 `in:` label 同步规则精修 PR 的 `in:` label，同时同步更新关联 Issue 的 `in:` label 保持一致
-5. 按 `PR -> task.md -> Issue -> branch/tag inference -> General Backlog` 的顺序解析 milestone
+5. 按 `.agents/rules/milestone-inference.md` 的「阶段 3：`create-pr`」处理 milestone，直接复用 Issue milestone
 6. 确保 PR 正文包含 `Closes #{issue-number}` 或等价的 closing keyword
 
-Milestone 推断算法：
-1. 如果 PR 当前已经设置了 milestone，优先保留
-2. 否则使用 task.md 中显式设置的 `milestone`
-3. 否则继承 Issue milestone
-4. 否则按以下分支 / tag 规则推断：
-   - 当前分支匹配 `{major}.{minor}.x`，直接使用该 release line
-   - 当前分支是 `main` 或 `master`，检查现有 `{major}.{minor}.x` 分支，并目标设为 `(X+1).0.x`
-   - 如果不存在 release line 分支，则检查最新的 `vX.Y.Z` tag，并回退到 `X.Y.x`
-   - 如果以上都无法得出结果，则回退到 `General Backlog`
-5. 如果推断出的 milestone 不可用，则回退到 `General Backlog`
-6. 如果连 `General Backlog` 都不可用，则记录 `Milestone: skipped (not found)`
+Milestone 规则：
+- 按 `.agents/rules/milestone-inference.md` 的「阶段 3：`create-pr`」处理
+- PR 直接复用 Issue milestone，不再独立推断
 
 ## 创建 PR
 

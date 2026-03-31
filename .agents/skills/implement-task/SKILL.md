@@ -37,7 +37,11 @@ description: "根据技术方案实施任务并输出报告"
 
 > 分支命名规则、Git 命令和边界处理见 `reference/branch-management.md`。执行此步骤前，先读取 `reference/branch-management.md`。
 
-### 3. 确定输入方案与实现轮次
+### 3. 收窄里程碑
+
+如果 task.md 中存在有效的 `issue_number`，按 `.agents/rules/milestone-inference.md` 的「阶段 2：`implement-task`」收窄 Issue milestone。执行前先读取该文件。
+
+### 4. 确定输入方案与实现轮次
 
 扫描 `.agents/workspace/active/{task-id}/` 并记录：
 - 最高轮次的方案文件为 `{plan-artifact}`
@@ -46,7 +50,7 @@ description: "根据技术方案实施任务并输出报告"
 
 如果存在 `plan-r{N}.md`，读取最高轮次的方案文件；否则读取 `plan.md`。
 
-### 4. 阅读技术方案
+### 5. 阅读技术方案
 
 仔细阅读 `{plan-artifact}`，提取：
 - 实施步骤
@@ -54,25 +58,25 @@ description: "根据技术方案实施任务并输出报告"
 - 测试策略
 - 约束、风险与已批准的取舍
 
-### 5. 执行代码实现
+### 6. 执行代码实现
 
 按照 `.agents/workflows/feature-development.yaml` 和方案顺序实施。
 
 > 详细实现规则、测试纪律和偏离处理见 `reference/implementation-rules.md`。执行此步骤前，先读取 `reference/implementation-rules.md`。
 
-### 6. 运行测试验证
+### 7. 运行测试验证
 
 使用 `test` 技能中的项目测试命令，直到所有必需测试通过。
 
 如果测试失败，先尝试修复并重新运行测试。只有在确认存在外部阻塞、环境缺失或需求不明确且超出任务范围时，才可以停止。
 
-### 7. 编写实现报告
+### 8. 编写实现报告
 
 创建 `.agents/workspace/active/{task-id}/{implementation-artifact}`。
 
 > 报告结构、必填章节和完整模板见 `reference/report-template.md`。写报告前先读取 `reference/report-template.md`。
 
-### 8. 更新任务状态
+### 9. 更新任务状态
 
 获取当前时间：
 
@@ -94,7 +98,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - 同步 `## 需求` 中已勾选项到 Issue body，并发布 `{implementation-artifact}` 评论
 - 创建或更新 `<!-- sync-issue:{task-id}:task -->` 评论（按 issue-sync.md 的 task.md 评论同步规则）
 
-### 9. 完成校验
+### 10. 完成校验
 
 运行完成校验，确认任务产物和同步状态符合规范：
 
@@ -109,7 +113,7 @@ node .agents/scripts/validate-artifact.js gate implement-task .agents/workspace/
 
 将校验输出保留在回复中作为当次验证输出。没有当次校验输出，不得声明完成。
 
-### 10. 告知用户
+### 11. 告知用户
 
 > 仅在校验通过后执行本步骤。
 

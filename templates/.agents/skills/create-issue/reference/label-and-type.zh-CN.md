@@ -48,7 +48,9 @@ Issue Type fallback 映射：
 gh issue create --title "{title}" --body "{body}" --label "{label-1}" --label "{label-2}" --milestone "{milestone}"
 ```
 
-如果最终没有有效 label，就省略 `--label`。如果 `milestone` 为空，则回退到 `General Backlog`。
+如果最终没有有效 label，就省略 `--label`。
+
+Milestone 推断规则见 `.agents/rules/milestone-inference.md` 的「阶段 1：`create-issue`」。推断前先读取该文件。
 
 Issue Type 设置：
 

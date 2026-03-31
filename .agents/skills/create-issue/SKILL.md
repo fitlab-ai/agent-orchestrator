@@ -27,7 +27,7 @@ description: "从任务文件创建 GitHub Issue"
 
 ### 2. 提取任务信息
 
-从 task.md 提取标题、`## Description`、`## Requirements`、`type` 和 `milestone`。构造 Issue 标题：将 task.md 的 `type` 映射为 Conventional Commits type，推断 scope，拼接为 `cc_type(scope): task_title` 或 `cc_type: task_title`（scope 不确定时省略）。
+从 task.md 提取标题、`## Description`、`## Requirements`、`type` 和 `milestone`。构造 Issue 标题：将 task.md 的 `type` 映射为 Conventional Commits type，推断 scope，拼接为 `cc_type(scope): task_title` 或 `cc_type: task_title`（scope 不确定时省略）。如果 task.md 没有显式 `milestone` 字段，按 `.agents/rules/milestone-inference.md` 的「阶段 1：`create-issue`」推断。
 
 ### 3. 构建 Issue 内容
 

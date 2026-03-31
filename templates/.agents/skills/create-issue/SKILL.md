@@ -27,7 +27,7 @@ If `issue_number` already exists and is not empty or `N/A`, confirm with the use
 
 ### 2. Extract Task Information
 
-Extract the title, `## Description`, `## Requirements`, `type`, and `milestone` from task.md. Build the Issue title by mapping task.md `type` to a Conventional Commits type, inferring scope, and formatting it as `cc_type(scope): task_title` or `cc_type: task_title` when scope is unclear.
+Extract the title, `## Description`, `## Requirements`, `type`, and `milestone` from task.md. Build the Issue title by mapping task.md `type` to a Conventional Commits type, inferring scope, and formatting it as `cc_type(scope): task_title` or `cc_type: task_title` when scope is unclear. If task.md does not provide an explicit `milestone` field, infer it by following "Phase 1: `create-issue`" in `.agents/rules/milestone-inference.md`.
 
 ### 3. Build Issue Content
 

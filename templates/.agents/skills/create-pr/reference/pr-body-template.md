@@ -51,20 +51,12 @@ Metadata sync order:
 2. add the mapped type label with `gh pr edit {pr-number} --add-label "{type-label}"`
 3. inherit non-`type:` and non-`status:` Issue labels with repeated `gh pr edit ... --add-label`
 4. refine the PR `in:` labels by following `.agents/rules/issue-sync.md`, and keep the linked Issue `in:` labels in sync with the same result
-5. resolve milestone in order: PR -> task.md -> Issue -> branch/tag inference -> `General Backlog`
+5. handle the milestone by following "Phase 3: `create-pr`" in `.agents/rules/milestone-inference.md`, reusing the Issue milestone directly
 6. ensure the PR body contains `Closes #{issue-number}` or an equivalent closing keyword
 
-Milestone inference algorithm:
-1. keep the PR's current milestone when one is already set
-2. otherwise use the explicit `milestone` from task.md
-3. otherwise inherit the Issue milestone
-4. otherwise infer from branches and tags:
-   - if the current branch matches `{major}.{minor}.x`, use that release line directly
-   - if the current branch is `main` or `master`, inspect existing `{major}.{minor}.x` branches and target `(X+1).0.x`
-   - if no release line exists, inspect the latest `vX.Y.Z` tag and fall back to `X.Y.x`
-   - if none of the above yields a result, fall back to `General Backlog`
-5. if the inferred milestone is unavailable, fall back to `General Backlog`
-6. if `General Backlog` is also unavailable, report `Milestone: skipped (not found)`
+Milestone rule:
+- Follow "Phase 3: `create-pr`" in `.agents/rules/milestone-inference.md`
+- Reuse the linked Issue milestone directly instead of inferring a new PR milestone
 
 ## Create the PR
 

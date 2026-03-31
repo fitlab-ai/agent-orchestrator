@@ -48,7 +48,9 @@ Use:
 gh issue create --title "{title}" --body "{body}" --label "{label-1}" --label "{label-2}" --milestone "{milestone}"
 ```
 
-If no valid labels remain, omit `--label`. If `milestone` is empty, fall back to `General Backlog`.
+If no valid labels remain, omit `--label`.
+
+For milestone inference, read `.agents/rules/milestone-inference.md` and follow "Phase 1: `create-issue`" before creating the Issue.
 
 Issue Type setup:
 
