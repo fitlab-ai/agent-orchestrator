@@ -23,6 +23,15 @@ Use `while IFS= read -r label` so labels like `status: in-progress` are handled 
 
 If `gh` fails, skip and continue. Do not fail the skill.
 
+## Assignee Sync
+
+When a skill creates or imports an Issue, automatically add the current executor as assignee:
+
+- `create-issue`: use `--assignee @me` in the `gh issue create` command
+- `import-issue`: run `gh issue edit {issue-number} --add-assignee @me 2>/dev/null || true` after import
+
+`@me` is resolved by `gh` CLI to the authenticated user. The operation is idempotent (adding an existing assignee is a no-op). If the command fails (e.g. insufficient permissions), skip and continue.
+
 ## `in:` Label Sync
 
 Read the `labels.in` mapping from `.agents/.airc.json`.

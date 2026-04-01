@@ -39,7 +39,7 @@ description: "从任务文件创建 GitHub Issue"
 
 ### 4. 创建 Issue
 
-使用 `gh issue create --title "{title}" --body "{body}" ...` 创建 Issue；如果没有有效 label，就省略 `--label`。
+使用 `gh issue create --title "{title}" --body "{body}" --assignee @me ...` 创建 Issue；如果没有有效 label，就省略 `--label`。
 
 如果已经确定了 Issue Type，则执行：
 `gh api "repos/$repo/issues/{issue-number}" -X PATCH -f type="{issue-type}" --silent`

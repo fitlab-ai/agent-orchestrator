@@ -39,7 +39,7 @@ Detect `.github/ISSUE_TEMPLATE` files and decide whether to use a matched templa
 
 ### 4. Create the Issue
 
-Create the Issue with `gh issue create --title "{title}" --body "{body}" ...` and omit `--label` when nothing valid remains.
+Create the Issue with `gh issue create --title "{title}" --body "{body}" --assignee @me ...` and omit `--label` when nothing valid remains.
 
 If an Issue Type was selected, set it with:
 `gh api "repos/$repo/issues/{issue-number}" -X PATCH -f type="{issue-type}" --silent`

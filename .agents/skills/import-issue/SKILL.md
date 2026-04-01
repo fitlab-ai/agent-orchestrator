@@ -70,7 +70,17 @@ date "+%Y-%m-%d %H:%M:%S"
   - {yyyy-MM-dd HH:mm:ss} — **Import Issue** by {agent} — Issue #{number} imported
   ```
 
-### 5. 完成校验
+### 5. 分配 Issue Assignee
+
+如果 task.md 中存在有效的 `issue_number`，将 Issue 分配给当前执行者：
+
+```bash
+gh issue edit {issue-number} --add-assignee @me 2>/dev/null || true
+```
+
+参见 `.agents/rules/issue-sync.md` 的 Assignee 同步规则。
+
+### 6. 完成校验
 
 运行完成校验，确认任务产物和同步状态符合规范：
 
@@ -85,7 +95,7 @@ node .agents/scripts/validate-artifact.js gate import-issue .agents/workspace/ac
 
 将校验输出保留在回复中作为当次验证输出。没有当次校验输出，不得声明完成。
 
-### 6. 告知用户
+### 7. 告知用户
 
 > 仅在校验通过后执行本步骤。
 
