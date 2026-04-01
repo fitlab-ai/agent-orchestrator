@@ -61,6 +61,7 @@ date "+%Y-%m-%d %H:%M:%S"
 - `completed_at`：{当前时间戳}
 - `updated_at`：{当前时间戳}
 - 标记所有工作流步骤为已完成
+- 逐项验证并勾选 `## 完成检查清单` 中的所有条目（将 `- [ ]` 改为 `- [x]`）
 - **追加**到 `## Activity Log`（不要覆盖之前的记录）：
   ```
   - {yyyy-MM-dd HH:mm:ss} — **Completed** by {agent} — Task archived to completed/

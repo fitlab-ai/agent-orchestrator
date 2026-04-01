@@ -72,6 +72,33 @@ function buildTaskContent(overrides = {}, replacements = {}) {
   });
 }
 
+function buildCompletedTaskContent(checklistLines, overrides = {}) {
+  const now = formatTimestamp(new Date());
+  return [
+    buildTaskFrontmatter({
+      status: "completed",
+      current_step: "commit",
+      completed_at: now,
+      updated_at: now,
+      ...overrides
+    }),
+    "",
+    "# 任务：完成任务校验",
+    "",
+    "## 需求",
+    "",
+    "- [x] 保留最新验证输出",
+    "",
+    "## 活动日志",
+    "",
+    `- ${now} — **Completed** by codex — Task archived to completed/`,
+    "",
+    "## 完成检查清单",
+    "",
+    ...checklistLines
+  ].join("\n");
+}
+
 function runValidator(args, options = {}) {
   return spawnSync(process.execPath, [scriptPath, ...args], {
     encoding: "utf8",
@@ -289,6 +316,60 @@ test("validate-artifact task-meta supports cancel-task cancelled_at requirements
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.type, "task-meta");
     assert.equal(payload.status, "pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact gate passes for complete-task when completion checklist is fully checked", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-complete-task-pass-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+
+  try {
+    write(path.join(taskDir, "task.md"), buildCompletedTaskContent([
+      "- [x] 所有需求已满足",
+      "- [x] 测试已编写并通过",
+      "- [x] 代码已审查",
+      "- [x] 文档已更新（如适用）",
+      "- [x] PR 已创建"
+    ]));
+
+    const result = runValidator(["gate", "complete-task", taskDir]);
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.gate, "pass");
+    assert.deepEqual(
+      payload.checks.map((check) => check.type),
+      ["task-meta", "activity-log", "completion-checklist", "github-sync"]
+    );
+    assert.deepEqual(
+      payload.checks.map((check) => check.status),
+      ["pass", "pass", "pass", "pass"]
+    );
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact completion-checklist fails when a complete-task item is unchecked", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-complete-task-checklist-fail-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+
+  try {
+    write(path.join(taskDir, "task.md"), buildCompletedTaskContent([
+      "- [x] 所有需求已满足",
+      "- [ ] 测试已编写并通过",
+      "- [x] 代码已审查"
+    ]));
+
+    const result = runValidator(["check", "completion-checklist", taskDir, "--skill", "complete-task"]);
+    assert.equal(result.status, 1, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "completion-checklist");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /Completion Checklist has unchecked items: 测试已编写并通过/);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

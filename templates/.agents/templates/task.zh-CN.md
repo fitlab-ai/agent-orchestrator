@@ -23,9 +23,7 @@ assigned_to: ""        # claude | codex | gemini | opencode | human
 
 ## 需求
 
-- [ ] 需求 1
-- [ ] 需求 2
-- [ ] 需求 3
+<!-- 由 analyze-task 填写 -->
 
 ## 分析
 
@@ -46,10 +44,7 @@ assigned_to: ""        # claude | codex | gemini | opencode | human
 
 ## 审查反馈
 
-[审查阶段的反馈。发现的问题、建议。]
-
-- [ ] 问题 1
-- [ ] 问题 2
+<!-- 由 review-task 填写 -->
 
 ## 活动日志
 
@@ -63,3 +58,4 @@ assigned_to: ""        # claude | codex | gemini | opencode | human
 - [ ] 代码已审查
 - [ ] 文档已更新（如适用）
 - [ ] PR 已创建
+<!-- 由 complete-task 勾选 -->

@@ -154,6 +154,8 @@ function runCheck(type, context) {
       return checkArtifact(context);
     case "activity-log":
       return checkActivityLog(context);
+    case "completion-checklist":
+      return checkCompletionChecklist(context);
     case "github-sync":
       return checkGithubSync(context);
     default:
@@ -340,6 +342,43 @@ function checkActivityLog({ taskDir, config }) {
   }
 
   return passResult("activity-log", `Latest entry '${latestAction}' at ${latestTimestamp}`);
+}
+
+function checkCompletionChecklist({ taskDir, config }) {
+  const task = loadTask(taskDir);
+  if (!task.ok) {
+    return failResult("completion-checklist", task.message);
+  }
+
+  const checklist = getSectionContent(task.content, ["完成检查清单", "Completion Checklist"]);
+  if (!checklist) {
+    return failResult("completion-checklist", "Completion Checklist section not found");
+  }
+
+  const items = checklist
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => /^- \[(?: |x|X)\] .+$/.test(line));
+
+  if (items.length === 0) {
+    return failResult("completion-checklist", "Completion Checklist has no checkbox items");
+  }
+
+  if (config.require_all_checked) {
+    const unchecked = items
+      .map((line) => line.match(/^- \[ \] (.+)$/))
+      .filter(Boolean)
+      .map((match) => match[1].trim());
+
+    if (unchecked.length > 0) {
+      return failResult(
+        "completion-checklist",
+        `Completion Checklist has unchecked items: ${unchecked.join(", ")}`
+      );
+    }
+  }
+
+  return passResult("completion-checklist", `Completion Checklist valid (${items.length} items checked)`);
 }
 
 function checkGithubSync({ taskDir, config, artifactFile }) {

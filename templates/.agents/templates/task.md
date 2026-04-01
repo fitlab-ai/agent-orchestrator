@@ -23,9 +23,7 @@ assigned_to: ""        # claude | codex | gemini | opencode | human
 
 ## Requirements
 
-- [ ] Requirement 1
-- [ ] Requirement 2
-- [ ] Requirement 3
+<!-- Populated by analyze-task -->
 
 ## Analysis
 
@@ -46,10 +44,7 @@ assigned_to: ""        # claude | codex | gemini | opencode | human
 
 ## Review Feedback
 
-[Feedback from the review phase. Issues found, suggestions.]
-
-- [ ] Issue 1
-- [ ] Issue 2
+<!-- Populated by review-task -->
 
 ## Activity Log
 
@@ -63,3 +58,4 @@ assigned_to: ""        # claude | codex | gemini | opencode | human
 - [ ] Code reviewed
 - [ ] Documentation updated (if applicable)
 - [ ] PR created
+<!-- Checked by complete-task -->
