@@ -61,6 +61,7 @@ Update `.agents/workspace/active/{task-id}/task.md`:
 - `completed_at`: {current timestamp}
 - `updated_at`: {current timestamp}
 - Mark all workflow steps as complete
+- Verify and check off all items in `## Completion Checklist` (change `- [ ]` to `- [x]`)
 - **Append** to `## Activity Log` (do NOT overwrite previous entries):
   ```
   - {yyyy-MM-dd HH:mm:ss} — **Completed** by {agent} — Task archived to completed/
