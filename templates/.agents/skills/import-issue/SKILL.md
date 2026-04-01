@@ -70,7 +70,17 @@ Update `.agents/workspace/active/{task-id}/task.md`:
   - {yyyy-MM-dd HH:mm:ss} — **Import Issue** by {agent} — Issue #{number} imported
   ```
 
-### 5. Verification Gate
+### 5. Assign the Issue Assignee
+
+If task.md contains a valid `issue_number`, assign the Issue to the current executor:
+
+```bash
+gh issue edit {issue-number} --add-assignee @me 2>/dev/null || true
+```
+
+See the Assignee Sync rules in `.agents/rules/issue-sync.md`.
+
+### 6. Verification Gate
 
 Run the verification gate to confirm the task artifact and sync state are valid:
 
@@ -85,7 +95,7 @@ Handle the result as follows:
 
 Keep the gate output in your reply as fresh evidence. Do not claim completion without output from this run.
 
-### 6. Inform User
+### 7. Inform User
 
 > Execute this step only after the verification gate passes.
 

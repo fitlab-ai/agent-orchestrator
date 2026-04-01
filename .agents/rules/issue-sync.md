@@ -23,6 +23,15 @@ fi
 
 如果 `gh` 命令失败，跳过并继续，不中断技能执行。
 
+## Assignee 同步
+
+当技能创建或导入 Issue 时，自动将当前执行者添加为 assignee：
+
+- `create-issue`：在 `gh issue create` 命令中使用 `--assignee @me` 参数
+- `import-issue`：导入后执行 `gh issue edit {issue-number} --add-assignee @me 2>/dev/null || true`
+
+`@me` 由 `gh` CLI 自动解析为当前认证用户。此操作是幂等的（重复添加不会报错）。如果命令失败（如权限不足），跳过并继续。
+
 ## `in:` label 同步
 
 读取 `.agents/.airc.json` 的 `labels.in` 映射。
