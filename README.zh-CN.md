@@ -35,6 +35,12 @@ agent-infra 的目标就是把这层协作面标准化。它为所有支持的 A
 
 ## 实战演示
 
+### 安装与初始化
+
+<p align="center">
+  <img src="./assets/demo-init.gif" alt="CLI 安装初始化演示" width="100%" style="max-width: 720px;">
+</p>
+
 **场景**：Issue #42 报告 *"登录接口在邮箱包含加号时返回 500"*。以下是完整的修复流程 —— AI 执行主要工作，你掌控方向：
 
 ```bash

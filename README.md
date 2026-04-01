@@ -35,6 +35,12 @@ agent-infra standardizes that collaboration surface. It gives every supported AI
 
 ## See it in Action
 
+### Install & Initialize
+
+<p align="center">
+  <img src="./assets/demo-init.gif" alt="CLI install and initialize demo" width="100%" style="max-width: 720px;">
+</p>
+
 **Scenario**: Issue #42 reports *"Login API returns 500 when email contains a plus sign"*. Here is the full fix lifecycle — AI does the heavy lifting, you stay in control:
 
 ```bash
