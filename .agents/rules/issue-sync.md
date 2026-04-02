@@ -19,7 +19,7 @@ if [ "$state" = "OPEN" ]; then
 fi
 ```
 
-用 `while IFS= read -r label` 按行迭代，避免 `status: in-progress` 这类含空格 label 被 shell 按空格拆开。
+使用 `while IFS= read -r label` 按行处理，可避免 `status: in-progress` 这类含空格 label 被 shell 按空格拆开。
 
 如果 `gh` 命令失败，跳过并继续，不中断技能执行。
 
