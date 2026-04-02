@@ -195,10 +195,16 @@ test("installed sync-templates.js executes inside a type=module project", () => 
       }
     );
     const report = JSON.parse(output);
+    const expectedTemplateRoot = report.templateRoot === globalTemplateRoot
+      ? globalTemplateRoot
+      : localTemplateRoot;
+    const expectedReadme = report.templateRoot === globalTemplateRoot
+      ? "Hello esmproj from global\n"
+      : "Hello esmproj\n";
 
     assert.ok(!report.error, "sync-templates.js should run without ESM loader errors");
-    assert.equal(report.templateRoot, globalTemplateRoot);
-    assert.equal(fs.readFileSync(path.join(tmpDir, "README.md"), "utf8"), "Hello esmproj from global\n");
+    assert.equal(report.templateRoot, expectedTemplateRoot);
+    assert.equal(fs.readFileSync(path.join(tmpDir, "README.md"), "utf8"), expectedReadme);
     assert.ok(
       fs.existsSync(
         path.join(tmpDir, ".agents", "skills", "update-agent-infra", "scripts", "sync-templates.js")

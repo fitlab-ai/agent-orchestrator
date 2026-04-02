@@ -38,13 +38,40 @@ test("release workflow publishes to npm on tag push", () => {
   assert.match(workflow, /npm publish --provenance/);
 });
 
-test("CLI help advertises scoped npm install commands", () => {
+test("update-homebrew workflow syncs the tap after a successful release run", () => {
+  const workflow = read(".github/workflows/update-homebrew.yml");
+
+  assert.match(workflow, /workflow_run:/);
+  assert.match(workflow, /workflows: \["Release"\]/);
+  assert.match(workflow, /permissions: \{\}/);
+  assert.match(workflow, /github\.event\.workflow_run\.conclusion == 'success'/);
+  assert.match(workflow, /name: Checkout repository at released commit/);
+  assert.match(workflow, /ref: \$\{\{ github\.event\.workflow_run\.head_sha \}\}/);
+  assert.match(workflow, /name: Setup Node\.js/);
+  assert.match(workflow, /name: Read package version from released commit/);
+  assert.match(workflow, /Detected version: \$VERSION/);
+  assert.match(workflow, /name: Wait for npm registry propagation/);
+  assert.match(workflow, /npm view "@fitlab-ai\/agent-infra@\${VERSION}" version/);
+  assert.match(workflow, /name: Get tarball URL and SHA256/);
+  assert.match(workflow, /sha256sum package\.tgz/);
+  assert.match(workflow, /name: Checkout homebrew-tap/);
+  assert.match(workflow, /repository: fitlab-ai\/homebrew-tap/);
+  assert.match(workflow, /path: homebrew-tap/);
+  assert.match(workflow, /HOMEBREW_TAP_TOKEN/);
+  assert.match(workflow, /name: Update Formula/);
+  assert.match(workflow, /class AgentInfra < Formula/);
+  assert.match(workflow, /name: Commit and push/);
+  assert.match(workflow, /git commit -m "agent-infra \$\{VERSION\}"/);
+});
+
+test("CLI help advertises scoped npm install commands and Homebrew", () => {
   const output = execFileSync(process.execPath, [filePath("bin/cli.js"), "help"], {
     encoding: "utf8"
   });
 
   assert.match(output, /npm install -g @fitlab-ai\/agent-infra/);
   assert.match(output, /npx @fitlab-ai\/agent-infra init/);
+  assert.match(output, /brew install fitlab-ai\/tap\/agent-infra/);
 });
 
 test("release documentation reflects CI-driven npm publishing", () => {

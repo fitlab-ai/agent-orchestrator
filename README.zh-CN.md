@@ -133,10 +133,18 @@ npm install -g @fitlab-ai/agent-infra
 curl -fsSL https://raw.githubusercontent.com/fitlab-ai/agent-infra/main/install.sh | sh
 ```
 
+**方式 C - Homebrew (macOS)**
+
+```bash
+brew install fitlab-ai/tap/agent-infra
+```
+
 ### 更新 agent-infra
 
 ```bash
 npm update -g @fitlab-ai/agent-infra
+# 或者通过 Homebrew 安装时：
+brew upgrade agent-infra
 ```
 
 查看当前版本：
@@ -185,7 +193,7 @@ agent-infra 的结构刻意保持简单：引导 CLI 负责生成种子配置，
 
 ### 端到端流程
 
-1. **安装** — `npm install -g @fitlab-ai/agent-infra`（或使用 shell 脚本便捷封装）
+1. **安装** — `npm install -g @fitlab-ai/agent-infra`（或在 macOS 上使用 `brew install fitlab-ai/tap/agent-infra`，或使用 shell 脚本便捷封装）
 2. **初始化** — 在项目根目录运行 `ai init`，生成 `.agents/.airc.json` 并安装种子命令
 3. **渲染** — 在任意 AI TUI 中执行 `update-agent-infra`，检测当前打包模板版本并生成所有受管理文件
 4. **开发** — 使用内置 skill 驱动完整生命周期：`analysis → design → implementation → review → fix → commit`
