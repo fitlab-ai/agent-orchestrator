@@ -1,0 +1,93 @@
+name: Update Homebrew Formula
+
+on:
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  update-formula:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository at released commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Read package version from released commit
+        run: |
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8')).version")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Detected version: $VERSION"
+
+      - name: Wait for npm registry propagation
+        run: |
+          for i in $(seq 1 30); do
+            if npm view "@fitlab-ai/agent-infra@${VERSION}" version >/dev/null 2>&1; then
+              echo "Package @fitlab-ai/agent-infra@${VERSION} available on npm"
+              exit 0
+            fi
+            echo "Waiting for npm registry... (attempt $i/30)"
+            sleep 10
+          done
+          echo "::error::Package not found on npm after 5 minutes"
+          exit 1
+
+      - name: Get tarball URL and SHA256
+        run: |
+          TARBALL_URL=$(npm view "@fitlab-ai/agent-infra@${VERSION}" dist.tarball)
+          curl -fsSL "$TARBALL_URL" -o package.tgz
+          SHA256=$(sha256sum package.tgz | cut -d ' ' -f 1)
+          echo "TARBALL_URL=$TARBALL_URL" >> "$GITHUB_ENV"
+          echo "SHA256=$SHA256" >> "$GITHUB_ENV"
+
+      - name: Checkout homebrew-tap
+        uses: actions/checkout@v6
+        with:
+          repository: fitlab-ai/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: homebrew-tap
+
+      - name: Update Formula
+        working-directory: homebrew-tap
+        run: |
+          mkdir -p Formula
+          cat > Formula/agent-infra.rb <<EOF
+          class AgentInfra < Formula
+            desc "Bootstrap tool for AI multi-tool collaboration infrastructure"
+            homepage "https://github.com/fitlab-ai/agent-infra"
+            url "${TARBALL_URL}"
+            sha256 "${SHA256}"
+            license "MIT"
+
+            depends_on "node"
+
+            def install
+              system "npm", "install", *std_npm_args
+              bin.install_symlink Dir["#{libexec}/bin/*"]
+            end
+
+            test do
+              assert_match version.to_s, shell_output("#{bin}/agent-infra version")
+            end
+          end
+          EOF
+
+      - name: Commit and push
+        working-directory: homebrew-tap
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/agent-infra.rb
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "agent-infra ${VERSION}"
+          git push
