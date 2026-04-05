@@ -147,6 +147,70 @@ test("buildContainerEnvArgs skips GH_TOKEN when auth token is unavailable", asyn
   assert.deepEqual(envArgs, ["-e", "FOO=bar"]);
 });
 
+test("buildImage uses verbose docker build output while keeping host UID/GID lookups quiet", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const calls = [];
+
+  sandboxCreate.buildImage(
+    { project: "demo", imageName: "demo-sandbox:latest", repoRoot: "/repo" },
+    [{ npmPackage: "@acme/tool" }],
+    "/tmp/Dockerfile",
+    "sig-123",
+    {
+      runFn(cmd, args) {
+        calls.push({ type: "run", cmd, args });
+        if (cmd === "id" && args[0] === "-u") {
+          return "501";
+        }
+        if (cmd === "id" && args[0] === "-g") {
+          return "20";
+        }
+        throw new Error(`unexpected quiet command: ${cmd} ${args.join(" ")}`);
+      },
+      runVerboseFn(cmd, args, opts) {
+        calls.push({ type: "verbose", cmd, args, opts });
+      }
+    }
+  );
+
+  assert.deepEqual(calls.slice(0, 2), [
+    { type: "run", cmd: "id", args: ["-u"] },
+    { type: "run", cmd: "id", args: ["-g"] }
+  ]);
+  assert.equal(calls[2].type, "verbose");
+  assert.equal(calls[2].cmd, "docker");
+  assert.equal(calls[2].opts.cwd, "/repo");
+  assert.deepEqual(calls[2].args, [
+    "build",
+    "-t",
+    "demo-sandbox:latest",
+    "--build-arg",
+    "HOST_UID=501",
+    "--build-arg",
+    "HOST_GID=20",
+    "--build-arg",
+    "AI_TOOL_PACKAGES=@acme/tool",
+    "--label",
+    "demo.sandbox",
+    "--label",
+    "demo.sandbox.image-config=sig-123",
+    "-f",
+    "/tmp/Dockerfile",
+    "/repo"
+  ]);
+});
+
+test("commandErrorMessage prefers stderr over the generic execFileSync message", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  const message = sandboxCreate.commandErrorMessage({
+    message: "Command failed: git worktree add ...",
+    stderr: Buffer.from("fatal: invalid reference: missing-branch\n")
+  });
+
+  assert.equal(message, "fatal: invalid reference: missing-branch");
+});
+
 test("ensureSandboxAliasesFile creates the default aliases once", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-aliases-defaults-"));
@@ -166,6 +230,55 @@ test("ensureSandboxAliasesFile creates the default aliases once", async () => {
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test("ensureColima uses verbose commands for install and startup", async () => {
+  const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
+  const messages = [];
+  const verboseCalls = [];
+  const checks = [];
+
+  await sandboxEngine.ensureColima(
+    { vm: { cpu: 4, memory: 8, disk: 60 } },
+    (message) => messages.push(message),
+    {
+      runOkFn(cmd, args) {
+        checks.push([cmd, ...args]);
+        if (cmd === "which") {
+          return false;
+        }
+        if (cmd === "colima" && args[0] === "status") {
+          return false;
+        }
+        if (cmd === "docker" && args[0] === "info") {
+          return true;
+        }
+        throw new Error(`unexpected check: ${cmd} ${args.join(" ")}`);
+      },
+      runSafeFn(cmd, args) {
+        assert.equal(cmd, "uname");
+        assert.deepEqual(args, ["-m"]);
+        return "arm64";
+      },
+      runVerboseFn(cmd, args) {
+        verboseCalls.push([cmd, ...args]);
+      }
+    }
+  );
+
+  assert.deepEqual(messages, [
+    "Installing colima + docker via Homebrew...",
+    "Starting Colima VM..."
+  ]);
+  assert.deepEqual(verboseCalls, [
+    ["brew", "install", "colima", "docker"],
+    ["colima", "start", "--cpu", "4", "--memory", "8", "--disk", "60", "--arch", "aarch64", "--vm-type=vz", "--mount-type=virtiofs"]
+  ]);
+  assert.deepEqual(checks, [
+    ["which", "colima"],
+    ["colima", "status"],
+    ["docker", "info"]
+  ]);
 });
 
 test("syncShellAliases skips missing alias files and copies existing aliases", async () => {
