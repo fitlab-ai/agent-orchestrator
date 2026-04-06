@@ -516,14 +516,49 @@ test("ensureSandboxAliasesFile creates the default aliases once", async () => {
     assert.equal(created.path, path.join(tmpDir, ".ai-sandbox-aliases"));
 
     const content = fs.readFileSync(created.path, "utf8");
-    assert.match(content, /alias claude-yolo='claude --dangerously-skip-permissions'/);
-    assert.match(content, /alias opencode-yolo='OPENCODE_PERMISSION=.*external_directory.*doom_loop.* opencode'/);
-    assert.match(content, /alias oy='OPENCODE_PERMISSION=.*external_directory.*doom_loop.* opencode'/);
-    assert.match(content, /alias gy='gemini --yolo'/);
+    assert.match(content, /# >>> agent-infra managed aliases >>>/);
+    assert.match(content, /alias claude-yolo='claude --dangerously-skip-permissions; tput ed'/);
+    assert.match(content, /alias opencode-yolo='OPENCODE_PERMISSION=.*external_directory.*doom_loop.* opencode; tput ed'/);
+    assert.match(content, /alias oy='OPENCODE_PERMISSION=.*external_directory.*doom_loop.* opencode; tput ed'/);
+    assert.match(content, /alias xy='codex --yolo; tput ed'/);
+    assert.match(content, /alias gy='gemini --yolo; tput ed'/);
+    assert.match(content, /# <<< agent-infra managed aliases <<</);
 
     const second = sandboxCreate.ensureSandboxAliasesFile(tmpDir);
     assert.equal(second.created, false);
     assert.equal(fs.readFileSync(created.path, "utf8"), content);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("ensureSandboxAliasesFile upgrades legacy generated alias files", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-aliases-upgrade-"));
+  const aliasesPath = path.join(tmpDir, ".ai-sandbox-aliases");
+  const legacyContent = [
+    "alias claude-yolo='claude --dangerously-skip-permissions'",
+    "alias opencode-yolo='opencode --dangerously-skip-permissions'",
+    "alias codex-yolo='codex --yolo'",
+    "alias gemini-yolo='gemini --yolo'",
+    "",
+    "alias cy='claude --dangerously-skip-permissions'",
+    "alias oy='opencode --dangerously-skip-permissions'",
+    "alias xy='codex --yolo'",
+    "alias gy='gemini --yolo'",
+    ""
+  ].join("\n");
+
+  try {
+    fs.writeFileSync(aliasesPath, legacyContent, "utf8");
+    const result = sandboxCreate.ensureSandboxAliasesFile(tmpDir);
+    const content = fs.readFileSync(aliasesPath, "utf8");
+
+    assert.equal(result.created, false);
+    assert.doesNotMatch(content, /opencode --dangerously-skip-permissions/);
+    assert.match(content, /# >>> agent-infra managed aliases >>>/);
+    assert.match(content, /OPENCODE_PERMISSION=.*external_directory.*doom_loop.* opencode; tput ed/);
+    assert.match(content, /alias cy='claude --dangerously-skip-permissions; tput ed'/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
