@@ -1,11 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { execFileSync, execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
 import { filePath, loadFreshEsm } from "../helpers.js";
+
+function modeBits(filePath) {
+  return fs.statSync(filePath).mode & 0o777;
+}
 
 test("agent-infra sandbox help is wired into the main CLI", () => {
   const output = execFileSync(process.execPath, [filePath("bin/cli.js"), "sandbox", "--help"], {
@@ -564,6 +569,42 @@ test("ensureSandboxAliasesFile upgrades legacy generated alias files", async () 
   }
 });
 
+test("ensureSandboxAliasesFile writes OpenCode full yolo permissions", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-aliases-opencode-full-yolo-"));
+
+  try {
+    const { path: aliasesPath } = sandboxCreate.ensureSandboxAliasesFile(tmpDir);
+    const content = fs.readFileSync(aliasesPath, "utf8");
+
+    assert.match(content, /OPENCODE_PERMISSION=.*"read":"allow"/);
+    assert.match(content, /OPENCODE_PERMISSION=.*"bash":"allow"/);
+    assert.match(content, /OPENCODE_PERMISSION=.*"edit":"allow"/);
+    assert.match(content, /OPENCODE_PERMISSION=.*"webfetch":"allow"/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("ensureSandboxAliasesFile upgrades legacy OpenCode aliases to full yolo permissions", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-aliases-opencode-upgrade-full-yolo-"));
+  const aliasesPath = path.join(tmpDir, ".ai-sandbox-aliases");
+
+  try {
+    fs.writeFileSync(aliasesPath, "alias oy='opencode --dangerously-skip-permissions'\n", "utf8");
+    sandboxCreate.ensureSandboxAliasesFile(tmpDir);
+    const content = fs.readFileSync(aliasesPath, "utf8");
+
+    assert.match(content, /alias oy='OPENCODE_PERMISSION=.*"read":"allow".* opencode; tput ed'/);
+    assert.match(content, /alias oy='OPENCODE_PERMISSION=.*"bash":"allow".* opencode; tput ed'/);
+    assert.match(content, /alias oy='OPENCODE_PERMISSION=.*"edit":"allow".* opencode; tput ed'/);
+    assert.match(content, /alias oy='OPENCODE_PERMISSION=.*"webfetch":"allow".* opencode; tput ed'/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("ensureColima uses verbose commands for install and startup", async () => {
   const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
   const messages = [];
@@ -712,7 +753,7 @@ test("syncGpgKeys returns false when the host has no public keys to import", asy
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const calls = [];
 
-  const synced = sandboxCreate.syncGpgKeys("demo-container", "/Users/demo", (cmd, args, options) => {
+  const synced = sandboxCreate.syncGpgKeys("demo-container", "/Users/demo", "demo", (cmd, args, options) => {
     calls.push([cmd, args, options]);
     if (cmd === "gpg" && args[0] === "--export") {
       return Buffer.alloc(0);
@@ -729,11 +770,287 @@ test("syncGpgKeys returns false when the host has no public keys to import", asy
   assert.equal(calls[0][2].env.HOME, "/Users/demo");
 });
 
+test("currentKeyringFingerprint hashes the current secret keyring", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const output = "sec:u:255:22:ABCDEF1234567890:1700000000:0::::::23::0:\n";
+
+  const fingerprint = sandboxCreate.currentKeyringFingerprint("/Users/demo", (cmd, args, options) => {
+    assert.equal(cmd, "gpg");
+    assert.deepEqual(args, ["--list-secret-keys", "--with-colons"]);
+    assert.equal(options.encoding, "utf8");
+    assert.equal(options.env.HOME, "/Users/demo");
+    return output;
+  });
+
+  assert.equal(fingerprint, createHash("sha256").update(output).digest("hex"));
+  assert.match(fingerprint, /^[a-f0-9]{64}$/);
+});
+
+test("currentKeyringFingerprint returns null when gpg listing fails", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  const fingerprint = sandboxCreate.currentKeyringFingerprint("/Users/demo", () => {
+    throw new Error("gpg failed");
+  });
+
+  assert.equal(fingerprint, null);
+});
+
+test("currentKeyringFingerprint returns null for an empty keyring listing", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  const fingerprint = sandboxCreate.currentKeyringFingerprint("/Users/demo", () => "   \n");
+
+  assert.equal(fingerprint, null);
+});
+
+test("readGpgCache returns null when the cache does not exist", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-cache-missing-"));
+
+  try {
+    const cache = sandboxCreate.readGpgCache(tmpDir, "demo", () => {
+      throw new Error("fingerprint should not be queried without state");
+    });
+
+    assert.equal(cache, null);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("readGpgCache returns null when the cache is missing state metadata", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-cache-missing-state-"));
+  const cacheDir = path.join(tmpDir, ".demo-gpg-cache");
+
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, "public.asc"), "pub");
+    fs.writeFileSync(path.join(cacheDir, "secret.asc"), "sec");
+
+    const cache = sandboxCreate.readGpgCache(tmpDir, "demo", () => {
+      throw new Error("fingerprint should not be queried without state");
+    });
+
+    assert.equal(cache, null);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("readGpgCache returns cached key material when the keyring fingerprint matches", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-cache-hit-"));
+  const cacheDir = path.join(tmpDir, ".demo-gpg-cache");
+  const listing = "sec:u:255:22:ABCDEF1234567890:1700000000:0::::::23::0:\n";
+  const fingerprint = createHash("sha256").update(listing).digest("hex");
+
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, "public.asc"), "pub");
+    fs.writeFileSync(path.join(cacheDir, "secret.asc"), "sec");
+    fs.writeFileSync(path.join(cacheDir, "state.json"), `${JSON.stringify({ fingerprint })}\n`, "utf8");
+
+    const cache = sandboxCreate.readGpgCache(tmpDir, "demo", (cmd, args) => {
+      assert.equal(cmd, "gpg");
+      assert.deepEqual(args, ["--list-secret-keys", "--with-colons"]);
+      return listing;
+    });
+
+    assert.deepEqual(cache, {
+      pub: Buffer.from("pub"),
+      sec: Buffer.from("sec")
+    });
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("readGpgCache returns null when the keyring fingerprint changed", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-cache-stale-"));
+  const cacheDir = path.join(tmpDir, ".demo-gpg-cache");
+
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, "public.asc"), "pub");
+    fs.writeFileSync(path.join(cacheDir, "secret.asc"), "sec");
+    fs.writeFileSync(path.join(cacheDir, "state.json"), `${JSON.stringify({ fingerprint: "stale" })}\n`, "utf8");
+
+    const cache = sandboxCreate.readGpgCache(tmpDir, "demo", () => "sec:u:255:22:NEW:1700000000:0::::::23::0:\n");
+
+    assert.equal(cache, null);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("writeGpgCache creates cache files with secure permissions", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-cache-write-"));
+  const cacheDir = path.join(tmpDir, ".demo-gpg-cache");
+
+  try {
+    const written = sandboxCreate.writeGpgCache(
+      tmpDir,
+      "demo",
+      Buffer.from("pub"),
+      Buffer.from("sec"),
+      "fingerprint-1"
+    );
+
+    assert.equal(written, true);
+    assert.equal(modeBits(cacheDir), 0o700);
+    assert.equal(modeBits(path.join(cacheDir, "public.asc")), 0o600);
+    assert.equal(modeBits(path.join(cacheDir, "secret.asc")), 0o600);
+    assert.equal(modeBits(path.join(cacheDir, "state.json")), 0o600);
+    assert.equal(fs.readFileSync(path.join(cacheDir, "state.json"), "utf8"), '{\n  "fingerprint": "fingerprint-1"\n}\n');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("syncGpgKeys uses the cache when the keyring fingerprint matches", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-sync-cache-hit-"));
+  const cacheDir = path.join(tmpDir, ".demo-gpg-cache");
+  const listing = "sec:u:255:22:ABCDEF1234567890:1700000000:0::::::23::0:\n";
+  const fingerprint = createHash("sha256").update(listing).digest("hex");
+  const calls = [];
+  const runSafeCalls = [];
+
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, "public.asc"), "pub");
+    fs.writeFileSync(path.join(cacheDir, "secret.asc"), "sec");
+    fs.writeFileSync(path.join(cacheDir, "state.json"), `${JSON.stringify({ fingerprint })}\n`, "utf8");
+
+    const synced = sandboxCreate.syncGpgKeys("demo-container", tmpDir, "demo", (cmd, args, options) => {
+      calls.push([cmd, args, options]);
+      if (cmd === "gpg") {
+        assert.deepEqual(args, ["--list-secret-keys", "--with-colons"]);
+        return listing;
+      }
+      if (cmd === "docker" && args.at(-1) === "--import") {
+        return Buffer.from("");
+      }
+      throw new Error(`unexpected call: ${cmd} ${args.join(" ")}`);
+    }, (cmd, args) => {
+      runSafeCalls.push([cmd, args]);
+      return "";
+    });
+
+    assert.equal(synced, true);
+    assert.deepEqual(calls.map(([cmd, args]) => [cmd, args]), [
+      ["gpg", ["--list-secret-keys", "--with-colons"]],
+      ["docker", ["exec", "-i", "demo-container", "gpg", "--import"]],
+      ["docker", ["exec", "-i", "demo-container", "gpg", "--batch", "--import"]]
+    ]);
+    assert.deepEqual(calls[1][2], {
+      input: Buffer.from("pub"),
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    assert.deepEqual(calls[2][2], {
+      input: Buffer.from("sec"),
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    assert.deepEqual(runSafeCalls, [
+      ["docker", ["exec", "demo-container", "gpgconf", "--launch", "gpg-agent"]]
+    ]);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("syncGpgKeys exports host keys and writes the cache on a cache miss", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-sync-cache-miss-"));
+  const calls = [];
+
+  try {
+    const synced = sandboxCreate.syncGpgKeys("demo-container", tmpDir, "demo", (cmd, args, options) => {
+      calls.push([cmd, args, options]);
+      if (cmd === "gpg" && args[0] === "--export") {
+        return Buffer.from("pub");
+      }
+      if (cmd === "gpg" && args[0] === "--export-secret-keys") {
+        return Buffer.from("sec");
+      }
+      if (cmd === "gpg" && args[0] === "--list-secret-keys") {
+        return "sec:u:255:22:ABCDEF1234567890:1700000000:0::::::23::0:\n";
+      }
+      if (cmd === "docker" && args.at(-1) === "--import") {
+        return Buffer.from("");
+      }
+      throw new Error(`unexpected call: ${cmd} ${args.join(" ")}`);
+    }, () => "");
+
+    assert.equal(synced, true);
+    assert.deepEqual(calls.map(([cmd, args]) => [cmd, args]), [
+      ["gpg", ["--export"]],
+      ["gpg", ["--export-secret-keys"]],
+      ["gpg", ["--list-secret-keys", "--with-colons"]],
+      ["docker", ["exec", "-i", "demo-container", "gpg", "--import"]],
+      ["docker", ["exec", "-i", "demo-container", "gpg", "--batch", "--import"]]
+    ]);
+    assert.equal(
+      fs.readFileSync(path.join(tmpDir, ".demo-gpg-cache", "public.asc"), "utf8"),
+      "pub"
+    );
+    assert.equal(
+      fs.readFileSync(path.join(tmpDir, ".demo-gpg-cache", "secret.asc"), "utf8"),
+      "sec"
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("syncGpgKeys still succeeds when writing the cache fails", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-sync-cache-write-fails-"));
+  const cacheDir = path.join(tmpDir, ".demo-gpg-cache");
+  const calls = [];
+
+  try {
+    fs.writeFileSync(cacheDir, "blocking-file");
+
+    const synced = sandboxCreate.syncGpgKeys("demo-container", tmpDir, "demo", (cmd, args, options) => {
+      calls.push([cmd, args, options]);
+      if (cmd === "gpg" && args[0] === "--list-secret-keys") {
+        return "sec:u:255:22:ABCDEF1234567890:1700000000:0::::::23::0:\n";
+      }
+      if (cmd === "gpg" && args[0] === "--export") {
+        return Buffer.from("pub");
+      }
+      if (cmd === "gpg" && args[0] === "--export-secret-keys") {
+        return Buffer.from("sec");
+      }
+      if (cmd === "docker" && args.at(-1) === "--import") {
+        return Buffer.from("");
+      }
+      throw new Error(`unexpected call: ${cmd} ${args.join(" ")}`);
+    }, () => "");
+
+    assert.equal(synced, true);
+    assert.deepEqual(calls.map(([cmd, args]) => [cmd, args]), [
+      ["gpg", ["--export"]],
+      ["gpg", ["--export-secret-keys"]],
+      ["gpg", ["--list-secret-keys", "--with-colons"]],
+      ["docker", ["exec", "-i", "demo-container", "gpg", "--import"]],
+      ["docker", ["exec", "-i", "demo-container", "gpg", "--batch", "--import"]]
+    ]);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("syncGpgKeys returns false when the host has no secret keys to import", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const calls = [];
 
-  const synced = sandboxCreate.syncGpgKeys("demo-container", "/Users/demo", (cmd, args, options) => {
+  const synced = sandboxCreate.syncGpgKeys("demo-container", "/Users/demo", "demo", (cmd, args, options) => {
     calls.push([cmd, args, options]);
     if (cmd !== "gpg") {
       throw new Error("unexpected command");
@@ -761,7 +1078,7 @@ test("syncGpgKeys imports host public and secret keys into the container", async
   const calls = [];
   const runSafeCalls = [];
 
-  const synced = sandboxCreate.syncGpgKeys("demo-container", "/Users/demo", (cmd, args, options) => {
+  const synced = sandboxCreate.syncGpgKeys("demo-container", "/Users/demo", "demo", (cmd, args, options) => {
     calls.push([cmd, args, options]);
     if (cmd === "gpg" && args[0] === "--export") {
       return Buffer.from("pub");
@@ -782,15 +1099,18 @@ test("syncGpgKeys imports host public and secret keys into the container", async
   assert.deepEqual(calls.map(([cmd, args]) => [cmd, args]), [
     ["gpg", ["--export"]],
     ["gpg", ["--export-secret-keys"]],
+    ["gpg", ["--list-secret-keys", "--with-colons"]],
     ["docker", ["exec", "-i", "demo-container", "gpg", "--import"]],
     ["docker", ["exec", "-i", "demo-container", "gpg", "--batch", "--import"]]
   ]);
   assert.equal(calls[0][2].env.HOME, "/Users/demo");
-  assert.deepEqual(calls[2][2], {
+  assert.equal(calls[2][2].env.HOME, "/Users/demo");
+  assert.equal(calls[2][2].encoding, "utf8");
+  assert.deepEqual(calls[3][2], {
     input: Buffer.from("pub"),
     stdio: ["pipe", "pipe", "pipe"]
   });
-  assert.deepEqual(calls[3][2], {
+  assert.deepEqual(calls[4][2], {
     input: Buffer.from("sec"),
     stdio: ["pipe", "pipe", "pipe"]
   });
