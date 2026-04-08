@@ -21,6 +21,7 @@ jobs:
         with:
           node-version: 20
           registry-url: https://registry.npmjs.org
+          cache: npm
 
       - name: Verify package version matches tag
         shell: bash
@@ -32,6 +33,9 @@ jobs:
             echo "package.json version $PACKAGE_VERSION does not match tag $GITHUB_REF_NAME"
             exit 1
           fi
+
+      - name: Install dependencies
+        run: npm ci
 
       - name: Run tests
         run: npm test

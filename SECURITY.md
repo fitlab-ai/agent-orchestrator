@@ -8,8 +8,8 @@ Please use the following table to understand which versions are currently suppor
 
 | Version  | Support Status        |
 | -------- | --------------------- |
-| v0.4.x   | Supported             |
-| < v0.4.0 | Not Supported         |
+| v0.5.x   | Supported             |
+| < v0.5.0 | Not Supported         |
 
 ## Reporting Vulnerabilities
 
