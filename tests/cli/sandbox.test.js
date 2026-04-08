@@ -265,40 +265,25 @@ test("ensureClaudeSettings skips write when skipDangerousModePermissionPrompt is
   }
 });
 
-test("extractClaudeOAuthToken returns the environment token before checking the host", async () => {
-  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
-  const originalToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-
-  process.env.CLAUDE_CODE_OAUTH_TOKEN = "env-token-123";
-
-  try {
-    const token = sandboxCreate.extractClaudeOAuthToken("/Users/demo", () => {
-      throw new Error("execFn should not be called");
-    });
-
-    assert.equal(token, "env-token-123");
-  } finally {
-    if (originalToken === undefined) {
-      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    } else {
-      process.env.CLAUDE_CODE_OAUTH_TOKEN = originalToken;
-    }
-  }
-});
-
-test("extractClaudeOAuthToken reads the Claude Code OAuth token from macOS Keychain", async () => {
+test("extractClaudeCredentialsBlob reads the full Claude Code credentials blob from macOS Keychain", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
-  const originalToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-
-  delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  const rawBlob = JSON.stringify({
+    claudeAiOauth: {
+      accessToken: "mac-keychain-token",
+      refreshToken: "refresh-token",
+      scopes: ["user:profile", "user:sessions:claude_code"]
+    }
+  }, null, 2);
   Object.defineProperty(process, "platform", { configurable: true, value: "darwin" });
 
   try {
-    const token = sandboxCreate.extractClaudeOAuthToken("/Users/demo", (cmd, args, options) => {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob("/Users/demo", (cmd, args, options) => {
       assert.equal(cmd, "security");
       assert.deepEqual(args, [
         "find-generic-password",
+        "-a",
+        "demo",
         "-s",
         "Claude Code-credentials",
         "-w"
@@ -307,84 +292,322 @@ test("extractClaudeOAuthToken reads the Claude Code OAuth token from macOS Keych
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"]
       });
-      return JSON.stringify({
-        claudeAiOauth: {
-          accessToken: "mac-keychain-token"
-        }
-      });
+      return `${rawBlob}\n`;
     });
 
-    assert.equal(token, "mac-keychain-token");
+    assert.equal(blob, rawBlob);
   } finally {
     if (originalPlatformDescriptor) {
       Object.defineProperty(process, "platform", originalPlatformDescriptor);
     }
-    if (originalToken === undefined) {
-      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    } else {
-      process.env.CLAUDE_CODE_OAUTH_TOKEN = originalToken;
-    }
   }
 });
 
-test("extractClaudeOAuthToken falls back to an empty string when macOS Keychain lookup fails", async () => {
+test("extractClaudeCredentialsBlob returns null when macOS Keychain lookup fails", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
-  const originalToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
-
-  delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
   Object.defineProperty(process, "platform", { configurable: true, value: "darwin" });
 
   try {
-    const token = sandboxCreate.extractClaudeOAuthToken("/Users/demo", () => {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob("/Users/demo", () => {
       throw new Error("missing keychain item");
     });
 
-    assert.equal(token, "");
+    assert.equal(blob, null);
   } finally {
     if (originalPlatformDescriptor) {
       Object.defineProperty(process, "platform", originalPlatformDescriptor);
     }
-    if (originalToken === undefined) {
-      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    } else {
-      process.env.CLAUDE_CODE_OAUTH_TOKEN = originalToken;
+  }
+});
+
+test("extractClaudeCredentialsBlob returns null for empty macOS Keychain output", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+
+  Object.defineProperty(process, "platform", { configurable: true, value: "darwin" });
+
+  try {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob("/Users/demo", () => "");
+    assert.equal(blob, null);
+  } finally {
+    if (originalPlatformDescriptor) {
+      Object.defineProperty(process, "platform", originalPlatformDescriptor);
     }
   }
 });
 
-test("extractClaudeOAuthToken reads Linux credentials from the Claude config directory", async () => {
+test("extractClaudeCredentialsBlob returns null for invalid macOS Keychain JSON", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+
+  Object.defineProperty(process, "platform", { configurable: true, value: "darwin" });
+
+  try {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob("/Users/demo", () => "not-json");
+    assert.equal(blob, null);
+  } finally {
+    if (originalPlatformDescriptor) {
+      Object.defineProperty(process, "platform", originalPlatformDescriptor);
+    }
+  }
+});
+
+test("extractClaudeCredentialsBlob returns null when macOS Keychain JSON has no access token", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+
+  Object.defineProperty(process, "platform", { configurable: true, value: "darwin" });
+
+  try {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob("/Users/demo", () => JSON.stringify({
+      claudeAiOauth: {}
+    }));
+    assert.equal(blob, null);
+  } finally {
+    if (originalPlatformDescriptor) {
+      Object.defineProperty(process, "platform", originalPlatformDescriptor);
+    }
+  }
+});
+
+test("extractClaudeCredentialsBlob returns null when macOS Keychain JSON lacks required Claude Code scopes", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+
+  Object.defineProperty(process, "platform", { configurable: true, value: "darwin" });
+
+  try {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob("/Users/demo", () => JSON.stringify({
+      claudeAiOauth: {
+        accessToken: "token",
+        refreshToken: "refresh-token",
+        scopes: ["user:inference"]
+      }
+    }));
+    assert.equal(blob, null);
+  } finally {
+    if (originalPlatformDescriptor) {
+      Object.defineProperty(process, "platform", originalPlatformDescriptor);
+    }
+  }
+});
+
+test("extractClaudeCredentialsBlob reads Linux credentials from the Claude config directory", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-token-"));
   const claudeDir = path.join(tmpDir, ".claude");
   const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
-  const originalToken = process.env.CLAUDE_CODE_OAUTH_TOKEN;
+  const rawBlob = JSON.stringify({
+    claudeAiOauth: {
+      accessToken: "linux-file-token",
+      refreshToken: "refresh-token",
+      scopes: ["user:profile", "user:sessions:claude_code"]
+    }
+  }, null, 2);
 
   fs.mkdirSync(claudeDir, { recursive: true });
-  fs.writeFileSync(path.join(claudeDir, ".credentials.json"), JSON.stringify({
-    accessToken: "linux-file-token"
-  }), "utf8");
+  fs.writeFileSync(path.join(claudeDir, ".credentials.json"), rawBlob, "utf8");
 
-  delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
   Object.defineProperty(process, "platform", { configurable: true, value: "linux" });
 
   try {
-    const token = sandboxCreate.extractClaudeOAuthToken(tmpDir, () => {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob(tmpDir, () => {
       throw new Error("execFn should not be called on Linux");
     });
 
-    assert.equal(token, "linux-file-token");
+    assert.equal(blob, rawBlob);
   } finally {
     if (originalPlatformDescriptor) {
       Object.defineProperty(process, "platform", originalPlatformDescriptor);
     }
-    if (originalToken === undefined) {
-      delete process.env.CLAUDE_CODE_OAUTH_TOKEN;
-    } else {
-      process.env.CLAUDE_CODE_OAUTH_TOKEN = originalToken;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("extractClaudeCredentialsBlob returns null when Linux credentials file is missing", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-token-missing-"));
+  const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+
+  Object.defineProperty(process, "platform", { configurable: true, value: "linux" });
+
+  try {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob(tmpDir, () => {
+      throw new Error("execFn should not be called on Linux");
+    });
+    assert.equal(blob, null);
+  } finally {
+    if (originalPlatformDescriptor) {
+      Object.defineProperty(process, "platform", originalPlatformDescriptor);
     }
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test("extractClaudeCredentialsBlob returns null for invalid Linux credentials JSON", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-token-invalid-"));
+  const claudeDir = path.join(tmpDir, ".claude");
+  const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+
+  fs.mkdirSync(claudeDir, { recursive: true });
+  fs.writeFileSync(path.join(claudeDir, ".credentials.json"), "garbage", "utf8");
+  Object.defineProperty(process, "platform", { configurable: true, value: "linux" });
+
+  try {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob(tmpDir, () => {
+      throw new Error("execFn should not be called on Linux");
+    });
+    assert.equal(blob, null);
+  } finally {
+    if (originalPlatformDescriptor) {
+      Object.defineProperty(process, "platform", originalPlatformDescriptor);
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("extractClaudeCredentialsBlob returns null for Linux credentials without required Claude Code scopes", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-token-scopes-"));
+  const claudeDir = path.join(tmpDir, ".claude");
+  const originalPlatformDescriptor = Object.getOwnPropertyDescriptor(process, "platform");
+
+  fs.mkdirSync(claudeDir, { recursive: true });
+  fs.writeFileSync(path.join(claudeDir, ".credentials.json"), JSON.stringify({
+    claudeAiOauth: {
+      accessToken: "token",
+      refreshToken: "refresh-token",
+      scopes: ["user:inference"]
+    }
+  }), "utf8");
+  Object.defineProperty(process, "platform", { configurable: true, value: "linux" });
+
+  try {
+    const blob = sandboxCreate.extractClaudeCredentialsBlob(tmpDir, () => {
+      throw new Error("execFn should not be called on Linux");
+    });
+    assert.equal(blob, null);
+  } finally {
+    if (originalPlatformDescriptor) {
+      Object.defineProperty(process, "platform", originalPlatformDescriptor);
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("claudeCredentialsDir and claudeCredentialsPath compute shared credential paths", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  assert.equal(
+    sandboxCreate.claudeCredentialsDir("/home/demo", "agent-infra"),
+    "/home/demo/.agent-infra-claude-credentials"
+  );
+  assert.equal(
+    sandboxCreate.claudeCredentialsPath("/home/demo", "agent-infra"),
+    "/home/demo/.agent-infra-claude-credentials/.credentials.json"
+  );
+});
+
+test("writeClaudeCredentialsFile creates secure shared credentials file", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-credentials-write-"));
+  const rawBlob = '{"claudeAiOauth":{"accessToken":"token"}}\n';
+  const credentialsDir = path.join(tmpDir, ".demo-claude-credentials");
+  const credentialsPath = path.join(credentialsDir, ".credentials.json");
+
+  try {
+    sandboxCreate.writeClaudeCredentialsFile(tmpDir, "demo", rawBlob);
+    assert.equal(modeBits(credentialsDir), 0o700);
+    assert.equal(modeBits(credentialsPath), 0o600);
+    assert.equal(fs.readFileSync(credentialsPath, "utf8"), rawBlob);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("writeClaudeCredentialsFile overwrites existing credentials blob", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-credentials-overwrite-"));
+  const credentialsPath = path.join(tmpDir, ".demo-claude-credentials", ".credentials.json");
+
+  try {
+    sandboxCreate.writeClaudeCredentialsFile(tmpDir, "demo", "blob-1");
+    sandboxCreate.writeClaudeCredentialsFile(tmpDir, "demo", "blob-2");
+    assert.equal(fs.readFileSync(credentialsPath, "utf8"), "blob-2");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("assertClaudeCredentialsAvailable throws a readable error when credentials are missing", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  let writeCalled = false;
+
+  assert.throws(() => sandboxCreate.assertClaudeCredentialsAvailable(
+    "/Users/demo",
+    "agent-infra",
+    [{ tool: { id: "claude-code" }, dir: "/tmp/claude" }],
+    () => null,
+    () => {
+      writeCalled = true;
+    }
+  ), /Claude Code credentials not found on host/);
+  assert.equal(writeCalled, false);
+
+  try {
+    sandboxCreate.assertClaudeCredentialsAvailable(
+      "/Users/demo",
+      "agent-infra",
+      [{ tool: { id: "claude-code" }, dir: "/tmp/claude" }],
+      () => null,
+      () => {}
+    );
+  } catch (error) {
+    assert.match(error.message, /run "claude" once/i);
+    assert.match(error.message, /claude \/status/);
+    assert.match(error.message, /sandbox\.tools.*\.agents\/\.airc\.json/i);
+  }
+});
+
+test("assertClaudeCredentialsAvailable writes shared credentials when blob extraction succeeds", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const writes = [];
+
+  sandboxCreate.assertClaudeCredentialsAvailable(
+    "/Users/demo",
+    "agent-infra",
+    [{ tool: { id: "claude-code" }, dir: "/tmp/claude" }],
+    () => "valid-blob",
+    (...args) => writes.push(args)
+  );
+
+  assert.deepEqual(writes, [
+    ["/Users/demo", "agent-infra", "valid-blob"]
+  ]);
+});
+
+test("assertClaudeCredentialsAvailable skips extraction when claude-code is not enabled", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  let extractCalled = false;
+  let writeCalled = false;
+
+  sandboxCreate.assertClaudeCredentialsAvailable(
+    "/Users/demo",
+    "agent-infra",
+    [{ tool: { id: "codex" }, dir: "/tmp/codex" }],
+    () => {
+      extractCalled = true;
+      return "blob";
+    },
+    () => {
+      writeCalled = true;
+    }
+  );
+
+  assert.equal(extractCalled, false);
+  assert.equal(writeCalled, false);
 });
 
 test("ensureCodexWorkspaceTrust appends workspace trust to config.toml", async () => {
