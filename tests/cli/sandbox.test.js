@@ -232,6 +232,29 @@ test("ensureClaudeOnboarding preserves existing fields", async () => {
   }
 });
 
+test("ensureClaudeOnboarding populates workspace trust when only hasCompletedOnboarding is set", async () => {
+  // Regression guard for the dirty-flag refactor: a prior CC session may have
+  // written `hasCompletedOnboarding: true` without ever touching the projects
+  // map (e.g. if no project was opened). We must still preseed the workspace
+  // trust entry and persist it to disk.
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-onboarding-partial-"));
+
+  try {
+    fs.writeFileSync(
+      path.join(tmpDir, ".claude.json"),
+      JSON.stringify({ hasCompletedOnboarding: true }),
+      "utf8"
+    );
+    sandboxCreate.ensureClaudeOnboarding(tmpDir);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(data.hasCompletedOnboarding, true);
+    assert.equal(data.projects["/workspace"].hasTrustDialogAccepted, true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("ensureClaudeOnboarding skips write when flag already set", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-onboarding-noop-"));
@@ -1187,6 +1210,48 @@ test("writeGpgCache creates cache files with secure permissions", async () => {
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test("syncGpgKeys reuses a caller-provided cache without re-reading from disk", async () => {
+  // Regression guard for the duplicate-readGpgCache cleanup: create() reads
+  // the cache once to decide the progress message, then passes the result
+  // into syncGpgKeys so we don't shell out to `gpg --list-secret-keys` twice
+  // per sandbox create.
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const calls = [];
+  const providedCache = {
+    pub: Buffer.from("pub-from-caller"),
+    sec: Buffer.from("sec-from-caller")
+  };
+
+  const synced = sandboxCreate.syncGpgKeys(
+    "demo-container",
+    "/Users/demo",
+    "demo",
+    (cmd, args, options) => {
+      calls.push([cmd, args, options]);
+      if (cmd === "docker" && args.at(-1) === "--import") {
+        return Buffer.from("");
+      }
+      throw new Error(`unexpected execFn call: ${cmd} ${args.join(" ")}`);
+    },
+    () => "",
+    providedCache
+  );
+
+  assert.equal(synced, true);
+  assert.deepEqual(calls.map(([cmd, args]) => [cmd, args]), [
+    ["docker", ["exec", "-i", "demo-container", "gpg", "--import"]],
+    ["docker", ["exec", "-i", "demo-container", "gpg", "--batch", "--import"]]
+  ]);
+  assert.deepEqual(calls[0][2], {
+    input: Buffer.from("pub-from-caller"),
+    stdio: ["pipe", "pipe", "pipe"]
+  });
+  assert.deepEqual(calls[1][2], {
+    input: Buffer.from("sec-from-caller"),
+    stdio: ["pipe", "pipe", "pipe"]
+  });
 });
 
 test("syncGpgKeys uses the cache when the keyring fingerprint matches", async () => {
