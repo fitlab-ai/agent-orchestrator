@@ -187,16 +187,6 @@ CLI 会收集项目元数据，向所有支持的 AI TUI 安装 `update-agent-in
 
 `ai sandbox exec` 也会向容器透传一小组终端检测白名单变量（`TERM_PROGRAM`、`TERM_PROGRAM_VERSION`、`LC_TERMINAL`、`LC_TERMINAL_VERSION`）。这样可以让交互式 TUI 保持与宿主终端一致的行为，例如 Claude Code 的 `Shift+Enter` 换行支持，同时避免把整个宿主环境灌入容器。
 
-### 从旧版本升级
-
-如果你此前已经在旧的宿主机路径下保存了 sandbox 状态（例如 `~/.claude-sandboxes`、`~/.demo-worktrees`、`~/.demo-gpg-cache`、`~/.demo-claude-credentials` 或 `~/.ai-sandbox-aliases`），请先运行一次迁移脚本，再使用最新目录布局：
-
-请将 `<next-version>` 替换为你正在升级到的 release tag。
-
-```bash
-curl -fsSL https://github.com/fitlab-ai/agent-infra/releases/download/<next-version>/migrate-to-agent-infra.sh | sh
-```
-
 <a id="architecture-overview"></a>
 
 ## 架构概览

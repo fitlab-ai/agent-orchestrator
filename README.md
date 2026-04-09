@@ -187,16 +187,6 @@ The sandbox image also preinstalls `gh`. When `gh auth token` succeeds on the ho
 
 `ai sandbox exec` also forwards a small terminal-detection whitelist (`TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `LC_TERMINAL`, `LC_TERMINAL_VERSION`) into the container. This keeps interactive TUIs aligned with the host terminal for behaviors such as Claude Code's Shift+Enter newline support, without passing through the full host environment.
 
-### Upgrade from earlier versions
-
-If you already have sandbox state under the legacy host paths (for example `~/.claude-sandboxes`, `~/.demo-worktrees`, `~/.demo-gpg-cache`, `~/.demo-claude-credentials`, or `~/.ai-sandbox-aliases`), migrate them once before using the latest sandbox layout:
-
-Replace `<next-version>` with the release tag you are upgrading to.
-
-```bash
-curl -fsSL https://github.com/fitlab-ai/agent-infra/releases/download/<next-version>/migrate-to-agent-infra.sh | sh
-```
-
 <a id="architecture-overview"></a>
 
 ## Architecture Overview
