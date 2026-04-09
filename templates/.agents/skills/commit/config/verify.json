@@ -19,7 +19,8 @@
     },
     "github-sync": {
       "when": "pr_number_exists",
-      "expected_pr_comment_marker": "<!-- sync-pr:{task-id}:summary -->"
+      "expected_pr_comment_marker": "<!-- sync-pr:{task-id}:summary -->",
+      "verify_pr_comment_last_commit_matches_head": true
     }
   }
 }

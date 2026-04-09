@@ -40,6 +40,7 @@ Use this canonical comment body template:
 
 ```markdown
 <!-- sync-pr:{task-id}:summary -->
+<!-- last-commit: {git-head-sha} -->
 ## Review Summary
 
 > **{agent}** · {task-id}
@@ -71,9 +72,10 @@ Fetch existing comments through the Issues comments API, not the dedicated PR co
 
 Process:
 1. Fetch existing PR comments and locate the comment ID that starts with `<!-- sync-pr:{task-id}:summary -->`
-2. If it does not exist, create it once as a fallback
-3. If it exists and the body is identical, skip the write
-4. If it exists and the body changed, PATCH it in place
+2. When rendering the body, always write the current `git rev-parse HEAD` result into `<!-- last-commit: {git-head-sha} -->`
+3. If it does not exist, create it once as a fallback
+4. If it exists and the body is identical, skip the write
+5. If it exists and the body changed, PATCH it in place
 
 When updating an existing comment, use:
 

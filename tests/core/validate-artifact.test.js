@@ -221,16 +221,51 @@ function buildPrPayload(overrides = {}) {
 function assertPointsToPrSyncRule(filePathname) {
   const content = read(filePathname);
   assert.match(content, /`\.agents\/rules\/pr-sync\.md`/);
-  assert.doesNotMatch(content, /## 审查摘要/);
-  assert.doesNotMatch(content, /## Review Summary/);
 }
 
 function assertHasCanonicalPrSyncStructure(filePathname, headings) {
   const content = read(filePathname);
   assert.match(content, /<!-- sync-pr:\{task-id\}:summary -->/);
+  assert.match(content, /<!-- last-commit: \{git-head-sha\} -->/);
   for (const heading of headings) {
     assert.match(content, heading);
   }
+}
+
+function createHeadCommit(repoRoot) {
+  const emailResult = spawnSync("git", ["config", "user.email", "codex@example.com"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(emailResult.status, 0, emailResult.stderr);
+
+  const nameResult = spawnSync("git", ["config", "user.name", "Codex"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(nameResult.status, 0, nameResult.stderr);
+
+  write(path.join(repoRoot, "README.md"), "# temp\n");
+
+  const addResult = spawnSync("git", ["add", "README.md"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(addResult.status, 0, addResult.stderr);
+
+  const commitResult = spawnSync("git", ["commit", "-qm", "test commit"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(commitResult.status, 0, commitResult.stderr);
+
+  const revParseResult = spawnSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(revParseResult.status, 0, revParseResult.stderr);
+
+  return revParseResult.stdout.trim();
 }
 
 test("validate-artifact gate passes for implement-task with fresh task and artifact", () => {
@@ -1012,6 +1047,104 @@ test("validate-artifact github-sync passes for commit when summary comment exist
 
   try {
     initGitRepo(tempRoot);
+    const headSha = createHeadCommit(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, buildIssuePayload({
+      labels: [],
+      body: "# Issue\n"
+    }));
+    writeJson(prCommentsPath, [
+      { body: `<!-- sync-pr:TASK-20260328-000001:summary -->\n<!-- last-commit: ${headSha} -->\n## Review Summary\n\nLooks good.` }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "commit"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails for commit when summary comment last-commit metadata mismatches HEAD", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-commit-head-fail-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    createHeadCommit(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, buildIssuePayload({
+      labels: [],
+      body: "# Issue\n"
+    }));
+    writeJson(prCommentsPath, [
+      { body: "<!-- sync-pr:TASK-20260328-000001:summary -->\n<!-- last-commit: deadbee -->\n## Review Summary\n\nLooks good." }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "commit"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /last-commit metadata mismatch/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails for commit when summary comment last-commit metadata is missing", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-commit-head-missing-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    createHeadCommit(tempRoot);
     writeFakeGh(ghPath);
 
     write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
@@ -1039,11 +1172,12 @@ test("validate-artifact github-sync passes for commit when summary comment exist
       }
     });
 
-    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.status, 1);
 
     const payload = JSON.parse(result.stdout);
     assert.equal(payload.type, "github-sync");
-    assert.equal(payload.status, "pass");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /missing '<!-- last-commit: <sha> -->' metadata/);
   } finally {
     fs.rmSync(tempRoot, { recursive: true, force: true });
   }

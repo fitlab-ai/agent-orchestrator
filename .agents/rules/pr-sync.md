@@ -40,6 +40,7 @@
 
 ```markdown
 <!-- sync-pr:{task-id}:summary -->
+<!-- last-commit: {git-head-sha} -->
 ## 审查摘要
 
 > **{agent}** · {task-id}
@@ -71,9 +72,10 @@
 
 处理顺序：
 1. 获取 PR 上现有 comments，查找以 `<!-- sync-pr:{task-id}:summary -->` 开头的评论 ID
-2. 不存在时，POST 创建一条新评论作为兜底
-3. 已存在且正文完全相同时，跳过写入
-4. 已存在且正文有变化时，PATCH 原地更新
+2. 渲染评论正文时，始终写入当前 `git rev-parse HEAD` 的结果到 `<!-- last-commit: {git-head-sha} -->`
+3. 不存在时，POST 创建一条新评论作为兜底
+4. 已存在且正文完全相同时，跳过写入
+5. 已存在且正文有变化时，PATCH 原地更新
 
 更新已有评论时，使用如下模式：
 
