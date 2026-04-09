@@ -218,6 +218,56 @@ function buildPrPayload(overrides = {}) {
   };
 }
 
+function assertPointsToPrSyncRule(filePathname) {
+  const content = read(filePathname);
+  assert.match(content, /`\.agents\/rules\/pr-sync\.md`/);
+}
+
+function assertHasCanonicalPrSyncStructure(filePathname, headings) {
+  const content = read(filePathname);
+  assert.match(content, /<!-- sync-pr:\{task-id\}:summary -->/);
+  assert.match(content, /<!-- last-commit: \{git-head-sha\} -->/);
+  for (const heading of headings) {
+    assert.match(content, heading);
+  }
+}
+
+function createHeadCommit(repoRoot) {
+  const emailResult = spawnSync("git", ["config", "user.email", "codex@example.com"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(emailResult.status, 0, emailResult.stderr);
+
+  const nameResult = spawnSync("git", ["config", "user.name", "Codex"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(nameResult.status, 0, nameResult.stderr);
+
+  write(path.join(repoRoot, "README.md"), "# temp\n");
+
+  const addResult = spawnSync("git", ["add", "README.md"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(addResult.status, 0, addResult.stderr);
+
+  const commitResult = spawnSync("git", ["commit", "-qm", "test commit"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(commitResult.status, 0, commitResult.stderr);
+
+  const revParseResult = spawnSync("git", ["rev-parse", "HEAD"], {
+    cwd: repoRoot,
+    encoding: "utf8"
+  });
+  assert.equal(revParseResult.status, 0, revParseResult.stderr);
+
+  return revParseResult.stdout.trim();
+}
+
 test("validate-artifact gate passes for implement-task with fresh task and artifact", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gate-pass-"));
   const taskDir = path.join(tempRoot, "TASK-20260328-000001");
@@ -937,6 +987,202 @@ test("validate-artifact github-sync passes when create-pr summary comment exists
   }
 });
 
+test("commit and create-pr references point to the shared pr-sync rule", () => {
+  assertPointsToPrSyncRule(".agents/skills/commit/reference/pr-summary-sync.md");
+  assertPointsToPrSyncRule(".agents/skills/create-pr/reference/comment-publish.md");
+});
+
+test("template references point to the shared pr-sync rule", () => {
+  assertPointsToPrSyncRule("templates/.agents/skills/commit/reference/pr-summary-sync.md");
+  assertPointsToPrSyncRule("templates/.agents/skills/commit/reference/pr-summary-sync.zh-CN.md");
+  assertPointsToPrSyncRule("templates/.agents/skills/create-pr/reference/comment-publish.md");
+  assertPointsToPrSyncRule("templates/.agents/skills/create-pr/reference/comment-publish.zh-CN.md");
+});
+
+test("local and zh-CN rule files contain the canonical PR summary structure", () => {
+  const zhHeadings = [/## 审查摘要/, /### 关键技术决策/, /### 审查历程/, /### 测试结果/];
+  assertHasCanonicalPrSyncStructure(".agents/rules/pr-sync.md", zhHeadings);
+  assertHasCanonicalPrSyncStructure("templates/.agents/rules/pr-sync.zh-CN.md", zhHeadings);
+});
+
+test("template English rule contains the canonical PR summary structure", () => {
+  const enHeadings = [/## Review Summary/, /### Key Technical Decisions/, /### Review History/, /### Test Results/];
+  assertHasCanonicalPrSyncStructure("templates/.agents/rules/pr-sync.md", enHeadings);
+});
+
+test("validate-artifact github-sync skips for commit when task has no pr_number", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-commit-skip-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+
+  try {
+    initGitRepo(tempRoot);
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65" }));
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "commit"
+    ]);
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "pass");
+    assert.equal(payload.message, "Skipped: task has no pr_number");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync passes for commit when summary comment exists on the PR", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-commit-pass-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    const headSha = createHeadCommit(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, buildIssuePayload({
+      labels: [],
+      body: "# Issue\n"
+    }));
+    writeJson(prCommentsPath, [
+      { body: `<!-- sync-pr:TASK-20260328-000001:summary -->\n<!-- last-commit: ${headSha} -->\n## Review Summary\n\nLooks good.` }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "commit"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 0, result.stderr);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "pass");
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails for commit when summary comment last-commit metadata mismatches HEAD", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-commit-head-fail-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    createHeadCommit(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, buildIssuePayload({
+      labels: [],
+      body: "# Issue\n"
+    }));
+    writeJson(prCommentsPath, [
+      { body: "<!-- sync-pr:TASK-20260328-000001:summary -->\n<!-- last-commit: deadbee -->\n## Review Summary\n\nLooks good." }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "commit"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /last-commit metadata mismatch/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails for commit when summary comment last-commit metadata is missing", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-commit-head-missing-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    createHeadCommit(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, buildIssuePayload({
+      labels: [],
+      body: "# Issue\n"
+    }));
+    writeJson(prCommentsPath, [
+      { body: "<!-- sync-pr:TASK-20260328-000001:summary -->\n## Review Summary\n\nLooks good." }
+    ]);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "commit"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /missing '<!-- last-commit: <sha> -->' metadata/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("validate-artifact github-sync fails when create-pr summary comment is missing on the PR", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-pr-comment-fail-"));
   const taskDir = path.join(tempRoot, "TASK-20260328-000001");
@@ -969,6 +1215,53 @@ test("validate-artifact github-sync fails when create-pr summary comment is miss
         PATH: `${binDir}:${process.env.PATH}`,
         GH_FAKE_ISSUE_PATH: issuePath,
         GH_FAKE_PR_PATH: prPath,
+        GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
+        GH_FAKE_ISSUE_NUMBER: "65",
+        GH_FAKE_PR_NUMBER: "77"
+      }
+    });
+
+    assert.equal(result.status, 1);
+
+    const payload = JSON.parse(result.stdout);
+    assert.equal(payload.type, "github-sync");
+    assert.equal(payload.status, "fail");
+    assert.match(payload.message, /Expected PR comment marker/);
+    assert.match(payload.message, /PR #77/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact github-sync fails for commit when summary comment is missing on the PR", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-github-sync-commit-fail-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+  const binDir = path.join(tempRoot, "bin");
+  const ghPath = path.join(binDir, "gh");
+  const issuePath = path.join(tempRoot, "issue.json");
+  const prCommentsPath = path.join(tempRoot, "pr-comments.json");
+
+  try {
+    initGitRepo(tempRoot);
+    writeFakeGh(ghPath);
+
+    write(path.join(taskDir, "task.md"), buildTaskContent({ issue_number: "65", pr_number: "77" }));
+    writeJson(issuePath, buildIssuePayload({
+      labels: [],
+      body: "# Issue\n"
+    }));
+    writeJson(prCommentsPath, []);
+
+    const result = runValidator([
+      "check",
+      "github-sync",
+      taskDir,
+      "--skill",
+      "commit"
+    ], {
+      env: {
+        PATH: `${binDir}:${process.env.PATH}`,
+        GH_FAKE_ISSUE_PATH: issuePath,
         GH_FAKE_PR_COMMENTS_PATH: prCommentsPath,
         GH_FAKE_ISSUE_NUMBER: "65",
         GH_FAKE_PR_NUMBER: "77"

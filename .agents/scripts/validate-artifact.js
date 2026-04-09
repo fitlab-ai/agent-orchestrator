@@ -436,6 +436,7 @@ function checkGithubSync({ taskDir, config, artifactFile }) {
     checkStatusLabel,
     checkCommentMarker,
     checkPrCommentMarker,
+    checkPrCommentLastCommit,
     checkCommentContent,
     checkTaskCommentContent,
     checkInLabelsMatchPr,
@@ -580,8 +581,12 @@ function buildSyncContext({ taskDir, config, artifactFile }) {
   }
 
   const issueNumber = parseIssueNumber(task.metadata.issue_number);
+  const prNumber = parsePrNumber(task.metadata.pr_number);
   if (config.when === "issue_number_exists" && !issueNumber) {
     return { earlyReturn: passResult("github-sync", "Skipped: task has no issue_number") };
+  }
+  if (config.when === "pr_number_exists" && !prNumber) {
+    return { earlyReturn: passResult("github-sync", "Skipped: task has no pr_number") };
   }
 
   if (!issueNumber) {
@@ -608,7 +613,7 @@ function buildSyncContext({ taskDir, config, artifactFile }) {
     artifactFile,
     artifactPath,
     issueNumber,
-    prNumber: parsePrNumber(task.metadata.pr_number),
+    prNumber,
     ownerRepo: ownerRepo.value,
     marker,
     prMarker
@@ -747,6 +752,7 @@ function shouldFetchComments(config) {
   return Boolean(
     config.expected_comment_marker
     || config.expected_pr_comment_marker
+    || config.verify_pr_comment_last_commit_matches_head
     || config.verify_comment_content
     || config.verify_task_comment_content
   );
@@ -807,6 +813,57 @@ function checkPrCommentMarker(context, remoteData) {
   return failResult(
     "github-sync",
     `Expected PR comment marker '${context.prMarker}' not found on PR #${context.prNumber}`,
+    "check_failed"
+  );
+}
+
+function checkPrCommentLastCommit(context, remoteData) {
+  if (!context.config.verify_pr_comment_last_commit_matches_head) {
+    return null;
+  }
+
+  if (!context.prMarker) {
+    return failResult(
+      "github-sync",
+      "verify_pr_comment_last_commit_matches_head requires expected_pr_comment_marker",
+      "check_failed"
+    );
+  }
+
+  const comment = findCommentByMarker(remoteData.prComments, context.prMarker);
+  if (!comment) {
+    return failResult(
+      "github-sync",
+      `Expected PR comment marker '${context.prMarker}' not found on PR #${context.prNumber}`,
+      "check_failed"
+    );
+  }
+
+  const match = String(comment.body || "").match(/<!--\s*last-commit:\s*([0-9a-f]{7,40})\s*-->/i);
+  if (!match) {
+    return failResult(
+      "github-sync",
+      `PR #${context.prNumber} summary comment is missing '<!-- last-commit: <sha> -->' metadata`,
+      "check_failed"
+    );
+  }
+
+  const headResult = withRetry(() => gitText(["rev-parse", "HEAD"], context.taskDir));
+  if (!headResult.ok) {
+    return headResult.type === "check_failed"
+      ? failResult("github-sync", headResult.message, headResult.type)
+      : blockedResult("github-sync", headResult.message, headResult.type);
+  }
+
+  const expectedHead = String(headResult.value || "").trim();
+  const actualHead = match[1].trim();
+  if (expectedHead === actualHead) {
+    return null;
+  }
+
+  return failResult(
+    "github-sync",
+    `PR #${context.prNumber} summary comment last-commit metadata mismatch: expected ${expectedHead}, got ${actualHead}`,
     "check_failed"
   );
 }
@@ -1217,6 +1274,25 @@ function ghCommand(args, cwd) {
 
 function ghPaginatedJson(args, cwd) {
   return ghJson(args, cwd);
+}
+
+function gitText(args, cwd) {
+  const result = spawnSync("git", args, {
+    cwd,
+    encoding: "utf8",
+    env: process.env
+  });
+
+  if (result.status !== 0) {
+    const stderr = `${result.stderr || ""}${result.stdout || ""}`.trim();
+    return {
+      ok: false,
+      type: "check_failed",
+      message: stderr || `git ${args.join(" ")} failed`
+    };
+  }
+
+  return { ok: true, value: String(result.stdout || "").trim() };
 }
 
 function withRetry(operation) {
