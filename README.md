@@ -410,7 +410,7 @@ The generated `.agents/.airc.json` file is the central contract between the boot
   "project": "my-project",
   "org": "my-org",
   "language": "en",
-  "templateVersion": "v0.5.2",
+  "templateVersion": "v0.5.3",
   "files": {
     "managed": [
       ".agents/workspace/README.md",
