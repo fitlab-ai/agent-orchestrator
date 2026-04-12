@@ -32,6 +32,15 @@ test("sandbox create help documents the host aliases file", () => {
   assert.match(output, /\/home\/devuser\/\.bash_aliases/);
 });
 
+test("sandbox rm defaults local branch deletion confirmation to yes", () => {
+  const commandSource = fs.readFileSync(filePath("lib/sandbox/commands/rm.js"), "utf8");
+
+  assert.match(
+    commandSource,
+    /const shouldDeleteBranch = await p\.confirm\(\{[\s\S]*?message: `Also delete local branch '\$\{effectiveBranch\}'\?`,[\s\S]*?initialValue: true[\s\S]*?\}\);/
+  );
+});
+
 test("sandbox create fails before preparing a temporary Dockerfile when Claude credentials are missing", () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-create-no-credentials-"));
   const repoDir = path.join(tmpDir, "repo");
@@ -168,7 +177,8 @@ test("composeDockerfile includes gh CLI and bash_aliases sourcing", async () => 
     const content = fs.readFileSync(dockerfilePath, "utf8");
 
     assert.match(content, /cli\.github\.com\/packages/);
-    assert.match(content, /curl wget git vim tmux file/);
+    assert.match(content, /build-essential ca-certificates gnupg lsb-release/);
+    assert.match(content, /curl wget git vim file/);
     assert.match(content, /apt-get install -y gh/);
     assert.match(content, /export GPG_TTY=\$\(tty\)/);
     assert.match(content, /\[ -f ~\/\.bash_aliases \] && \. ~\/\.bash_aliases/);
@@ -191,6 +201,8 @@ test("composeDockerfile installs tmux for in-container session recovery", async 
     const content = fs.readFileSync(dockerfilePath, "utf8");
 
     assert.match(content, /\btmux\b/);
+    assert.match(content, /TMUX_VERSION=3\.6a/);
+    assert.match(content, /apt-get purge -y pkg-config bison libevent-dev libncurses-dev/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -216,6 +228,7 @@ test("composeDockerfile configures tmux extended keys and terminal env forwardin
       content,
       /set -ga update-environment 'TERM_PROGRAM TERM_PROGRAM_VERSION LC_TERMINAL LC_TERMINAL_VERSION'/
     );
+    assert.match(content, /set -g mouse on/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }

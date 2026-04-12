@@ -11,10 +11,10 @@ Require node
 Require tree
 
 Set Shell "zsh"
-Set FontSize 16
-Set Width 960
-Set Height 600
-Set Padding 20
+Set FontSize 32
+Set Width 1920
+Set Height 1200
+Set Padding 40
 Set Theme "Catppuccin Mocha"
 Set TypingSpeed 50ms
 Set WindowBar Colorful
@@ -49,6 +49,10 @@ Sleep 1s
 
 # Prompt 3: Language — choose English
 Type "en"
+Enter
+Sleep 1s
+
+# Prompt 4: Platform type — accept default (github)
 Enter
 Sleep 3s
 

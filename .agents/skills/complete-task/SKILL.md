@@ -8,7 +8,7 @@ description: "标记任务完成并归档"
 ## 行为边界 / 关键规则
 
 - 本命令更新任务元数据并物理移动任务目录
-- 除非强制执行，不要归档有未完成工作流步骤的任务
+- 除非强制执行，不要转移有未完成工作流步骤的任务
 
 ## 执行步骤
 
@@ -36,7 +36,7 @@ description: "标记任务完成并归档"
 > - 如果任意一个条件不满足 → **默认停止**，输出前置条件未满足的警告
 > - 只有用户明确要求 `--force` 时，才可以在前置条件未满足时继续
 >
-> **禁止在前置条件未满足时继续执行步骤 3-7，也不要输出「任务 {task-id} 已完成并归档。」**
+> **禁止在前置条件未满足时继续执行步骤 3-7，也不要输出「任务 {task-id} 已完成，任务目录已转移到 completed/。」**
 
 如果任何前置条件未满足，警告用户：
 ```
@@ -64,10 +64,10 @@ date "+%Y-%m-%d %H:%M:%S"
 - 逐项验证并勾选 `## 完成检查清单` 中的所有条目（将 `- [ ]` 改为 `- [x]`）
 - **追加**到 `## Activity Log`（不要覆盖之前的记录）：
   ```
-  - {yyyy-MM-dd HH:mm:ss} — **Completed** by {agent} — Task archived to completed/
+  - {yyyy-MM-dd HH:mm:ss} — **Completed** by {agent} — Task moved to completed/
   ```
 
-### 4. 归档任务
+### 4. 转移任务
 
 将任务目录从 active 移动到 completed：
 
@@ -75,7 +75,7 @@ date "+%Y-%m-%d %H:%M:%S"
 mv .agents/workspace/active/{task-id} .agents/workspace/completed/{task-id}
 ```
 
-### 5. 验证归档
+### 5. 验证转移
 
 ```bash
 ls .agents/workspace/completed/{task-id}/task.md
@@ -116,12 +116,12 @@ node .agents/scripts/validate-artifact.js gate complete-task .agents/workspace/c
 
 输出格式：
 ```
-任务 {task-id} 已完成并归档。
+任务 {task-id} 已完成，任务目录已转移到 completed/。
 
 任务信息：
 - 标题：{title}
 - 完成时间：{timestamp}
-- 归档路径：.agents/workspace/completed/{task-id}/
+- 目标路径：.agents/workspace/completed/{task-id}/
 
 交付物：
 - {关键产出列表：修改的文件、添加的测试等}
@@ -132,18 +132,18 @@ node .agents/scripts/validate-artifact.js gate complete-task .agents/workspace/c
 - [ ] 验证了所有工作流步骤已完成
 - [ ] 更新了 task.md 的完成状态和时间戳
 - [ ] 将任务目录移动到 `.agents/workspace/completed/`
-- [ ] 验证了归档成功
+- [ ] 验证了转移成功
 - [ ] 告知了用户完成情况
 
 ## 注意事项
 
-1. **过早完成**：不要归档有未完成步骤的任务。未完成的情况示例：
+1. **过早完成**：不要转移有未完成步骤的任务。未完成的情况示例：
    - 代码已编写但未提交
    - 代码已提交但未审查
    - 审查发现阻塞项但未修复
    - PR 已创建但未合并
 
-2. **回滚**：如果任务被错误归档：
+2. **回滚**：如果任务被错误转移：
    ```bash
    mv .agents/workspace/completed/{task-id} .agents/workspace/active/{task-id}
    ```

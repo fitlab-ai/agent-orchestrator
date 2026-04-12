@@ -7,7 +7,7 @@ description: "取消不再需要的任务并归档"
 
 ## 行为边界 / 关键规则
 
-- 本命令用于终止一个不再需要继续执行的任务，并归档到 `completed/`
+- 本命令用于终止一个不再需要继续执行的任务，并转移到 `completed/`
 - 只有在确认该任务无需继续实现、审查或修复时才可取消
 - 有效 `issue_number` 存在时，Issue 同步属于必做项
 
@@ -22,7 +22,7 @@ description: "取消不再需要的任务并归档"
 
 处理规则：
 - 如果在 `active/` 或 `blocked/` 中找到：继续
-- 如果只在 `completed/` 中找到：告知用户任务已归档，停止
+- 如果只在 `completed/` 中找到：告知用户任务已转移，停止
 - 如果都不存在：提示 `Task {task-id} not found`
 
 ### 2. 判断取消标签
@@ -53,13 +53,13 @@ date "+%Y-%m-%d %H:%M:%S"
   - {yyyy-MM-dd HH:mm:ss} — **Cancelled** by {agent} — {一行取消原因}
   ```
 
-### 4. 归档任务
+### 4. 转移任务
 
 将任务目录移动到 `.agents/workspace/completed/{task-id}`。
 
 如果源目录在 `blocked/`，从 `blocked/` 移动；如果源目录在 `active/`，从 `active/` 移动。
 
-### 5. 验证归档
+### 5. 验证转移
 
 ```bash
 ls .agents/workspace/completed/{task-id}/task.md
@@ -89,7 +89,7 @@ ls .agents/workspace/completed/{task-id}/task.md
 
 ### 7. 完成校验
 
-运行完成校验，确认任务归档和同步状态符合规范：
+运行完成校验，确认任务转移和同步状态符合规范：
 
 ```bash
 node .agents/scripts/validate-artifact.js gate cancel-task .agents/workspace/completed/{task-id} --format text
@@ -110,13 +110,13 @@ node .agents/scripts/validate-artifact.js gate cancel-task .agents/workspace/com
 
 输出格式：
 ```
-任务 {task-id} 已取消并归档。
+任务 {task-id} 已取消，任务目录已转移到 completed/。
 
 取消原因：{reason}
 状态标签：{status-label 或 skipped}
-归档路径：.agents/workspace/completed/{task-id}/
+目标路径：.agents/workspace/completed/{task-id}/
 
-下一步 - 查看归档任务：
+下一步 - 查看已转移任务：
   - Claude Code / OpenCode：/check-task {task-id}
   - Gemini CLI：/{{project}}:check-task {task-id}
   - Codex CLI：$check-task {task-id}
@@ -139,5 +139,5 @@ node .agents/scripts/validate-artifact.js gate cancel-task .agents/workspace/com
 ## 错误处理
 
 - 任务未找到：`Task {task-id} not found`
-- 任务已归档：提示任务已在 `completed/` 中
-- Issue 同步失败：保留本地归档结果，并告知用户需要人工补齐平台操作
+- 任务已转移：提示任务已在 `completed/` 中
+- Issue 同步失败：保留本地转移结果，并告知用户需要人工补齐平台操作

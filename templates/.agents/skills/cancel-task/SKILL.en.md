@@ -7,7 +7,7 @@ description: "Cancel an unneeded task and archive it"
 
 ## Boundary / Critical Rules
 
-- This command terminates a task that no longer needs to continue and archives it into `completed/`
+- This command terminates a task that no longer needs to continue and moves it into `completed/`
 - Cancel only when the task no longer needs implementation, review, or follow-up work
 - When a valid `issue_number` exists, Issue sync is required
 
@@ -22,7 +22,7 @@ Check these directories in order:
 
 Handling rules:
 - If found in `active/` or `blocked/`: continue
-- If found only in `completed/`: inform the user the task is already archived and stop
+- If found only in `completed/`: inform the user the task is already moved and stop
 - If not found anywhere: prompt `Task {task-id} not found`
 
 ### 2. Choose the Cancellation Label
@@ -53,13 +53,13 @@ Update `task.md` in the task directory:
   - {yyyy-MM-dd HH:mm:ss} — **Cancelled** by {agent} — {one-line cancellation reason}
   ```
 
-### 4. Archive the Task
+### 4. Move the Task
 
 Move the task directory into `.agents/workspace/completed/{task-id}`.
 
 If the source directory is `blocked/`, move it from `blocked/`; if it is `active/`, move it from `active/`.
 
-### 5. Verify the Archive
+### 5. Verify the Move
 
 ```bash
 ls .agents/workspace/completed/{task-id}/task.md
@@ -89,7 +89,7 @@ The cancellation comment must include at least:
 
 ### 7. Verification Gate
 
-Run the verification gate to confirm the archived task and sync state are valid:
+Run the verification gate to confirm the moved task and sync state are valid:
 
 ```bash
 node .agents/scripts/validate-artifact.js gate cancel-task .agents/workspace/completed/{task-id} --format text
@@ -110,13 +110,13 @@ Keep the gate output in your reply as fresh evidence. Do not claim completion wi
 
 Output format:
 ```
-Task {task-id} cancelled and archived.
+Task {task-id} cancelled; task directory moved to completed/.
 
 Cancellation reason: {reason}
 Status label: {status-label or skipped}
-Archived to: .agents/workspace/completed/{task-id}/
+Target path: .agents/workspace/completed/{task-id}/
 
-Next step - inspect the archived task:
+Next step - inspect the moved task:
   - Claude Code / OpenCode: /check-task {task-id}
   - Gemini CLI: /{{project}}:check-task {task-id}
   - Codex CLI: $check-task {task-id}
@@ -139,5 +139,5 @@ Next step - inspect the archived task:
 ## Error Handling
 
 - Task not found: `Task {task-id} not found`
-- Task already archived: inform the user it is already in `completed/`
-- Issue sync failed: keep the local archive result and tell the user manual platform follow-up is required
+- Task already moved: inform the user it is already in `completed/`
+- Issue sync failed: keep the local move result and tell the user manual platform follow-up is required
