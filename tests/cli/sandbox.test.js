@@ -1162,6 +1162,27 @@ test("ensureWsl2Docker checks WSL and Docker Desktop integration", async () => {
   assert.deepEqual(messages, ["Checking Docker Desktop from WSL2..."]);
 });
 
+test("wsl2BackendStatus checks WSL2 and Docker without Colima", async () => {
+  const sandboxVm = await loadFreshEsm("lib/sandbox/commands/vm.js");
+  const checks = [];
+  const engineChecks = [];
+
+  const status = sandboxVm.wsl2BackendStatus({
+    runOkFn(cmd, args) {
+      checks.push([cmd, ...args]);
+      return cmd === "wsl.exe" && args[0] === "--status";
+    },
+    runOkEngineFn(engine, cmd, args) {
+      engineChecks.push([engine, cmd, ...args]);
+      return engine === "wsl2" && cmd === "docker" && args[0] === "info";
+    }
+  });
+
+  assert.deepEqual(status, { wslAvailable: true, dockerAvailable: true });
+  assert.deepEqual(checks, [["wsl.exe", "--status"]]);
+  assert.deepEqual(engineChecks, [["wsl2", "docker", "info"]]);
+});
+
 test("buildImage converts Docker build paths for WSL2", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const calls = [];
