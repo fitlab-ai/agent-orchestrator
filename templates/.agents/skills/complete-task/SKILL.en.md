@@ -8,7 +8,7 @@ description: "Mark a task as completed and archive it"
 ## Boundary / Critical Rules
 
 - This command updates task metadata AND physically moves the task directory
-- Do not archive a task that has incomplete workflow steps unless forced
+- Do not move a task that has incomplete workflow steps unless forced
 
 ## Steps
 
@@ -36,7 +36,7 @@ Before marking complete, verify ALL of these:
 > - If any condition is missing -> **stop by default** and output the prerequisite warning
 > - Only continue with unmet prerequisites when the user explicitly requested `--force`
 >
-> **Do not continue to Steps 3-7 when prerequisites are not met, and do not output "Task {task-id} completed and archived."**
+> **Do not continue to Steps 3-7 when prerequisites are not met, and do not output "Task {task-id} completed; task directory moved to completed/."**
 
 If any prerequisite is not met, warn the user:
 ```
@@ -64,10 +64,10 @@ Update `.agents/workspace/active/{task-id}/task.md`:
 - Verify and check off all items in `## Completion Checklist` (change `- [ ]` to `- [x]`)
 - **Append** to `## Activity Log` (do NOT overwrite previous entries):
   ```
-  - {yyyy-MM-dd HH:mm:ss} — **Completed** by {agent} — Task archived to completed/
+  - {yyyy-MM-dd HH:mm:ss} — **Completed** by {agent} — Task moved to completed/
   ```
 
-### 4. Archive Task
+### 4. Move Task
 
 Move the task directory from active to completed:
 
@@ -75,7 +75,7 @@ Move the task directory from active to completed:
 mv .agents/workspace/active/{task-id} .agents/workspace/completed/{task-id}
 ```
 
-### 5. Verify Archive
+### 5. Verify Move
 
 ```bash
 ls .agents/workspace/completed/{task-id}/task.md
@@ -116,12 +116,12 @@ Keep the gate output in your reply as fresh evidence. Do not claim completion wi
 
 Output format:
 ```
-Task {task-id} completed and archived.
+Task {task-id} completed; task directory moved to completed/.
 
 Task info:
 - Title: {title}
 - Completed at: {timestamp}
-- Archived to: .agents/workspace/completed/{task-id}/
+- Target path: .agents/workspace/completed/{task-id}/
 
 Deliverables:
 - {List of key outputs: files modified, tests added, etc.}
@@ -132,18 +132,18 @@ Deliverables:
 - [ ] Verified all workflow steps are complete
 - [ ] Updated task.md with completed status and timestamp
 - [ ] Moved task directory to `.agents/workspace/completed/`
-- [ ] Verified archive succeeded
+- [ ] Verified move succeeded
 - [ ] Informed user of completion
 
 ## Notes
 
-1. **Premature completion**: Do not archive a task that has incomplete steps. Examples of incomplete situations:
+1. **Premature completion**: Do not move a task that has incomplete steps. Examples of incomplete situations:
    - Code is written but not committed
    - Code is committed but not reviewed
    - Review found blockers that haven't been fixed
    - PR is created but not merged
 
-2. **Rollback**: If a task was archived incorrectly:
+2. **Rollback**: If a task was incorrectly moved:
    ```bash
    mv .agents/workspace/completed/{task-id} .agents/workspace/active/{task-id}
    ```
