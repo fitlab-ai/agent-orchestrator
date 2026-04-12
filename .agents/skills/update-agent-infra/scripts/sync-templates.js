@@ -76,7 +76,7 @@ const DEFAULTS = {
   }
 };
 
-const INSTALLER_VERSION = "v0.5.1";
+const INSTALLER_VERSION = "v0.5.2";
 const PACKAGE_NAME = '@fitlab-ai/agent-infra';
 // Add a new identifier here only after shipping matching .{platform}. template variants.
 const KNOWN_PLATFORMS = new Set(['github']);
