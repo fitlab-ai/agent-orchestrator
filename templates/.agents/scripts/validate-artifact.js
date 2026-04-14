@@ -438,6 +438,7 @@ function checkGithubSync({ taskDir, config, artifactFile }) {
     checkCommentContent,
     checkTaskCommentContent,
     checkInLabelsMatchPr,
+    checkPrAssignee,
     checkSyncedRequirements,
     checkIssueType,
     checkMilestone
@@ -722,14 +723,19 @@ function fetchRemoteData(context) {
 
   let prLabels = null;
   let prMilestone;
+  let prAssignees;
   if (((context.config.verify_in_labels_match_pr && context.hasTriage)
-    || (context.config.verify_milestone && context.hasTriage)) && context.prNumber) {
+    || (context.config.verify_milestone && context.hasTriage)
+    || (context.config.verify_pr_assignee && context.hasPush)) && context.prNumber) {
     const prFields = [];
     if (context.config.verify_in_labels_match_pr) {
       prFields.push("labels");
     }
     if (context.config.verify_milestone) {
       prFields.push("milestone");
+    }
+    if (context.config.verify_pr_assignee) {
+      prFields.push("assignees");
     }
 
     const prResult = withRetry(() => ghJson([
@@ -754,6 +760,9 @@ function fetchRemoteData(context) {
     prMilestone = context.config.verify_milestone
       ? prResult.value?.milestone ?? null
       : undefined;
+    prAssignees = context.config.verify_pr_assignee
+      ? (prResult.value?.assignees || []).map((a) => a.login).filter(Boolean)
+      : undefined;
   }
 
   return {
@@ -762,7 +771,8 @@ function fetchRemoteData(context) {
     prComments,
     prLabels,
     issueType,
-    prMilestone
+    prMilestone,
+    prAssignees
   };
 }
 
@@ -1026,6 +1036,22 @@ function checkIssueType(context, remoteData) {
     return failResult(
       "github-sync",
       `Issue #${context.issueNumber} has type '${remoteData.issueType}', expected '${expectedType}' (from task type '${context.task.metadata.type}')`,
+      "check_failed"
+    );
+  }
+
+  return null;
+}
+
+function checkPrAssignee(context, remoteData) {
+  if (!context.config.verify_pr_assignee || !context.hasPush || !context.prNumber) {
+    return null;
+  }
+
+  if (!remoteData.prAssignees || remoteData.prAssignees.length === 0) {
+    return failResult(
+      "github-sync",
+      `PR #${context.prNumber} has no assignee`,
       "check_failed"
     );
   }
