@@ -52,7 +52,17 @@ Append the Commit Activity Log entry and choose exactly one next-step case:
 - ready for review -> `review-task {task-id}`
 - ready for PR -> `create-pr`
 
-## 6. Sync PR Summary When Applicable
+## 6. Sync Issue Metadata When Applicable
+
+When `{task-id}` exists and task.md contains a valid `issue_number`, sync the linked Issue `in:` labels and requirement checkboxes. Otherwise, skip this step.
+
+> Trigger conditions, `in:` label computation rules, and requirement-checkbox sync flow live in `reference/issue-metadata-sync.md`. Read that file before running this step.
+>
+> If this step touches the code-hosting platform, complete the prerequisite checks in `.agents/rules/issue-pr-commands.md` first.
+
+Failure handling matches "Update Task Status When Applicable": warn, but do **not** block an already completed `git commit`.
+
+## 7. Sync PR Summary When Applicable
 
 When `{task-id}` exists and task.md contains a valid `pr_number`, refresh the PR summary comment `<!-- sync-pr:{task-id}:summary -->` on the PR. Otherwise, skip this step.
 
@@ -62,7 +72,7 @@ When `{task-id}` exists and task.md contains a valid `pr_number`, refresh the PR
 
 Failure handling matches "Update Task Status When Applicable": warn, but do **not** block an already completed `git commit`.
 
-## 7. Verification Gate
+## 8. Verification Gate
 
 If this operation is associated with `{task-id}`, run the verification gate to confirm task metadata and sync state. If there is no task context, skip this step.
 

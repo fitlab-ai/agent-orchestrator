@@ -106,6 +106,8 @@ When a skill creates or imports an Issue, automatically add the current executor
 
 ## `in:` Label Sync
 
+> **Trigger timing**: run `in:` label sync only after code is committed (the `commit` skill). Do not run it during `implement-task` or `refine-task`. During `create-pr`, only copy the labels from the Issue to the PR without recomputing them.
+
 Read the `labels.in` mapping from `.agents/.airc.json`.
 
 ```bash

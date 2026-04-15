@@ -52,7 +52,17 @@ date "+%Y-%m-%d %H:%M:%S%:z"
 - 准备审查 -> `review-task {task-id}`
 - 准备创建 PR -> `create-pr`
 
-## 6. 同步 PR 摘要（按需）
+## 6. 同步 Issue 元数据（按需）
+
+当 `{task-id}` 存在且 task.md 包含有效 `issue_number` 时，同步 `in:` label 和需求复选框到关联 Issue；否则跳过。
+
+> 触发条件、`in:` label 计算规则和复选框同步流程见 `reference/issue-metadata-sync.md`。执行前先读取该文件。
+>
+> 如果本步骤会访问代码托管平台，则先按 `.agents/rules/issue-pr-commands.md` 完成前置检测。
+
+失败处理与「按需更新任务状态」一致：警告但**不**阻塞已完成的 `git commit`。
+
+## 7. 同步 PR 摘要（按需）
 
 当 `{task-id}` 存在且 task.md 包含有效 `pr_number` 时，刷新 PR 上的 `<!-- sync-pr:{task-id}:summary -->` 摘要评论；否则跳过。
 
@@ -62,7 +72,7 @@ date "+%Y-%m-%d %H:%M:%S%:z"
 
 失败处理与「按需更新任务状态」一致：警告但**不**阻塞已完成的 `git commit`。
 
-## 7. 完成校验
+## 8. 完成校验
 
 如果本次操作关联了 `{task-id}`，运行完成校验，确认任务元数据和同步状态符合规范；如果没有任务上下文，跳过本步骤。
 

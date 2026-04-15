@@ -31,7 +31,6 @@
       "expected_comment_marker": "<!-- sync-issue:{task-id}:{artifact-stem} -->",
       "verify_comment_content": true,
       "verify_task_comment_content": true,
-      "sync_checked_requirements": true,
       "verify_issue_type": true,
       "verify_milestone": true
     }

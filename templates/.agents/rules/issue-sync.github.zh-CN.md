@@ -106,6 +106,8 @@ fi
 
 ## `in:` label 同步
 
+> **触发时机**：`in:` label 同步应在代码提交后（commit 技能）执行，不在 implement-task 或 refine-task 阶段执行。create-pr 阶段仅从 Issue 复制到 PR，不重新计算。
+
 读取 `.agents/.airc.json` 的 `labels.in` 映射。
 
 ```bash

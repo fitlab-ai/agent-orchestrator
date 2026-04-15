@@ -54,7 +54,7 @@ Type label 映射：
 1. 按 `.agents/rules/issue-pr-commands.md` 的 Issue 读取命令查询关联 Issue 的 labels 和 milestone
 2. 按 `.agents/rules/issue-pr-commands.md` 的 PR 更新命令和权限降级规则处理映射后的 type label
 3. 按同一规则的 PR 更新命令和权限降级规则处理非 `type:`、非 `status:` 的 Issue labels 继承
-4. 按 `.agents/rules/issue-sync.md` 的 `in:` label 同步规则与权限降级规则精修 PR 的 `in:` label，同时同步更新关联 Issue 的 `in:` label 保持一致
+4. 将 Issue 当前的 `in:` labels 复制到 PR（commit 阶段已完成计算，此处不重新计算也不反向更新 Issue）
 5. 按 `.agents/rules/milestone-inference.md` 的「阶段 3：`create-pr`」及其权限规则处理 milestone，直接复用 Issue milestone
 6. 确保 PR 正文包含 `Closes #{issue-number}` 或等价的 closing keyword
 

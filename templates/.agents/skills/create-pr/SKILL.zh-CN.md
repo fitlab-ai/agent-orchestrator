@@ -46,8 +46,8 @@ description: "创建 Pull Request 到目标分支"
 
 对获取到 `{task-id}` 的 PR，立即同步这些核心元数据：
 - 按 `.agents/rules/issue-pr-commands.md` 查询标准 label / Issue / PR 元数据
-- 按 `.agents/rules/issue-pr-commands.md` 的 PR 更新命令和权限降级规则处理 type label 与相关 `in:` labels
-- 按 `.agents/rules/issue-sync.md` 的 `in:` label 同步规则，同步更新关联 Issue 的 `in:` label 保持一致
+- 按 `.agents/rules/issue-pr-commands.md` 的 PR 更新命令和权限降级规则处理 type label
+- 将 Issue 当前的 `in:` labels 复制到 PR（不重新计算，不反向更新 Issue）
 - 按 `.agents/rules/milestone-inference.md` 的「阶段 3：`create-pr`」及其权限规则复用 Issue milestone
 - 通过 `Closes #{issue-number}` 保持 Development 关联
 
