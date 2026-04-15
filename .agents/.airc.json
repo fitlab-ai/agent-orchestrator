@@ -5,7 +5,7 @@
   "platform": {
     "type": "github"
   },
-  "templateVersion": "v0.5.3",
+  "templateVersion": "v0.5.4",
   "sandbox": {
     "runtimes": [
       "node20"
