@@ -81,6 +81,7 @@ export function check({ taskDir, config, artifactFile }, shared) {
     checkPrCommentLastCommit,
     checkCommentContent,
     checkTaskCommentContent,
+    checkInLabelsComputed,
     checkInLabelsMatchPr,
     checkPrAssignee,
     checkSyncedRequirements,
@@ -502,6 +503,37 @@ function checkInLabelsMatchPr(context, remoteData) {
   );
 }
 
+function checkInLabelsComputed(context, remoteData) {
+  if (!context.config.verify_in_labels_computed || !context.hasTriage) {
+    return null;
+  }
+
+  const expectedInLabels = computeExpectedInLabels(context.taskDir);
+  if (!expectedInLabels.ok) {
+    return expectedInLabels.type === "check_failed"
+      ? failResult(CHECK_TYPE, expectedInLabels.message, expectedInLabels.type)
+      : blockedResult(CHECK_TYPE, expectedInLabels.message, expectedInLabels.type);
+  }
+
+  if (expectedInLabels.mode === "skipped") {
+    return null;
+  }
+
+  const actualInLabels = extractLabelNames(remoteData.issue.labels)
+    .filter((label) => label.startsWith("in:"))
+    .sort();
+
+  if (arraysEqual(expectedInLabels.labels, actualInLabels)) {
+    return null;
+  }
+
+  return failResult(
+    CHECK_TYPE,
+    `Issue #${context.issueNumber} in: labels do not match committed changes: expected [${formatLabelList(expectedInLabels.labels)}], got [${formatLabelList(actualInLabels)}]`,
+    "check_failed"
+  );
+}
+
 function checkSyncedRequirements(context, remoteData) {
   if (!context.config.sync_checked_requirements || !context.hasTriage) {
     return null;
@@ -746,6 +778,106 @@ function arraysEqual(left, right) {
 
 function formatLabelList(labels) {
   return labels.length > 0 ? labels.join(", ") : "none";
+}
+
+function computeExpectedInLabels(taskDir) {
+  const changedFilesResult = gitText(["diff", "main...HEAD", "--name-only"], taskDir);
+  if (!changedFilesResult.ok) {
+    return changedFilesResult;
+  }
+
+  const changedFiles = String(changedFilesResult.value || "")
+    .split(/\r?\n/)
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const mapping = loadInLabelMapping();
+  if (!mapping.ok) {
+    return mapping;
+  }
+
+  if (Object.keys(mapping.value).length > 0) {
+    const labels = new Set();
+
+    for (const file of changedFiles) {
+      for (const [label, prefixes] of Object.entries(mapping.value)) {
+        if (prefixes.some((prefix) => file.startsWith(prefix))) {
+          labels.add(`in: ${label}`);
+        }
+      }
+    }
+
+    return { ok: true, labels: Array.from(labels).sort(), mode: "mapped" };
+  }
+
+  const repoLabelsResult = ghJson([
+    "label",
+    "list",
+    "--limit",
+    "200",
+    "--json",
+    "name"
+  ], taskDir);
+  if (!repoLabelsResult.ok) {
+    return repoLabelsResult;
+  }
+
+  const repoInLabels = new Set(
+    extractLabelNames(repoLabelsResult.value)
+      .filter((label) => label.startsWith("in:"))
+  );
+
+  if (repoInLabels.size === 0) {
+    return { ok: true, labels: [], mode: "fallback" };
+  }
+
+  const labels = new Set();
+  for (const file of changedFiles) {
+    const topLevel = file.split("/")[0];
+    if (!topLevel) {
+      continue;
+    }
+
+    const candidate = `in: ${topLevel}`;
+    if (repoInLabels.has(candidate)) {
+      labels.add(candidate);
+    }
+  }
+
+  return { ok: true, labels: Array.from(labels).sort(), mode: "fallback" };
+}
+
+function loadInLabelMapping() {
+  const configPath = path.join(repoRoot, ".agents", ".airc.json");
+  if (!fs.existsSync(configPath)) {
+    return { ok: true, value: {} };
+  }
+
+  try {
+    const config = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    const mapping = config?.labels?.in;
+    if (!mapping || typeof mapping !== "object" || Array.isArray(mapping)) {
+      return { ok: true, value: {} };
+    }
+
+    const normalized = {};
+    for (const [label, prefixes] of Object.entries(mapping)) {
+      if (!Array.isArray(prefixes)) {
+        continue;
+      }
+
+      const cleaned = prefixes
+        .map((value) => String(value || "").trim())
+        .filter(Boolean);
+      if (cleaned.length > 0) {
+        normalized[label] = cleaned;
+      }
+    }
+
+    return { ok: true, value: normalized };
+  } catch (error) {
+    return { ok: false, type: "check_failed", message: `Unable to parse .agents/.airc.json: ${error.message}` };
+  }
 }
 
 // === GitHub API ===

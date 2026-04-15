@@ -54,7 +54,7 @@ Metadata sync order:
 1. query Issue labels and milestone via the Issue read command in `.agents/rules/issue-pr-commands.md`
 2. handle the mapped type label via the PR update command and permission-degradation rules in `.agents/rules/issue-pr-commands.md`
 3. handle inheritance of non-`type:` and non-`status:` Issue labels via repeated PR update commands and the same permission-degradation rules
-4. refine the PR `in:` labels by following `.agents/rules/issue-sync.md`, including its permission-degradation rules, and keep the linked Issue `in:` labels in sync with the same result
+4. copy the current Issue `in:` labels to the PR (commit already computed them, so do not recompute them here and do not write back to the Issue)
 5. handle the milestone by following "Phase 3: `create-pr`" in `.agents/rules/milestone-inference.md`, including its permission rules, and reuse the Issue milestone directly
 6. ensure the PR body contains `Closes #{issue-number}` or an equivalent closing keyword
 

@@ -46,8 +46,8 @@ If `{task-id}` is available and the related task provides `issue_number`, keep `
 
 For PRs where `{task-id}` is available, sync the core metadata immediately:
 - query standard labels, Issue metadata, and PR metadata via `.agents/rules/issue-pr-commands.md`
-- apply the mapped type label and related `in:` labels by following the PR update commands and permission-degradation rules in `.agents/rules/issue-pr-commands.md`
-- sync the linked Issue `in:` labels to match by following the `in:` label sync rule in `.agents/rules/issue-sync.md`
+- apply the mapped type label by following the PR update commands and permission-degradation rules in `.agents/rules/issue-pr-commands.md`
+- copy the current Issue `in:` labels to the PR without recomputing them and without writing back to the Issue
 - reuse the Issue milestone by following "Phase 3: `create-pr`" and its permission rules in `.agents/rules/milestone-inference.md`
 - keep Development linking in the PR body with `Closes #{issue-number}` when applicable
 
