@@ -42,7 +42,7 @@ gh api "repos/$upstream_repo/milestones?state=open&per_page=100" \
 
 只匹配 `X.Y.x` 格式的标题；按 major、minor 数值升序取最小版本线。
 
-Milestone 直设属于 `has_triage` 权限范围；如果调用方检测到 `has_triage=false`，则省略 `--milestone` 并继续。
+Milestone 设置属于 `has_triage` 权限范围；如果调用方检测到 `has_triage=false`，则省略 `--milestone` 并继续。
 
 ## 阶段 2：`implement-task`
 

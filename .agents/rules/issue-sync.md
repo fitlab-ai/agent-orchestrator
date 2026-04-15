@@ -68,7 +68,7 @@ current_user=$(gh api user --jq '.login' 2>/dev/null || echo "")
 - `task` 留言作者等于当前用户：允许继续
 - `task` 留言作者不等于当前用户：立即停止，并提示先与维护者协调，避免多人同时接手同一任务
 
-## status: label 直设
+## status label 设置
 
 如果 task.md 中存在有效的 `issue_number`（非空、非 `N/A`），且 Issue 状态为 `OPEN`，则替换所有 `status:` label 并设置目标值：
 
