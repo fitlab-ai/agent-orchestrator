@@ -60,10 +60,10 @@ Update task.md:
   `- {YYYY-MM-DD HH:mm:ss±HH:MM} — **Refinement (Round {N}, for {review-artifact})** by {agent} — Fixed {n} blockers, {n} major, {n} minor issues → {refinement-artifact}`
 
 If task.md contains a valid `issue_number`, perform these sync actions (skip and continue on any failure):
-- Read `.agents/rules/issue-sync.md` before syncing
-- Set `status: in-progress`
-- Refine `in:` labels from the branch diff by following `.agents/rules/issue-sync.md` (add/remove when a mapping exists, add-only when it does not)
-- Sync checked `## Requirements` items to the Issue body
+- Read `.agents/rules/issue-sync.md` before syncing, and complete upstream repository detection plus permission detection
+- Set `status: in-progress` by following issue-sync.md
+- Refine `in:` labels from the branch diff by following the `in:` label sync steps in issue-sync.md (add/remove when a mapping exists, add-only when it does not)
+- Sync checked `## Requirements` items to the Issue body by following the requirements-checkbox sync steps in issue-sync.md
 - Publish the `{refinement-artifact}` comment
 - Create or update the `<!-- sync-issue:{task-id}:task -->` comment (follow the task.md comment sync rule in issue-sync.md)
 

@@ -87,11 +87,11 @@ Confirm the task directory was successfully moved.
 
 Check whether `task.md` includes a valid `issue_number`. If not, skip this step and output nothing.
 
-> Issue sync rules live in `.agents/rules/issue-sync.md`. Read that file before syncing.
+> Issue sync rules live in `.agents/rules/issue-sync.md`. Read that file before syncing, and complete upstream repository detection plus permission detection.
 
 If a valid `issue_number` exists:
 - First scan and backfill unpublished `task.md`, `analysis*.md`, `plan*.md`, `implementation*.md`, `review*.md`, and `refinement*.md` comments using the backfill rules in `.agents/rules/issue-sync.md` (`task.md` uses the idempotent update path)
-- Backfill checked `## Requirements` items to the Issue body
+- Backfill checked `## Requirements` items to the Issue body by following the requirements-checkbox sync steps in issue-sync.md
 - Do not set any `status:` label — status labels are automatically cleared when the Issue is closed
 - Finally create or update the summary comment marked with `<!-- sync-issue:{task-id}:summary -->`
 

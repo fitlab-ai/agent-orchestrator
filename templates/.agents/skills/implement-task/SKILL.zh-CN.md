@@ -39,7 +39,7 @@ description: "根据技术方案实施任务并输出报告"
 
 ### 3. 收窄里程碑
 
-如果 task.md 中存在有效的 `issue_number`，按 `.agents/rules/milestone-inference.md` 的「阶段 2：`implement-task`」收窄 Issue milestone。执行前先读取该文件。
+如果 task.md 中存在有效的 `issue_number`，执行前先读取 `.agents/rules/issue-sync.md`，完成 upstream 仓库检测和权限检测；再读取 `.agents/rules/milestone-inference.md`，按其中的「阶段 2：`implement-task`」收窄 Issue milestone；如果 `has_triage=false`，则保持原 milestone 不变。
 
 ### 4. 确定输入方案与实现轮次
 
@@ -93,9 +93,9 @@ date "+%Y-%m-%d %H:%M:%S%:z"
 - 追加：
   `- {YYYY-MM-DD HH:mm:ss±HH:MM} — **Implementation (Round {N})** by {agent} — Code implemented, {n} files modified, {n} tests passed → {implementation-artifact}`
 
-如果 task.md 中存在有效的 `issue_number`，执行以下同步操作（任一失败则跳过并继续；执行前先读取 `.agents/rules/issue-sync.md`）：
-- 设置 `status: in-progress`，并按 `.agents/rules/issue-sync.md` 的 `in:` label 同步规则，基于分支改动精修 `in:` label（有映射时可增可删，无映射时仅补充）
-- 同步 `## 需求` 中已勾选项到 Issue body，并发布 `{implementation-artifact}` 评论
+如果 task.md 中存在有效的 `issue_number`，执行以下同步操作（任一失败则跳过并继续；执行前先读取 `.agents/rules/issue-sync.md`，完成 upstream 仓库检测和权限检测）：
+- 按 issue-sync.md 设置 `status: in-progress`；按 issue-sync.md 的 `in:` label 同步步骤，基于分支改动精修 `in:` label（有映射时可增可删，无映射时仅补充）
+- 按 issue-sync.md 的需求复选框同步步骤，同步 `## 需求` 中已勾选项到 Issue body；发布 `{implementation-artifact}` 评论
 - 创建或更新 `<!-- sync-issue:{task-id}:task -->` 评论（按 issue-sync.md 的 task.md 评论同步规则）
 
 ### 10. 完成校验

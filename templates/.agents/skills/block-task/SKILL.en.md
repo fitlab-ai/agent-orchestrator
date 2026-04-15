@@ -70,9 +70,9 @@ ls .agents/workspace/blocked/{task-id}/task.md
 
 Check whether `task.md` includes a valid `issue_number`. If not, skip this step.
 
-> Status-label sync rules live in `.agents/rules/issue-sync.md`. Read that file before syncing.
+> Status-label sync rules live in `.agents/rules/issue-sync.md`. Read that file before syncing, and complete upstream repository detection plus permission detection.
 
-If a valid `issue_number` exists, set `status: blocked` directly.
+If a valid `issue_number` exists, set `status: blocked` by following issue-sync.md.
 
 ### 7. Verification Gate
 

@@ -1,6 +1,6 @@
 ---
 name: cancel-task
-description: "Cancel an unneeded task and archive it"
+description: "Cancel an unneeded task and move it"
 ---
 
 # Cancel Task
@@ -71,14 +71,14 @@ Confirm the task directory was moved successfully.
 
 Check whether `task.md` contains a valid `issue_number`. If not, skip this step.
 
-> Issue sync rules live in `.agents/rules/issue-sync.md`. Read that file before syncing.
+> Issue sync rules live in `.agents/rules/issue-sync.md`. Read that file before syncing, and complete upstream repository detection plus permission detection.
 > Read `.agents/rules/issue-pr-commands.md` before closing the Issue.
 
 If a valid `issue_number` exists:
-- Replace all `status:` labels with the label inferred in Step 2
-- Remove all `in:` labels
-- Remove the milestone
-- Remove all assignees
+- Replace all `status:` labels with the label inferred in Step 2 by following issue-sync.md
+- Remove all `in:` labels by following issue-sync.md
+- Remove the milestone by following issue-sync.md
+- Remove all assignees (skip directly when permission is insufficient; no fallback)
 - Publish a cancellation comment using the marker `<!-- sync-issue:{task-id}:cancel -->`
 - Create or update the `<!-- sync-issue:{task-id}:task -->` comment using the task-comment sync rules from `.agents/rules/issue-sync.md`
 - Close the Issue by following the "Close an Issue" command in `.agents/rules/issue-pr-commands.md`, using the fixed reason `not planned`

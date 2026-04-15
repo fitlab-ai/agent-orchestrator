@@ -1,6 +1,6 @@
 ---
 name: cancel-task
-description: "取消不再需要的任务并归档"
+description: "取消不再需要的任务并转移"
 ---
 
 # 取消任务
@@ -71,14 +71,14 @@ ls .agents/workspace/completed/{task-id}/task.md
 
 检查 `task.md` 中是否存在有效的 `issue_number`。如果没有，跳过此步骤。
 
-> Issue 同步规则见 `.agents/rules/issue-sync.md`。执行同步前先读取该文件。
+> Issue 同步规则见 `.agents/rules/issue-sync.md`。执行同步前先读取该文件，完成 upstream 仓库检测和权限检测。
 > 关闭 Issue 前先读取 `.agents/rules/issue-pr-commands.md`。
 
 如果存在有效的 `issue_number`：
-- 替换所有 `status:` labels，并设置步骤 2 推断出的标签
-- 移除所有 `in:` labels
-- 移除 milestone
-- 移除全部 assignees
+- 按 issue-sync.md 替换所有 `status:` labels，并设置步骤 2 推断出的标签
+- 按 issue-sync.md 移除所有 `in:` labels
+- 按 issue-sync.md 移除 milestone
+- 移除全部 assignees（无权限时直接跳过，不做替代）
 - 发布取消评论，隐藏标记使用 `<!-- sync-issue:{task-id}:cancel -->`
 - 使用 `.agents/rules/issue-sync.md` 的 task.md 评论同步规则创建或更新 `<!-- sync-issue:{task-id}:task -->` 评论
 - 关闭 Issue：按 `.agents/rules/issue-pr-commands.md` 中的“关闭 Issue”命令执行，关闭原因固定为 `not planned`

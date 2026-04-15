@@ -70,9 +70,9 @@ ls .agents/workspace/blocked/{task-id}/task.md
 
 检查 `task.md` 中是否存在有效的 `issue_number`。如果没有，跳过。
 
-> Issue 同步的 status label 规则见 `.agents/rules/issue-sync.md`。执行同步前先读取该文件。
+> Issue 同步的 status label 规则见 `.agents/rules/issue-sync.md`。执行同步前先读取该文件，完成 upstream 仓库检测和权限检测。
 
-如果存在有效的 `issue_number`，直接设置 `status: blocked`。
+如果存在有效的 `issue_number`，按 issue-sync.md 设置 `status: blocked`。
 
 ### 7. 完成校验
 
