@@ -54,7 +54,7 @@ git rev-parse v<prev-version>
 - 后续步骤 7 生成发布说明时，**必须**同时参考步骤 3 的历史格式风格和完整分类清单，保持版本间的一致性
 - 如果没有历史发布说明，则使用步骤 7 中定义的默认格式
 
-### 4. 收集已合并的 PR
+### 4. 收集已合并的 PR 与贡献者
 
 获取标签之间的日期范围，然后查询已合并的 PR：
 
@@ -70,6 +70,17 @@ git log v<version> --format=%aI -1
 ```bash
 git log v<prev-version>..v<version> --format="%H %s" --no-merges
 ```
+
+从 commit `Co-authored-by` trailer 中收集协作贡献者：
+
+```bash
+git log v<prev-version>..v<version> \
+  --no-merges \
+  --format='%(trailers:key=Co-authored-by,valueonly,unfold)' \
+  | grep -v '^$' | sort | uniq -c | sort -rn
+```
+
+输出每行一个 `Name <email>`（`uniq -c` 给出该身份在范围内作为 co-author 的 commit 数）。
 
 ### 5. 收集关联 Issue
 
@@ -115,7 +126,21 @@ git log v<prev-version>..v<version> --format="%H %s" --no-merges
 1. 条目格式：`- [scope] Description by @author in [#N](url)`
 2. Issue + PR：`in [#Issue](url) and [#PR](url)`
 3. 描述：使用 PR 标题，移除 `type(scope):` 前缀，首字母大写
-4. 贡献者：去重，按贡献数量降序排列
+4. **贡献者搜集**：
+   - **数据源**：
+     - PR author：来自步骤 4 的 `gh pr list --json author`
+     - Commit co-authors：来自步骤 4 的 `git log ... --format='%(trailers:key=Co-authored-by,valueonly,unfold)'`
+   - **贡献数定义**：`该人的 PR 数 + 该人作为 co-author 的 commit 数`（同一身份跨来源合并计数）
+   - **Name → `@login` 映射**：
+     - `Co-authored-by` 原始格式为 `Name <email>`，需要推断对应的 GitHub `@login`
+     - 优先从 email 提取：匹配 `(\d+\+)?(\S+?)@users\.noreply\.github\.com` 时，取第二个捕获组并转为小写；该正则同时覆盖 `{id}+{login}@users.noreply.github.com` 与 `{login}@users.noreply.github.com`
+     - 否则按 Name 启发式：取首个空格前的 token 并转为小写（例如 `Claude Opus 4.6 (1M context)` → `@claude`、`Codex` → `@codex`、`Gemini` → `@gemini`）
+     - 已出现在 PR author 列表中的 login，必须按该 login 合并计数，避免把 `Claude` 和 `@claude` 拆成两个条目
+     - 同一 login 的所有 Name 变体都必须归并后再计数与排序；例如 `Claude` 与 `Claude Opus 4.6 (1M context)` 都映射到 `@claude` 时，应先合并为同一个贡献者
+     - Bot 身份保留原样（如 `dependabot[bot]`）
+     - 若仍无法可靠确定 login，则输出 `@{Name 首 token 小写}`，并在 `Contributors` 段落下追加 `<!-- TODO(reviewer): 确认 {原始 Name <email>} 的 GitHub login -->`
+   - **排序**：按贡献数降序；贡献数相同时按 login 字典序
+   - **去重**：以最终映射后的 `@login` 为键
 5. 空部分：省略没有条目的部分
 
 ### 8. 展示并确认
