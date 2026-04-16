@@ -54,7 +54,7 @@ Read `.agents/rules/release-commands.md` before this step.
 - When generating release notes in Step 7, **must** follow both the historical format style and the full category list gathered in Step 3
 - If no historical release notes exist, use the default format defined in Step 7
 
-### 4. Collect Merged PRs
+### 4. Collect Merged PRs and Contributors
 
 Get the date range between tags, then query merged PRs:
 
@@ -70,6 +70,17 @@ Also collect direct commits without PRs:
 ```bash
 git log v<prev-version>..v<version> --format="%H %s" --no-merges
 ```
+
+Collect collaborative contributors from commit `Co-authored-by` trailers:
+
+```bash
+git log v<prev-version>..v<version> \
+  --no-merges \
+  --format='%(trailers:key=Co-authored-by,valueonly,unfold)' \
+  | grep -v '^$' | sort | uniq -c | sort -rn
+```
+
+Each output line is `Name <email>` and `uniq -c` provides the number of commits where that identity appeared as a co-author within the range.
 
 ### 5. Collect Related Issues
 
@@ -115,7 +126,21 @@ If no historical release notes exist, use the following default Markdown format:
 1. Item format: `- [scope] Description by @author in [#N](url)`
 2. Issue + PR: `in [#Issue](url) and [#PR](url)`
 3. Description: Use PR title, remove `type(scope):` prefix, capitalize first letter
-4. Contributors: Deduplicated, sorted by contribution count (descending)
+4. **Contributor collection**:
+   - **Data sources**:
+     - PR authors from Step 4 `gh pr list --json author`
+     - Commit co-authors from Step 4 `git log ... --format='%(trailers:key=Co-authored-by,valueonly,unfold)'`
+   - **Contribution count**: `PR count + co-authored commit count` for the same identity, merged across both sources
+   - **Name -> `@login` mapping**:
+     - Raw `Co-authored-by` values are `Name <email>` and must be mapped to a GitHub `@login`
+     - Prefer email extraction: if it matches `(\d+\+)?(\S+?)@users\.noreply\.github\.com`, use the second capture group lowercased; this regex covers both `{id}+{login}@users.noreply.github.com` and `{login}@users.noreply.github.com`
+     - Otherwise use a Name heuristic: take the first token before a space and lowercase it, for example `Claude Opus 4.6 (1M context)` -> `@claude`, `Codex` -> `@codex`, `Gemini` -> `@gemini`
+     - If the login already appears in the PR author list, merge counts into that login so `Claude` and `@claude` do not become separate entries
+     - Merge all Name variants that map to the same login before counting and sorting; for example, `Claude` and `Claude Opus 4.6 (1M context)` should both collapse into `@claude`
+     - Preserve bot identities as-is, for example `dependabot[bot]`
+     - If the login still cannot be determined reliably, output `@{lowercased first Name token}` and append `<!-- TODO(reviewer): confirm GitHub login for {original Name <email>} -->` below the `Contributors` section
+   - **Sorting**: descending by contribution count, then lexicographically by login for ties
+   - **Deduplication**: use the final mapped `@login` as the key
 5. Empty sections: Omit sections with no entries
 
 ### 8. Present and Confirm
