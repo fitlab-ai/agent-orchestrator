@@ -16,6 +16,7 @@ Set Width 1920
 Set Height 1200
 Set Padding 40
 Set Theme "Catppuccin Mocha"
+Set Framerate 25
 Set TypingSpeed 50ms
 Set WindowBar Colorful
 Set WindowBarSize 40
@@ -23,40 +24,49 @@ Set WindowBarSize 40
 # ── Show version ──
 Type "ai version"
 Enter
+Wait+Screen /agent-infra/
 Sleep 1.5s
 
 # ── Prepare a demo project directory ──
 Type "rm -rf /tmp/my-awesome-project && mkdir -p /tmp/my-awesome-project && cd /tmp/my-awesome-project"
 Enter
+Wait
 Sleep 500ms
 
 Type "git init -q && git remote add origin git@github.com:acme-corp/my-awesome-project.git"
 Enter
+Wait
 Sleep 500ms
 
 # ── Initialize agent-infra ──
 Type "ai init"
 Enter
-Sleep 1.5s
+Wait+Screen /Project name/
+Sleep 1s
 
 # Prompt 1: Project name (accept auto-detected default)
 Enter
+Wait+Screen /Organization/
 Sleep 1s
 
 # Prompt 2: Organization (accept auto-detected default)
 Enter
+Wait+Screen /Language/
 Sleep 1s
 
 # Prompt 3: Language — choose English
 Type "en"
 Enter
+Wait+Screen /Platform/
 Sleep 1s
 
 # Prompt 4: Platform type — accept default (github)
 Enter
+Wait+Screen /initialized successfully/
 Sleep 3s
 
 # ── Show generated structure ──
 Type "tree .agents/ .claude/ .gemini/ .opencode/ -L 2 --dirsfirst"
 Enter
+Wait
 Sleep 4s
