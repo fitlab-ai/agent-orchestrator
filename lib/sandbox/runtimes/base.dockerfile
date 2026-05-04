@@ -18,7 +18,7 @@ RUN if [ "${HOST_UID}" = "0" ]; then \
     fi
 
 RUN apt-get update && apt-get install -y \
-    curl wget git vim file \
+    curl wget git vim file jq \
     build-essential ca-certificates gnupg lsb-release \
     libevent-core-2.1-7 libncursesw6 libtinfo6 \
     pkg-config bison libevent-dev libncurses-dev \
@@ -53,7 +53,57 @@ RUN printf '%s\n' \
       "set -as terminal-features 'xterm*:extkeys'" \
       "set -ga update-environment 'TERM_PROGRAM TERM_PROGRAM_VERSION LC_TERMINAL LC_TERMINAL_VERSION'" \
       'set -g mouse on' \
+      'set -g status-interval 1' \
+      'set -g status-right-length 80' \
+      "set -g status-right '#(/usr/local/bin/cc-token-status) | %H:%M'" \
     > /etc/tmux.conf
+
+RUN cat > /usr/local/bin/cc-token-status <<'SCRIPT' && chmod +x /usr/local/bin/cc-token-status
+#!/bin/sh
+set -eu
+
+CRED_FILE="/home/devuser/.claude/.credentials.json"
+[ -r "$CRED_FILE" ] || exit 0
+
+EXPIRES_MS=$(jq -r '(.claudeAiOauth.expiresAt // .expiresAt) // empty' "$CRED_FILE" 2>/dev/null || true)
+case "$EXPIRES_MS" in
+  ''|*[!0-9]*) exit 0 ;;
+esac
+
+NOW_MS=$(($(date +%s) * 1000))
+DIFF_MS=$((EXPIRES_MS - NOW_MS))
+DIFF_S=$((DIFF_MS / 1000))
+
+DIM='#[fg=colour245]'
+YELLOW='#[fg=yellow]'
+YELLOW_BOLD='#[fg=yellow,bold]'
+RED_BOLD='#[fg=red,bold]'
+RED_REV='#[fg=red,reverse]'
+RESET='#[default]'
+
+if [ "$DIFF_S" -le 0 ]; then
+  ELAPSED=$(( -DIFF_S ))
+  M=$((ELAPSED / 60))
+  printf '%sClaude Code auth EXPIRED %dm ago%s' "$RED_REV" "$M" "$RESET"
+elif [ "$DIFF_S" -lt 60 ]; then
+  printf '%sClaude Code auth expires in %ds%s' "$RED_BOLD" "$DIFF_S" "$RESET"
+elif [ "$DIFF_S" -lt 300 ]; then
+  M=$((DIFF_S / 60))
+  S=$((DIFF_S % 60))
+  printf '%sClaude Code auth expires in %dm %ds%s' "$RED_BOLD" "$M" "$S" "$RESET"
+elif [ "$DIFF_S" -lt 1800 ]; then
+  M=$((DIFF_S / 60))
+  printf '%sClaude Code auth expires in %dm%s' "$YELLOW_BOLD" "$M" "$RESET"
+elif [ "$DIFF_S" -lt 3600 ]; then
+  M=$((DIFF_S / 60))
+  printf '%sClaude Code auth expires in %dm%s' "$YELLOW" "$M" "$RESET"
+else
+  TOTAL_M=$((DIFF_S / 60))
+  H=$((TOTAL_M / 60))
+  M=$((TOTAL_M % 60))
+  printf '%sClaude Code auth expires in %dh %dm%s' "$DIM" "$H" "$M" "$RESET"
+fi
+SCRIPT
 
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
