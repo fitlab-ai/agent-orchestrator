@@ -120,6 +120,35 @@ Read Issue comments or search for existing hidden markers:
 gh api "repos/$upstream_repo/issues/{issue-number}/comments" --paginate
 ```
 
+## Historical Task Comment Scan
+
+`find-existing-task.js` only consumes stdin and does not call `gh` directly. The AI selects the pipeline command for the host OS.
+
+POSIX (bash / zsh):
+
+```bash
+set -o pipefail
+gh api "repos/$upstream_repo/issues/{issue-number}/comments" \
+  --paginate --jq '.[] | @json' \
+  | node .agents/scripts/platform-adapters/find-existing-task.js
+```
+
+Windows (PowerShell 7+ / pwsh):
+
+```powershell
+$ErrorActionPreference = 'Stop'
+gh api "repos/$upstream_repo/issues/{issue-number}/comments" `
+  --paginate --jq '.[] | @json' |
+  node .agents/scripts/platform-adapters/find-existing-task.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+```
+
+On PowerShell 5.1, explicitly enable UTF-8 stdio first; otherwise the pipe may corrupt multibyte characters:
+
+```powershell
+[Console]::OutputEncoding = $OutputEncoding = [System.Text.UTF8Encoding]::new()
+```
+
 ## PR Template and Metadata Helpers
 
 Read a repository PR template when present:

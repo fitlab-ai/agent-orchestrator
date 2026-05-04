@@ -28,17 +28,15 @@ description: "从 Issue 导入并创建任务"
 - 如果找到，询问用户是重新导入还是继续使用现有任务
 - 如果未找到，继续执行 2.2
 
-2.2 扫描 Issue 评论中的同步标记，查找可恢复的历史任务 ID：
+2.2 按 `.agents/rules/issue-pr-commands.md` 的“历史任务评论扫描”命令扫描 Issue 评论中的同步标记，查找可恢复的历史任务 ID。
 
-如未在步骤 1 中已设置 `$upstream_repo`，可省略 `--repo`，脚本会自动按 issue-sync.md 的检测规则推断。
+该命令依赖步骤 1 已设置的 `$upstream_repo`。
 
-```bash
-node .agents/scripts/platform-adapters/find-existing-task.js --issue <issue-number> --repo "$upstream_repo" --format json
-```
+退出码处理（pipeline 整体）：
 
-- 脚本输出 `found=false`：按新 Issue 导入流程创建新任务
-- 脚本输出 `found=true`：复用 `task_id`
-- 脚本退出码 2：视为网络、认证或 platform API 降级，向用户展示脚本 stderr 中的失败原因后，按新 Issue 导入流程继续，不阻塞导入
+- 退出 0 + 输出 `found=false`：按新 Issue 导入流程创建新任务
+- 退出 0 + 输出 `found=true`：复用 `task_id`
+- 退出非 0（平台 API、认证、JSON 解析或任一段管道异常）：视为 platform API 降级，向用户展示 stderr 后按新 Issue 导入流程继续，不阻塞导入
 
 ### 3. 创建任务目录和文件
 

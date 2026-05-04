@@ -120,6 +120,35 @@ gh issue close {issue-number} -R "$upstream_repo" --reason "{reason}"
 gh api "repos/$upstream_repo/issues/{issue-number}/comments" --paginate
 ```
 
+## 历史任务评论扫描
+
+`find-existing-task.js` 仅消费 stdin，不直接调用 `gh`。由 AI 按宿主 OS 选择下面的 pipeline 命令。
+
+POSIX（bash / zsh）：
+
+```bash
+set -o pipefail
+gh api "repos/$upstream_repo/issues/{issue-number}/comments" \
+  --paginate --jq '.[] | @json' \
+  | node .agents/scripts/platform-adapters/find-existing-task.js
+```
+
+Windows（PowerShell 7+ / pwsh）：
+
+```powershell
+$ErrorActionPreference = 'Stop'
+gh api "repos/$upstream_repo/issues/{issue-number}/comments" `
+  --paginate --jq '.[] | @json' |
+  node .agents/scripts/platform-adapters/find-existing-task.js
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+```
+
+在 PowerShell 5.1 上需先显式启用 UTF-8 stdio，否则 pipe 可能损坏多字节字符：
+
+```powershell
+[Console]::OutputEncoding = $OutputEncoding = [System.Text.UTF8Encoding]::new()
+```
+
 ## PR 模板与元数据辅助命令
 
 存在仓库 PR 模板时读取：

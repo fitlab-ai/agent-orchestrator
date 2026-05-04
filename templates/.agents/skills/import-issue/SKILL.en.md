@@ -28,17 +28,15 @@ Use the Issue title as-is for the task title (preserve the Issue's original lang
 - If found, ask the user whether to re-import or continue with the existing task
 - If not found, continue to 2.2
 
-2.2 Scan Issue comments for sync markers and look for a recoverable historical task ID:
+2.2 Use the "historical task comment scan" command in `.agents/rules/issue-pr-commands.md` to scan Issue comments for sync markers and look for a recoverable historical task ID.
 
-If `$upstream_repo` was not set in step 1, omit `--repo`; the script will infer it using the issue-sync.md detection rule.
+This command depends on `$upstream_repo` being set in step 1.
 
-```bash
-node .agents/scripts/platform-adapters/find-existing-task.js --issue <issue-number> --repo "$upstream_repo" --format json
-```
+Exit code handling for the whole pipeline:
 
-- Script outputs `found=false`: create a new task through the normal import flow
-- Script outputs `found=true`: reuse `task_id`
-- Script exits 2: treat it as network, authentication, or platform API degradation; show the failure reason from script stderr to the user, then continue with the new-task import flow without blocking
+- Exit 0 + output `found=false`: create a new task through the normal import flow
+- Exit 0 + output `found=true`: reuse `task_id`
+- Non-zero exit (platform API, authentication, JSON parsing, or any pipeline segment failure): treat it as platform API degradation; show stderr to the user, then continue with the new-task import flow without blocking
 
 ### 3. Create the Task Directory and File
 

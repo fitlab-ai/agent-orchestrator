@@ -1,75 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 import { spawnSync } from "node:child_process";
 
-import { filePath, writeNodeCommandShim } from "../helpers.js";
+import { filePath } from "../helpers.js";
 
 const scriptPath = filePath(".agents/scripts/platform-adapters/find-existing-task.js");
 
-function writeFile(filePathname, content) {
-  fs.mkdirSync(path.dirname(filePathname), { recursive: true });
-  fs.writeFileSync(filePathname, content, "utf8");
-}
-
-function writeFakeGh(tmpDir, comments, options = {}) {
-  const dataPath = path.join(tmpDir, "comments.json");
-  writeFile(dataPath, JSON.stringify(comments));
-
-  const fakeGhPath = path.join(tmpDir, "fake-gh.js");
-  writeFile(fakeGhPath, [
-    "#!/usr/bin/env node",
-    "const fs = require('node:fs');",
-    "const args = process.argv.slice(2);",
-    "if (process.env.FAKE_GH_FAIL === '1') {",
-    "  console.error('simulated gh failure');",
-    "  process.exit(1);",
-    "}",
-    "if (args[0] === 'api' && args[1].includes('/issues/') && args[1].endsWith('/comments')) {",
-    "  const comments = JSON.parse(fs.readFileSync(process.env.FAKE_GH_COMMENTS, 'utf8'));",
-    "  for (const comment of comments) {",
-    "    console.log(JSON.stringify(comment));",
-    "  }",
-    "  process.exit(0);",
-    "}",
-    "console.error(`unexpected gh args: ${args.join(' ')}`);",
-    "process.exit(1);"
-  ].join("\n"));
-
-  const commandPath = process.platform === "win32"
-    ? writeNodeCommandShim(path.join(tmpDir, "gh"), fakeGhPath)
-    : fakeGhPath;
-  if (process.platform !== "win32") {
-    fs.chmodSync(commandPath, 0o755);
-  }
-
-  return {
-    commandPath,
-    env: {
-      ...process.env,
-      FAKE_GH_COMMENTS: dataPath,
-      FAKE_GH_FAIL: options.fail ? "1" : "0",
-      IMPORT_ISSUE_GH_BIN: commandPath
-    }
-  };
-}
-
 function runScript(comments, options = {}) {
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-import-issue-"));
-  const { env } = writeFakeGh(tmpDir, comments, options);
+  const input = options.rawInput !== undefined
+    ? options.rawInput
+    : comments.map((c) => JSON.stringify(c)).join("\n");
 
-  return spawnSync(process.execPath, [
-    scriptPath,
-    "--issue",
-    "184",
-    "--repo",
-    "fitlab-ai/agent-infra"
-  ], {
+  return spawnSync(process.execPath, [scriptPath], {
     cwd: filePath("."),
     encoding: "utf8",
-    env
+    input,
+    env: process.env
   });
 }
 
@@ -188,9 +134,16 @@ test("find-existing-task skips damaged frontmatter lines when useful fields rema
   assert.equal(result.frontmatter.created_at, "2026-04-12 11:47:25+08:00");
 });
 
-test("find-existing-task exits 2 when gh fails", () => {
-  const result = runScript([], { fail: true });
+test("find-existing-task exits 1 when stdin is not valid JSON", () => {
+  const result = runScript([], { rawInput: "{not json" });
 
-  assert.equal(result.status, 2);
-  assert.match(result.stderr, /simulated gh failure/);
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /Cannot parse stdin as JSON/);
+});
+
+test("find-existing-task reports no match for empty stdin", () => {
+  const result = runScript([]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { found: false });
 });

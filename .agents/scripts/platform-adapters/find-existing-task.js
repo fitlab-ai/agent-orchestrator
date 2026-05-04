@@ -1,5 +1,5 @@
+import { text } from "node:stream/consumers";
 import { pathToFileURL } from "node:url";
-import spawn from "cross-spawn";
 
 const markerPattern = /^<!-- sync-issue:(TASK-\d{8}-\d{6}):([a-z][a-z0-9-]*) -->$/;
 
@@ -10,16 +10,6 @@ function parseArgs(argv) {
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
-    if (arg === "--issue") {
-      args.issue = argv[index + 1];
-      index += 1;
-      continue;
-    }
-    if (arg === "--repo") {
-      args.repo = argv[index + 1];
-      index += 1;
-      continue;
-    }
     if (arg === "--format") {
       args.format = argv[index + 1];
       index += 1;
@@ -38,51 +28,10 @@ function parseArgs(argv) {
 function usage() {
   return [
     "Usage:",
-    "  node .agents/scripts/platform-adapters/find-existing-task.js --issue <number> [--repo <owner/name>] [--format json]"
+    "  <issue comments JSON via stdin> | node .agents/scripts/platform-adapters/find-existing-task.js [--format json]",
+    "",
+    "Reads issue comments JSON (JSON Lines or JSON Array) from stdin and prints {found, task_id, frontmatter?}."
   ].join("\n");
-}
-
-function runGh(args) {
-  const ghBin = process.env.IMPORT_ISSUE_GH_BIN || "gh";
-  const result = spawn.sync(ghBin, args, {
-    encoding: "utf8",
-    maxBuffer: 10 * 1024 * 1024
-  });
-
-  if (result.error) {
-    const error = new Error(`gh command failed: ${result.error.message}`);
-    error.stderr = result.error.message;
-    throw error;
-  }
-
-  if (result.status !== 0) {
-    const stderr = result.stderr.trim() || `gh exited with status ${result.status}`;
-    const error = new Error(stderr);
-    error.stderr = stderr;
-    throw error;
-  }
-
-  return result.stdout;
-}
-
-function resolveRepo(explicitRepo) {
-  if (explicitRepo) {
-    return explicitRepo;
-  }
-
-  const currentRepo = runGh(["repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner"]).trim();
-  if (!currentRepo) {
-    throw new Error("Cannot detect current GitHub repository");
-  }
-
-  const upstreamRepo = runGh([
-    "api",
-    `repos/${currentRepo}`,
-    "--jq",
-    "if .fork then .parent.full_name else .full_name end"
-  ]).trim();
-
-  return upstreamRepo || currentRepo;
 }
 
 function parseComments(output) {
@@ -100,18 +49,6 @@ function parseComments(output) {
       .filter(Boolean)
       .map((line) => JSON.parse(line));
   }
-}
-
-function fetchComments(repo, issueNumber) {
-  const output = runGh([
-    "api",
-    `repos/${repo}/issues/${issueNumber}/comments`,
-    "--paginate",
-    "--jq",
-    ".[] | @json"
-  ]);
-
-  return parseComments(output);
 }
 
 function firstLine(value) {
@@ -231,7 +168,7 @@ function buildResult(comments) {
   return result;
 }
 
-function main() {
+async function main() {
   let args;
   try {
     args = parseArgs(process.argv.slice(2));
@@ -246,27 +183,33 @@ function main() {
     return;
   }
 
-  if (!args.issue) {
-    console.error("Missing required argument: --issue");
-    console.error(usage());
-    process.exit(1);
-  }
-
   if (args.format !== "json") {
     console.error(`Unsupported format: ${args.format}`);
     process.exit(1);
   }
 
+  let raw;
   try {
-    const repo = resolveRepo(args.repo);
-    const comments = fetchComments(repo, args.issue);
-    console.log(JSON.stringify(buildResult(comments), null, 2));
+    raw = await text(process.stdin);
   } catch (error) {
-    console.error(`Cannot scan issue comments: ${error.stderr || error.message}`);
-    process.exit(2);
+    console.error(`Cannot read stdin: ${error.message}`);
+    process.exit(1);
   }
+
+  let comments;
+  try {
+    comments = parseComments(raw);
+  } catch (error) {
+    console.error(`Cannot parse stdin as JSON: ${error.message}`);
+    process.exit(1);
+  }
+
+  console.log(JSON.stringify(buildResult(comments), null, 2));
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  main().catch((error) => {
+    console.error(error.stack || error.message);
+    process.exit(1);
+  });
 }
