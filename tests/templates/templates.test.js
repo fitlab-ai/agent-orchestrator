@@ -156,7 +156,7 @@ test("update-agent-infra template copies stay in sync with working files", () =>
     [".agents/skills/create-task/config/verify.json", "templates/.agents/skills/create-task/config/verify.json"],
     [".agents/skills/import-issue/SKILL.md", "templates/.agents/skills/import-issue/SKILL.en.md"],
     [".agents/skills/import-issue/config/verify.json", "templates/.agents/skills/import-issue/config/verify.json"],
-    [".agents/scripts/platform-adapters/find-existing-task.js", "templates/.agents/scripts/platform-adapters/find-existing-task.js"],
+    [".agents/scripts/find-existing-task.js", "templates/.agents/scripts/find-existing-task.js"],
     [".agents/skills/init-labels/SKILL.md", "templates/.agents/skills/init-labels/SKILL.en.md"],
     [".agents/skills/update-agent-infra/SKILL.md", "templates/.agents/skills/update-agent-infra/SKILL.en.md"],
     [".agents/skills/update-agent-infra/scripts/package.json", "templates/.agents/skills/update-agent-infra/scripts/package.json"],

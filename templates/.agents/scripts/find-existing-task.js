@@ -28,7 +28,7 @@ function parseArgs(argv) {
 function usage() {
   return [
     "Usage:",
-    "  <issue comments JSON via stdin> | node .agents/scripts/platform-adapters/find-existing-task.js [--format json]",
+    "  <issue comments JSON via stdin> | node .agents/scripts/find-existing-task.js [--format json]",
     "",
     "Reads issue comments JSON (JSON Lines or JSON Array) from stdin and prints {found, task_id, frontmatter?}."
   ].join("\n");

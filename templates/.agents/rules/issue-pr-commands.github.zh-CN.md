@@ -130,7 +130,7 @@ POSIX（bash / zsh）：
 set -o pipefail
 gh api "repos/$upstream_repo/issues/{issue-number}/comments" \
   --paginate --jq '.[] | @json' \
-  | node .agents/scripts/platform-adapters/find-existing-task.js
+  | node .agents/scripts/find-existing-task.js
 ```
 
 Windows（PowerShell 7+ / pwsh）：
@@ -139,7 +139,7 @@ Windows（PowerShell 7+ / pwsh）：
 $ErrorActionPreference = 'Stop'
 gh api "repos/$upstream_repo/issues/{issue-number}/comments" `
   --paginate --jq '.[] | @json' |
-  node .agents/scripts/platform-adapters/find-existing-task.js
+  node .agents/scripts/find-existing-task.js
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 ```
 

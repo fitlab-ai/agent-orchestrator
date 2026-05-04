@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 
 import { filePath } from "../helpers.js";
 
-const scriptPath = filePath(".agents/scripts/platform-adapters/find-existing-task.js");
+const scriptPath = filePath(".agents/scripts/find-existing-task.js");
 
 function runScript(comments, options = {}) {
   const input = options.rawInput !== undefined
