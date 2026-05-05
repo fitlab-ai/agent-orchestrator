@@ -201,6 +201,8 @@ CLI 会收集项目元数据，向所有支持的 AI TUI 安装 `update-agent-in
 
 `ai sandbox exec` 也会向容器透传一小组终端检测白名单变量（`TERM_PROGRAM`、`TERM_PROGRAM_VERSION`、`LC_TERMINAL`、`LC_TERMINAL_VERSION`）。这样可以让交互式 TUI 保持与宿主终端一致的行为，例如 Claude Code 的 `Shift+Enter` 换行支持，同时避免把整个宿主环境灌入容器。
 
+`ai sandbox refresh` 用于把宿主机 Claude Code 凭证同步到 `~/.agent-infra/credentials/*` 下的所有沙箱项目副本。它会检查宿主 Keychain 状态、在凭证过期时尝试 `claude /status` 探活、仅在字节不同时重写每个项目副本——这样 host token 轮换可以传播到正在运行的沙箱，无需重建。
+
 <a id="architecture-overview"></a>
 
 ## 架构概览
@@ -285,7 +287,7 @@ Linux 直接使用宿主内核上的原生 Docker，没有受管 VM。`sandbox.v
 - **Rootless Docker**：后续跟踪 [#256](https://github.com/fitlab-ai/agent-infra/issues/256)。
 - 用 **Podman** 替代 Docker：后续跟踪 [#257](https://github.com/fitlab-ai/agent-infra/issues/257)。
 - **SELinux enforcing** 宿主机（Fedora / RHEL）可能需要手动加挂载标签：后续跟踪 [#258](https://github.com/fitlab-ai/agent-infra/issues/258)。
-- `ai sandbox vm` 在 Linux 上是空操作。Linux 直接使用 native Docker，没有 VM 需要管理；请直接使用 `ai sandbox create`、`ai sandbox exec`、`ai sandbox ls`、`ai sandbox rebuild`、`ai sandbox rm`。
+- `ai sandbox vm` 在 Linux 上是空操作。Linux 直接使用 native Docker，没有 VM 需要管理；请直接使用 `ai sandbox create`、`ai sandbox exec`、`ai sandbox refresh`、`ai sandbox ls`、`ai sandbox rebuild`、`ai sandbox rm`。
 
 ### Windows
 

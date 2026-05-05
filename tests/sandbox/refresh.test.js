@@ -145,7 +145,7 @@ test("refresh prints usage for help flags", async () => {
   assert.equal(await refresh(["--help"], {
     writeStdout: (chunk) => stdout.push(chunk)
   }), 0);
-  assert.equal(stdout.join(""), "Usage: ai sandbox refresh [branch]\n");
+  assert.equal(stdout.join(""), "Usage: ai sandbox refresh\n");
 });
 
 test("refresh requires HOME in batch mode", async () => {
@@ -159,42 +159,15 @@ test("refresh requires HOME in batch mode", async () => {
   );
 });
 
-test("refresh single mode uses current project config", async () => {
-  const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-single-"));
-  const stdout = [];
-
-  try {
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh(["feature-x"], {
-      loadConfigFn: () => ({ project: "current-project", repoRoot: tmpDir }),
-      execFn: () => validBlob(),
-      writeStdout: (chunk) => stdout.push(chunk),
-      writeStderr: () => {}
-    })));
-
-    assert.equal(code, 0);
-    assert.match(stdout.join(""), /branch feature-x in project current-project/);
-    assert.ok(fs.existsSync(path.join(
-      tmpDir,
-      ".agent-infra",
-      "credentials",
-      "current-project",
-      "claude-code",
-      ".credentials.json"
-    )));
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
-});
-
-test("refresh single mode rejects invalid branch arguments", async () => {
+test("refresh rejects positional arguments", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
 
   await assert.rejects(
-    withHome(os.tmpdir(), () => refresh([""], {
-      loadConfigFn: () => ({ project: "current-project", repoRoot: os.tmpdir() })
+    withHome(os.tmpdir(), () => refresh(["unexpected-arg"], {
+      writeStdout: () => {},
+      writeStderr: () => {}
     })),
-    /Branch name is required/
+    /Usage: ai sandbox refresh/
   );
 });
 
