@@ -201,6 +201,8 @@ The sandbox image also preinstalls `gh`. When `gh auth token` succeeds on the ho
 
 `ai sandbox exec` also forwards a small terminal-detection whitelist (`TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `LC_TERMINAL`, `LC_TERMINAL_VERSION`) into the container. This keeps interactive TUIs aligned with the host terminal for behaviors such as Claude Code's Shift+Enter newline support, without passing through the full host environment.
 
+`ai sandbox refresh` syncs the host's Claude Code credentials into all sandbox project copies under `~/.agent-infra/credentials/*`. It inspects the host Keychain, probes `claude /status` when host credentials look stale, and rewrites each project copy only when the bytes differ — so token rotations propagate to long-running sandboxes without rebuilding them.
+
 <a id="architecture-overview"></a>
 
 ## Architecture Overview
@@ -285,7 +287,7 @@ These configurations are not actively tested in this release:
 - **Rootless Docker**: Track [#256](https://github.com/fitlab-ai/agent-infra/issues/256).
 - **Podman** instead of Docker: Track [#257](https://github.com/fitlab-ai/agent-infra/issues/257).
 - **SELinux-enforcing** hosts (Fedora / RHEL) may need manual mount labels: Track [#258](https://github.com/fitlab-ai/agent-infra/issues/258).
-- `ai sandbox vm` is a no-op on Linux. Linux uses native Docker directly with no VM to manage; use `ai sandbox create`, `ai sandbox exec`, `ai sandbox ls`, `ai sandbox rebuild`, `ai sandbox rm` directly.
+- `ai sandbox vm` is a no-op on Linux. Linux uses native Docker directly with no VM to manage; use `ai sandbox create`, `ai sandbox exec`, `ai sandbox refresh`, `ai sandbox ls`, `ai sandbox rebuild`, `ai sandbox rm` directly.
 
 ### Windows
 
