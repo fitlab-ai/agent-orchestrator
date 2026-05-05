@@ -64,6 +64,45 @@ test("probeClaudeStatus maps claude status process results", async () => {
   })), { ok: false, stderr: "auth failed", error: "failed" });
 });
 
+test("runProbe resolves Windows command shims through the shell wrapper", async () => {
+  const { runProbe } = await loadFreshEsm("lib/sandbox/shell.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-win32-"));
+  const claudePath = path.join(tmpDir, "claude.cmd");
+  const previousPath = process.env.PATH;
+  const previousPathext = process.env.PATHEXT;
+
+  try {
+    fs.writeFileSync(claudePath, "#!/bin/sh\nexit 0\n", "utf8");
+    fs.chmodSync(claudePath, 0o755);
+    process.env.PATH = `${tmpDir}${path.delimiter}${previousPath ?? ""}`;
+    process.env.PATHEXT = ".CMD";
+
+    withPlatform("win32", () => {
+      const result = runProbe("claude", ["/status"], {
+        spawnFn: (cmd, args, options) => {
+          assert.equal(cmd, claudePath);
+          assert.deepEqual(args, ["/status"]);
+          assert.equal(options.shell, true);
+          return { status: 0, stderr: "" };
+        }
+      });
+      assert.deepEqual(result, { status: 0, stderr: "" });
+    });
+  } finally {
+    if (previousPath === undefined) {
+      delete process.env.PATH;
+    } else {
+      process.env.PATH = previousPath;
+    }
+    if (previousPathext === undefined) {
+      delete process.env.PATHEXT;
+    } else {
+      process.env.PATHEXT = previousPathext;
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("refresh batch mode lists discovered projects and syncs each one", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-"));
