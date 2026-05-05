@@ -8,8 +8,12 @@ import { loadFreshEsm } from "../helpers.js";
 
 function withHome(home, fn) {
   const previousHome = process.env.HOME;
+  const previousUserProfile = process.env.USERPROFILE;
   if (home === undefined) {
     delete process.env.HOME;
+    if (process.platform === 'win32') {
+      delete process.env.USERPROFILE;
+    }
   } else {
     process.env.HOME = home;
   }
@@ -20,6 +24,13 @@ function withHome(home, fn) {
       delete process.env.HOME;
     } else {
       process.env.HOME = previousHome;
+    }
+    if (process.platform === 'win32') {
+      if (previousUserProfile === undefined) {
+        delete process.env.USERPROFILE;
+      } else {
+        process.env.USERPROFILE = previousUserProfile;
+      }
     }
   }
 }
