@@ -16,6 +16,9 @@ function withHome(home, fn) {
     }
   } else {
     process.env.HOME = home;
+    if (process.platform === 'win32') {
+      process.env.USERPROFILE = home;
+    }
   }
   try {
     return fn();
