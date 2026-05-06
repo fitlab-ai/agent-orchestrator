@@ -17,10 +17,6 @@ import {
 } from "../helpers.js";
 import { restoreTerminal, runInteractive } from "../../lib/sandbox/shell.js";
 
-function modeBits(filePath) {
-  return fs.statSync(filePath).mode & 0o777;
-}
-
 function restoreDockerContext(previousValue) {
   if (previousValue === undefined) {
     delete process.env.DOCKER_CONTEXT;
@@ -387,6 +383,47 @@ test("loadConfig fails when .agents/.airc.json is missing", async () => {
   }
 });
 
+test("loadConfig falls back to USERPROFILE on Windows when HOME is unset", async () => {
+  if (process.platform !== 'win32') {
+    return;
+  }
+
+  const sandboxConfig = await loadFreshEsm("lib/sandbox/config.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-userprofile-"));
+  const previousCwd = process.cwd();
+  const previousHome = process.env.HOME;
+  const previousUserProfile = process.env.USERPROFILE;
+
+  try {
+    execSync("git init", { cwd: tmpDir, env: gitSafeEnv(), stdio: "pipe" });
+    fs.mkdirSync(path.join(tmpDir, '.agents'), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, '.agents', '.airc.json'),
+      JSON.stringify({ project: 'test-project' }),
+      'utf8'
+    );
+    process.chdir(tmpDir);
+    delete process.env.HOME;
+    process.env.USERPROFILE = tmpDir;
+
+    const config = withGitSafeProcessEnv(() => sandboxConfig.loadConfig());
+    assert.equal(config.home, tmpDir);
+  } finally {
+    process.chdir(previousCwd);
+    if (previousHome === undefined) {
+      delete process.env.HOME;
+    } else {
+      process.env.HOME = previousHome;
+    }
+    if (previousUserProfile === undefined) {
+      delete process.env.USERPROFILE;
+    } else {
+      process.env.USERPROFILE = previousUserProfile;
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("composeDockerfile joins runtime fragments in order", async () => {
   const sandboxDockerfile = await loadFreshEsm("lib/sandbox/dockerfile.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-dockerfile-"));
@@ -512,6 +549,31 @@ test("buildContainerEnvArgs skips GH_TOKEN when auth token is unavailable", asyn
   assert.deepEqual(envArgs, ["-e", "FOO=bar"]);
 });
 
+test("buildContainerEnvArgs uses engine-aware gh when engine is set", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  const envArgs = sandboxCreate.buildContainerEnvArgs([
+    { tool: { envVars: { FOO: "bar" } } }
+  ], () => {
+    throw new Error("should not call runSafe when engine is provided");
+  }, "wsl2", () => "");
+
+  assert.ok(envArgs.includes("-e"), "env args include -e flag");
+  assert.deepEqual(envArgs, ["-e", "FOO=bar"]);
+});
+
+test("buildContainerEnvArgs includes GH_TOKEN from engine-aware runSafeEngine", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  const envArgs = sandboxCreate.buildContainerEnvArgs([
+    { tool: { envVars: { FOO: "bar" } } }
+  ], () => {
+    throw new Error("should not call runSafe when engine is provided");
+  }, "wsl2", () => "ghp_testtoken123");
+
+  assert.deepEqual(envArgs, ["-e", "FOO=bar", "-e", "GH_TOKEN=ghp_testtoken123"]);
+});
+
 test("terminalEnvFlags forwards iTerm2 detection variables for Shift+Enter support", async () => {
   const sandboxEnter = await loadFreshEsm("lib/sandbox/commands/enter.js");
 
@@ -557,6 +619,10 @@ test("TMUX_ENTRY_SCRIPT includes fallback, primary session bootstrap, linked ses
 });
 
 test("sandbox exec enters tmux automatically for interactive shells", () => {
+  if (process.platform === "win32") {
+    return;
+  }
+
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
@@ -953,18 +1019,20 @@ test("buildImage uses verbose docker build output while keeping host UID/GID loo
     "/tmp/Dockerfile",
     "sig-123",
     {
+      engine: "native",
       runFn(cmd, args) {
-        calls.push({ type: "run", cmd, args });
-        if (cmd === "id" && args[0] === "-u") {
+        const [, actualCmd, actualArgs] = arguments;
+        calls.push({ type: "run", cmd: actualCmd, args: actualArgs });
+        if (actualCmd === "id" && actualArgs[0] === "-u") {
           return "501";
         }
-        if (cmd === "id" && args[0] === "-g") {
+        if (actualCmd === "id" && actualArgs[0] === "-g") {
           return "20";
         }
-        throw new Error(`unexpected quiet command: ${cmd} ${args.join(" ")}`);
+        throw new Error(`unexpected quiet command: ${actualCmd} ${actualArgs.join(" ")}`);
       },
-      runVerboseFn(cmd, args, opts) {
-        calls.push({ type: "verbose", cmd, args, opts });
+      runVerboseFn(engine, cmd, args, opts) {
+        calls.push({ type: "verbose", engine, cmd, args, opts });
       }
     }
   );
@@ -974,6 +1042,7 @@ test("buildImage uses verbose docker build output while keeping host UID/GID loo
     { type: "run", cmd: "id", args: ["-g"] }
   ]);
   assert.equal(calls[2].type, "verbose");
+  assert.equal(calls[2].engine, "native");
   assert.equal(calls[2].cmd, "docker");
   assert.equal(calls[2].opts.cwd, "/repo");
   assert.deepEqual(calls[2].args, [
@@ -996,6 +1065,160 @@ test("buildImage uses verbose docker build output while keeping host UID/GID loo
   ]);
 });
 
+test("windowsPathToWslPath converts drive paths and rejects UNC mounts", async () => {
+  const windowsPaths = await loadFreshEsm("lib/sandbox/windows-paths.js");
+
+  assert.equal(
+    windowsPaths.windowsPathToWslPath("F:\\ai\\agent-infra"),
+    "/mnt/f/ai/agent-infra"
+  );
+  assert.equal(
+    windowsPaths.windowsPathToWslPath("C:/Users/Demo Repo/project"),
+    "/mnt/c/Users/Demo Repo/project"
+  );
+  assert.equal(windowsPaths.windowsPathToWslPath("/home/demo/project"), "/home/demo/project");
+  assert.throws(
+    () => windowsPaths.windowsPathToWslPath("\\\\server\\share\\repo"),
+    /UNC paths are not supported/
+  );
+});
+
+test("commandForEngine wraps commands with wsl.exe for WSL2", async () => {
+  const sandboxShell = await loadFreshEsm("lib/sandbox/shell.js");
+
+  assert.deepEqual(
+    sandboxShell.commandForEngine("wsl2", "docker", ["info"]),
+    { cmd: "wsl.exe", args: ["--", "docker", "info"] }
+  );
+  assert.deepEqual(
+    sandboxShell.commandForEngine("native", "docker", ["info"]),
+    { cmd: "docker", args: ["info"] }
+  );
+});
+
+test("sandbox command modules route docker calls through engine-aware helpers", () => {
+  for (const relativePath of [
+    "lib/sandbox/commands/create.js",
+    "lib/sandbox/commands/enter.js",
+    "lib/sandbox/commands/ls.js",
+    "lib/sandbox/commands/rm.js",
+    "lib/sandbox/commands/rebuild.js"
+  ]) {
+    const content = fs.readFileSync(filePath(relativePath), "utf8");
+    assert.doesNotMatch(content, /runSafe\('docker'/, relativePath);
+    assert.doesNotMatch(content, /runOk\('docker'/, relativePath);
+    assert.doesNotMatch(content, /runInteractive\('docker'/, relativePath);
+    assert.doesNotMatch(content, /run\('docker'/, relativePath);
+    assert.doesNotMatch(content, /execFn\('docker'/, relativePath);
+  }
+});
+
+test("wsl2BackendStatus checks WSL2 and Docker without Colima", async () => {
+  const sandboxVm = await loadFreshEsm("lib/sandbox/commands/vm.js");
+  const checks = [];
+
+  const status = sandboxVm.wsl2BackendStatus({
+    runOkFn(cmd, args) {
+      checks.push([cmd, ...args]);
+      return cmd === "wsl.exe" && (args[0] === "--status" || args[1] === "docker");
+    }
+  });
+
+  assert.deepEqual(status, { wslAvailable: true, dockerAvailable: true });
+  assert.deepEqual(checks, [
+    ["wsl.exe", "--status"],
+    ["wsl.exe", "--", "docker", "info"]
+  ]);
+});
+
+test("WSL2 adapter checks WSL and Docker Desktop integration", async () => {
+  const { wsl2Adapter } = await loadFreshEsm("lib/sandbox/engines/wsl2.js");
+  const checks = [];
+  const messages = [];
+
+  await wsl2Adapter.ensure({}, (message) => messages.push(message), {
+    runOk(cmd, args) {
+      checks.push([cmd, ...args]);
+      return cmd === "wsl.exe" && (args[0] === "--status" || args[1] === "docker");
+    }
+  });
+
+  assert.deepEqual(checks, [
+    ["wsl.exe", "--status"],
+    ["wsl.exe", "--", "docker", "info"]
+  ]);
+  assert.deepEqual(messages, ["Checking Docker Desktop from WSL2..."]);
+});
+
+test("buildImage converts Docker build paths for WSL2", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const calls = [];
+
+  sandboxCreate.buildImage(
+    { project: "demo", imageName: "demo-sandbox:latest", repoRoot: "F:\\repo" },
+    [{ npmPackage: "@acme/tool" }],
+    "F:\\tmp\\Dockerfile",
+    "sig-123",
+    {
+      engine: "wsl2",
+      runFn(engine, cmd, args) {
+        calls.push({ type: "run", engine, cmd, args });
+        return "1000";
+      },
+      runVerboseFn(engine, cmd, args, opts) {
+        calls.push({ type: "verbose", engine, cmd, args, opts });
+      }
+    }
+  );
+
+  const dockerBuild = calls.find((call) => call.type === "verbose");
+  assert.equal(dockerBuild.engine, "wsl2");
+  assert.equal(dockerBuild.cmd, "docker");
+  assert.equal(dockerBuild.args.at(-3), "-f");
+  assert.equal(dockerBuild.args.at(-2), "/mnt/f/tmp/Dockerfile");
+  assert.equal(dockerBuild.args.at(-1), "/mnt/f/repo");
+});
+
+test("volumeArg converts host mount paths for WSL2", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  assert.equal(
+    sandboxCreate.volumeArg("wsl2", "F:\\repo\\.agents\\workspace", "/workspace/.agents/workspace"),
+    "/mnt/f/repo/.agents/workspace:/workspace/.agents/workspace"
+  );
+  assert.equal(
+    sandboxCreate.volumeArg("native", "/repo/.ssh", "/home/devuser/.ssh", ":ro"),
+    "/repo/.ssh:/home/devuser/.ssh:ro"
+  );
+});
+
+test("rebuild buildArgs converts Docker build paths for WSL2", async () => {
+  const sandboxRebuild = await loadFreshEsm("lib/sandbox/commands/rebuild.js");
+
+  const args = sandboxRebuild.buildArgs(
+    { project: "demo", imageName: "demo-sandbox:latest", repoRoot: "F:\\repo" },
+    [{ npmPackage: "@acme/tool" }],
+    "F:\\tmp\\Dockerfile",
+    "sig-123",
+    { engine: "wsl2", runFn: () => "1000" }
+  );
+
+  assert.equal(args.at(-3), "-f");
+  assert.equal(args.at(-2), "/mnt/f/tmp/Dockerfile");
+  assert.equal(args.at(-1), "/mnt/f/repo");
+});
+
+test("assertManagedPath rejects paths outside the sandbox root", async () => {
+  const sandboxRm = await loadFreshEsm("lib/sandbox/commands/rm.js");
+  const root = path.join(os.tmpdir(), "agent-infra-worktrees");
+
+  assert.doesNotThrow(() => sandboxRm.assertManagedPath(root, path.join(root, "feature..demo")));
+  assert.throws(
+    () => sandboxRm.assertManagedPath(root, path.join(os.tmpdir(), "agent-infra-other")),
+    /outside managed sandbox root/
+  );
+});
+
 test("buildImage forwards HOST_UID=0 and HOST_GID=0 unchanged when host runs as root", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const calls = [];
@@ -1006,8 +1229,9 @@ test("buildImage forwards HOST_UID=0 and HOST_GID=0 unchanged when host runs as 
     "/tmp/Dockerfile",
     "sig-123",
     {
-      runFn(cmd, args) {
-        calls.push({ type: "run", cmd, args });
+      engine: "native",
+      runFn(engine, cmd, args) {
+        calls.push({ type: "run", engine, cmd, args });
         if (cmd === "id" && args[0] === "-u") {
           return "0";
         }
@@ -1016,18 +1240,19 @@ test("buildImage forwards HOST_UID=0 and HOST_GID=0 unchanged when host runs as 
         }
         throw new Error(`unexpected quiet command: ${cmd} ${args.join(" ")}`);
       },
-      runVerboseFn(cmd, args, opts) {
-        calls.push({ type: "verbose", cmd, args, opts });
+      runVerboseFn(engine, cmd, args, opts) {
+        calls.push({ type: "verbose", engine, cmd, args, opts });
       }
     }
   );
 
   assert.deepEqual(calls.slice(0, 2), [
-    { type: "run", cmd: "id", args: ["-u"] },
-    { type: "run", cmd: "id", args: ["-g"] }
+    { type: "run", engine: "native", cmd: "id", args: ["-u"] },
+    { type: "run", engine: "native", cmd: "id", args: ["-g"] }
   ]);
   assert.equal(calls.length, 3);
   assert.equal(calls[2].type, "verbose");
+  assert.equal(calls[2].engine, "native");
   assert.equal(calls[2].cmd, "docker");
   assert.equal(calls[2].opts.cwd, "/repo");
   assert.deepEqual(calls[2].args.slice(0, 7), [
@@ -1456,13 +1681,44 @@ test("native adapter warns that VM resources are not applicable", async () => {
   assert.match(messages[0], /Linux native Docker has no managed VM/);
 });
 
-test("WSL2 adapter reserves VM operations for a future implementation", async () => {
+test("WSL2 adapter validates Docker Desktop integration and warns on explicit VM resources", async () => {
   const { wsl2Adapter } = await loadFreshEsm("lib/sandbox/engines/wsl2.js");
+  const checks = [];
+  const messages = [];
 
-  assert.throws(() => wsl2Adapter.defaultResources(), /Windows sandbox support is reserved/);
-  assert.throws(() => wsl2Adapter.ensure(), /WSL2 sandbox engine is not implemented yet/);
-  assert.throws(() => wsl2Adapter.syncResources(), /WSL2 sandbox engine is not implemented yet/);
-  assert.throws(() => wsl2Adapter.startVm(), /WSL2 sandbox engine is not implemented yet/);
+  assert.equal(wsl2Adapter.defaultResources(), null);
+  await wsl2Adapter.ensure(
+    {
+      userVm: { cpu: 2, memory: null, disk: null },
+      hasUserVmConfig(vm) {
+        return vm.cpu != null || vm.memory != null || vm.disk != null;
+      }
+    },
+    (message) => messages.push(message),
+    {
+      runOk(cmd, args) {
+        checks.push([cmd, ...args]);
+        return cmd === "wsl.exe" && (args[0] === "--status" || args[1] === "docker");
+      }
+    }
+  );
+  wsl2Adapter.syncResources(
+    {
+      userVm: { cpu: 2, memory: null, disk: null },
+      hasUserVmConfig(vm) {
+        return vm.cpu != null || vm.memory != null || vm.disk != null;
+      }
+    },
+    (message) => messages.push(message)
+  );
+
+  assert.deepEqual(checks, [
+    ["wsl.exe", "--status"],
+    ["wsl.exe", "--", "docker", "info"]
+  ]);
+  assert.match(messages[0], /Checking Docker Desktop from WSL2/);
+  assert.match(messages[1], /Docker Desktop manages CPU\/memory\/disk/);
+  assert.throws(() => wsl2Adapter.stopVm(), /wsl --shutdown/);
 });
 
 test("ensureDocker installs OrbStack and starts the Docker daemon", async () => {
@@ -1774,8 +2030,10 @@ test("isVmManaged and engineDisplayName describe supported engines", async () =>
   assert.equal(sandboxEngine.isVmManaged({ engine: "colima" }, macDependencies), true);
   assert.equal(sandboxEngine.isVmManaged({ engine: "orbstack" }, macDependencies), true);
   assert.equal(sandboxEngine.isVmManaged({ engine: "docker-desktop" }, macDependencies), false);
+  assert.equal(sandboxEngine.isVmManaged({}, { platformFn: () => "win32" }), true);
   assert.equal(sandboxEngine.engineDisplayName("orbstack"), "OrbStack");
   assert.equal(sandboxEngine.engineDisplayName("docker-desktop"), "Docker Desktop");
+  assert.equal(sandboxEngine.engineDisplayName("wsl2"), "WSL2");
 });
 
 test("hostHasGpgKeys reports whether the host keyring is available", async () => {
@@ -1925,6 +2183,25 @@ test("sanitizeGitConfig rewrites host paths and appends safe.directory entries",
     "\tdirectory = /workspace",
     "\tdirectory = /repo"
   ]);
+});
+
+test("sanitizeGitConfig rewrites Windows backslash and forward-slash host paths", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const home = "C:\\Users\\demo";
+  const gitconfig = [
+    "[user]",
+    "  name = Demo User",
+    "  signingKey = C:\\Users\\demo\\.gnupg\\pubring.kbx",
+    "[core]",
+    "  excludesfile = C:/Users/demo/.gitignore_global",
+    ""
+  ].join("\n");
+
+  const sanitized = sandboxCreate.sanitizeGitConfig(gitconfig, home, { repoRoot: "C:\\repo" });
+
+  assert.ok(!sanitized.includes("C:\\Users\\demo"), "backslash home path is rewritten");
+  assert.ok(!sanitized.includes("C:/Users/demo"), "forward-slash home path is rewritten");
+  assert.ok(sanitized.includes("/home/devuser"), "container home is used");
 });
 
 test("sanitizeGitConfig appends missing safe.directory entries to an existing safe section", async () => {
@@ -2722,6 +2999,62 @@ test("syncGpgKeys imports host public and secret keys into the container", async
     });
     assert.deepEqual(runSafeCalls, [
       ["docker", ["exec", "demo-container", "gpgconf", "--launch", "gpg-agent"]]
+    ]);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("syncGpgKeys can use separate host gpg and engine docker runners", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gpg-engine-docker-"));
+  const hostCalls = [];
+  const dockerExecCalls = [];
+  const dockerSafeCalls = [];
+
+  try {
+    const synced = sandboxCreate.syncGpgKeys(
+      "demo-container",
+      tmpDir,
+      "demo",
+      (cmd, args, options) => {
+        hostCalls.push({ cmd, args, options });
+        if (cmd === "git") {
+          return "";
+        }
+        if (cmd === "gpg" && args[0] === "--export") {
+          return Buffer.from("pub");
+        }
+        if (cmd === "gpg" && args[0] === "--export-secret-keys") {
+          return Buffer.from("sec");
+        }
+        if (cmd === "gpg" && args[0] === "--list-secret-keys") {
+          return "sec:u:255:22:ABCDEF1234567890:1700000000:0::::::23::0:\n";
+        }
+        throw new Error(`unexpected host call: ${cmd} ${args.join(" ")}`);
+      },
+      () => {
+        throw new Error("default runSafe should not handle docker calls");
+      },
+      {
+        dockerExecFn(cmd, args, options) {
+          dockerExecCalls.push({ cmd, args, input: options.input.toString("utf8") });
+        },
+        dockerRunSafeFn(cmd, args) {
+          dockerSafeCalls.push({ cmd, args });
+          return "";
+        }
+      }
+    );
+
+    assert.equal(synced, true);
+    assert.deepEqual(hostCalls.map((call) => call.cmd), ["git", "gpg", "gpg", "gpg"]);
+    assert.deepEqual(dockerExecCalls, [
+      { cmd: "docker", args: ["exec", "-i", "demo-container", "gpg", "--import"], input: "pub" },
+      { cmd: "docker", args: ["exec", "-i", "demo-container", "gpg", "--batch", "--import"], input: "sec" }
+    ]);
+    assert.deepEqual(dockerSafeCalls, [
+      { cmd: "docker", args: ["exec", "demo-container", "gpgconf", "--launch", "gpg-agent"] }
     ]);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });

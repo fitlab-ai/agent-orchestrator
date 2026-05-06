@@ -201,6 +201,14 @@ The sandbox image also preinstalls `gh`. When `gh auth token` succeeds on the ho
 
 `ai sandbox exec` also forwards a small terminal-detection whitelist (`TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `LC_TERMINAL`, `LC_TERMINAL_VERSION`) into the container. This keeps interactive TUIs aligned with the host terminal for behaviors such as Claude Code's Shift+Enter newline support, without passing through the full host environment.
 
+### Windows sandbox prerequisites
+
+On Windows, `ai sandbox` uses WSL2 as the container engine boundary. Before running `ai sandbox create`, install Windows 11 with WSL2, configure a default Linux distribution, install Docker Desktop, and enable Docker Desktop's WSL integration for that distribution.
+
+You can run the CLI from PowerShell or Git Bash, but the project path must be visible from WSL, such as `C:\Users\you\project` or another drive mounted under `/mnt/<drive>`. UNC paths are not supported for sandbox mounts. If the Windows entrypoint cannot reach Docker through WSL2, run the same command from inside the WSL distribution as a fallback.
+
+`ai sandbox vm` manages only the macOS Colima VM. On Windows, manage Docker Desktop and WSL2 with their native tools.
+
 `ai sandbox refresh` syncs the host's Claude Code credentials into all sandbox project copies under `~/.agent-infra/credentials/*`. It inspects the host Keychain, probes `claude /status` when host credentials look stale, and rewrites each project copy only when the bytes differ — so token rotations propagate to long-running sandboxes without rebuilding them.
 
 <a id="architecture-overview"></a>
@@ -292,11 +300,11 @@ These configurations are not actively tested in this release:
 ### Windows
 
 - `ai init`, `ai sync`, etc.: should work after `npm install -g @fitlab-ai/agent-infra` (Node.js >= 18). Not actively tested in this release.
-- `ai sandbox *`: not yet supported on Windows. WSL2 is the planned engine — current releases throw `WSL2 sandbox engine is not implemented yet; Windows sandbox support is reserved for a future implementation`. Tracked in [#184](https://github.com/fitlab-ai/agent-infra/issues/184).
+- `ai sandbox *`: supported on Windows via WSL2 + Docker Desktop. See [Windows sandbox prerequisites](#windows-sandbox-prerequisites) for setup instructions.
 
 #### Engine resource configuration
 
-WSL2 is the planned sandbox engine on Windows. When implemented, `sandbox.vm.cpu` and `sandbox.vm.memory` are expected to apply on-start via `~/.wslconfig` + `wsl --shutdown` (`sandbox.vm.disk` is not applicable to WSL2). `vm.memory` and `--memory` values are expressed in GiB. Until then, all `vm.*` values and `--cpu / --memory` flags are not honored.
+WSL2 is the sandbox engine on Windows. `sandbox.vm.cpu`, `sandbox.vm.memory`, and `--cpu / --memory` flags are not applied automatically — configure CPU and memory limits in Docker Desktop (Settings → Resources) instead. `sandbox.vm.disk` is not applicable to WSL2. `vm.memory` and `--memory` values are expressed in GiB.
 
 <a id="what-you-get"></a>
 
