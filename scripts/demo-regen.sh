@@ -48,4 +48,13 @@ ffmpeg -y -i "$webm" -i /tmp/demo-palette.png \
   "$gif" 2>/dev/null
 
 # ── Normalize frame delays to fixed target duration ──
-python3 scripts/normalize-gif-duration.py "$gif" "$target_duration"
+# python3 may be absent or broken; try python3 first, fall back to python — whichever passes --version wins.
+python=""
+for cmd in python3 python; do
+  if command -v "$cmd" >/dev/null 2>&1 && "$cmd" --version >/dev/null 2>&1; then
+    python=$cmd
+    break
+  fi
+done
+: "${python:=python3}"
+"$python" scripts/normalize-gif-duration.py "$gif" "$target_duration"

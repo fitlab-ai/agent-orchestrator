@@ -41,6 +41,14 @@ function readGifDelays(filePath) {
   return delays;
 }
 
+function resolvePythonCommand() {
+  for (const cmd of ["python3", "python"]) {
+    const result = spawnSync(cmd, ["--version"], { encoding: "utf8", timeout: 5000 });
+    if (result.status === 0) return cmd;
+  }
+  return "python3";
+}
+
 function setupDemoRegenFixture({ withLocalSettings }) {
   const repoDir = fs.mkdtempSync(path.join(os.tmpdir(), "demo-regen-"));
   const assetsDir = path.join(repoDir, "assets");
@@ -117,7 +125,7 @@ test("normalize-gif-duration distributes delays to hit the target duration", () 
     fs.writeFileSync(gifPath, makeFakeGif(663));
 
     const result = spawnSync(
-      "python3",
+      resolvePythonCommand(),
       ["scripts/normalize-gif-duration.py", gifPath, "25"],
       {
         cwd: path.resolve("."),
@@ -146,7 +154,7 @@ test("normalize-gif-duration leaves files without GCE blocks unchanged", () => {
     fs.writeFileSync(gifPath, original);
 
     const result = spawnSync(
-      "python3",
+      resolvePythonCommand(),
       ["scripts/normalize-gif-duration.py", gifPath, "25"],
       {
         cwd: path.resolve("."),

@@ -292,11 +292,17 @@ Linux 直接使用宿主内核上的原生 Docker，没有受管 VM。`sandbox.v
 ### Windows
 
 - `ai init`、`ai sync` 等：执行 `npm install -g @fitlab-ai/agent-infra` 后理论上可用（需 Node.js >= 18）。本期未做主动验证。
-- `ai sandbox *`：Windows 暂不支持。WSL2 是规划中的引擎——当前版本会抛出 `WSL2 sandbox engine is not implemented yet; Windows sandbox support is reserved for a future implementation`。进展跟踪 [#184](https://github.com/fitlab-ai/agent-infra/issues/184)。
+- `ai sandbox *`：Windows 通过 WSL2 + Docker Desktop 支持。
+
+运行 `ai sandbox create` 前，请先准备 Windows 11、WSL2、默认 Linux distribution、Docker Desktop，并在 Docker Desktop 中为该 distribution 启用 WSL integration。
+
+你可以从 PowerShell 或 Git Bash 运行 CLI，但项目路径必须能被 WSL 访问，例如 `C:\Users\you\project`，或其他会挂载到 `/mnt/<drive>` 的磁盘路径。UNC 路径不支持作为沙箱挂载路径。如果 Windows 入口无法通过 WSL2 访问 Docker，可以进入对应 WSL distribution 后运行同一命令作为回退方案。
+
+`ai sandbox vm` 只管理 macOS 的 Colima VM。在 Windows 上，请使用 Docker Desktop 和 WSL2 自带工具管理后端。
 
 #### 引擎资源配置
 
-WSL2 是 Windows 规划中的 sandbox 引擎。实现后，`sandbox.vm.cpu` 与 `sandbox.vm.memory` 预计通过 `~/.wslconfig` + `wsl --shutdown` 在启动时应用（`sandbox.vm.disk` 不适用于 WSL2）。`vm.memory` 和 `--memory` 的单位是 GiB。在此之前，所有 `vm.*` 值与 `--cpu / --memory` 标志均不生效。
+WSL2 是 Windows 上的 sandbox 引擎。`sandbox.vm.cpu`、`sandbox.vm.memory` 以及 `--cpu / --memory` 标志不会自动生效——请在 Docker Desktop（Settings → Resources）中配置 CPU 和内存限制。`sandbox.vm.disk` 不适用于 WSL2。`vm.memory` 和 `--memory` 的单位是 GiB。
 
 <a id="what-you-get"></a>
 

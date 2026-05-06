@@ -8,10 +8,17 @@ import { loadFreshEsm } from "../helpers.js";
 
 function withHome(home, fn) {
   const previousHome = process.env.HOME;
+  const previousUserProfile = process.env.USERPROFILE;
   if (home === undefined) {
     delete process.env.HOME;
+    if (process.platform === 'win32') {
+      delete process.env.USERPROFILE;
+    }
   } else {
     process.env.HOME = home;
+    if (process.platform === 'win32') {
+      process.env.USERPROFILE = home;
+    }
   }
   try {
     return fn();
@@ -20,6 +27,13 @@ function withHome(home, fn) {
       delete process.env.HOME;
     } else {
       process.env.HOME = previousHome;
+    }
+    if (process.platform === 'win32') {
+      if (previousUserProfile === undefined) {
+        delete process.env.USERPROFILE;
+      } else {
+        process.env.USERPROFILE = previousUserProfile;
+      }
     }
   }
 }
@@ -148,15 +162,21 @@ test("refresh prints usage for help flags", async () => {
   assert.equal(stdout.join(""), "Usage: ai sandbox refresh\n");
 });
 
-test("refresh requires HOME in batch mode", async () => {
+test("refresh uses the system home directory in batch mode", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
+  let seenHome = "";
 
-  await assert.rejects(
-    withHome(undefined, () => refresh([], {
-      discoverFn: () => []
-    })),
-    /sandbox: HOME environment variable is required/
-  );
+  const code = await withHome(undefined, () => refresh([], {
+    discoverFn: (home) => {
+      seenHome = home;
+      return [];
+    },
+    writeStdout: () => {}
+  }));
+
+  assert.equal(code, 0);
+  assert.equal(typeof seenHome, "string");
+  assert.ok(seenHome.length > 0);
 });
 
 test("refresh rejects positional arguments", async () => {

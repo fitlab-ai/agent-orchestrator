@@ -1097,7 +1097,8 @@ function ghText(args, cwd) {
 }
 
 function ghCommand(args, cwd) {
-  const result = spawn.sync("gh", args, {
+  const gh = resolveGhCommand();
+  const result = spawn.sync(gh.command, [...gh.preArgs, ...args], {
     cwd,
     encoding: "utf8",
     env: process.env
@@ -1110,6 +1111,25 @@ function ghCommand(args, cwd) {
   }
 
   return { ok: true, value: result.stdout };
+}
+
+function resolveGhCommand() {
+  const command = process.env.AGENT_INFRA_GH_BIN || "gh";
+  const rawPreArgs = process.env.AGENT_INFRA_GH_ARGS_JSON;
+  if (!rawPreArgs) {
+    return { command, preArgs: [] };
+  }
+
+  try {
+    const preArgs = JSON.parse(rawPreArgs);
+    if (Array.isArray(preArgs) && preArgs.every((arg) => typeof arg === "string")) {
+      return { command, preArgs };
+    }
+  } catch {
+    return { command, preArgs: [] };
+  }
+
+  return { command, preArgs: [] };
 }
 
 function ghPaginatedJson(args, cwd) {
