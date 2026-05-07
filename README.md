@@ -286,7 +286,7 @@ These configurations are not actively tested in this release:
 
 - **Rootless Docker**: Track [#256](https://github.com/fitlab-ai/agent-infra/issues/256).
 - **Podman** instead of Docker: Track [#257](https://github.com/fitlab-ai/agent-infra/issues/257).
-- **SELinux-enforcing** hosts (Fedora / RHEL) may need manual mount labels: Track [#258](https://github.com/fitlab-ai/agent-infra/issues/258).
+- **SELinux-enforcing** hosts (Fedora / RHEL): `ai sandbox create` automatically labels bind mounts with Docker's shared `:z` flag — no setup required. Set `AGENT_INFRA_SELINUX_DISABLE=1` to opt out for debugging.
 - `ai sandbox vm` is a no-op on Linux. Linux uses native Docker directly with no VM to manage; use `ai sandbox create`, `ai sandbox exec`, `ai sandbox refresh`, `ai sandbox ls`, `ai sandbox rebuild`, `ai sandbox rm` directly.
 
 ### Windows

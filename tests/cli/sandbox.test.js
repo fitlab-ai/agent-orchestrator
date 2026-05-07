@@ -82,6 +82,18 @@ function withFakeStty(exitCode, fn) {
   }
 }
 
+function fakeSelinuxFs(flag) {
+  return {
+    reads: 0,
+    readFileSync(pathname, encoding) {
+      assert.equal(pathname, "/sys/fs/selinux/enforce");
+      assert.equal(encoding, "utf8");
+      this.reads += 1;
+      return flag;
+    }
+  };
+}
+
 test("runInteractive emits terminal reset on normal exit", () => {
   const output = withFakeStty(0, () => withTTY(true, () => captureStdoutWrite(() => {
     const status = runInteractive(process.execPath, ["-e", "process.exit(0)"]);
@@ -151,6 +163,25 @@ test("sandbox create help documents the host aliases file", () => {
   assert.match(output, /Usage: ai sandbox create <branch> \[base\] \[--cpu <n>\] \[--memory <n>\]/);
   assert.match(output, /~\/\.agent-infra\/aliases\/sandbox\.sh/);
   assert.match(output, /\/home\/devuser\/\.bash_aliases/);
+});
+
+test("sandbox create rejects invalid selinux disable environment before loading config", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const previousValue = process.env.AGENT_INFRA_SELINUX_DISABLE;
+
+  try {
+    process.env.AGENT_INFRA_SELINUX_DISABLE = "invalid";
+    await assert.rejects(
+      () => sandboxCreate.create(["feature/selinux-invalid-env"]),
+      /Invalid AGENT_INFRA_SELINUX_DISABLE/
+    );
+  } finally {
+    if (previousValue === undefined) {
+      delete process.env.AGENT_INFRA_SELINUX_DISABLE;
+    } else {
+      process.env.AGENT_INFRA_SELINUX_DISABLE = previousValue;
+    }
+  }
 });
 
 test("sandbox rm defaults local branch deletion confirmation to yes", () => {
@@ -1187,6 +1218,94 @@ test("volumeArg converts host mount paths for WSL2", async () => {
     wsl2Paths.volumeArg("native", "/repo/.ssh", "/home/devuser/.ssh", ":ro"),
     "/repo/.ssh:/home/devuser/.ssh:ro"
   );
+});
+
+test("volumeArg without selinux fallback stays unchanged", async () => {
+  const wsl2Paths = await loadFreshEsm("lib/sandbox/engines/wsl2-paths.js");
+
+  assert.equal(
+    wsl2Paths.volumeArg("native", "/repo", "/workspace", "", {
+      platform: "darwin",
+      fs: fakeSelinuxFs("1\n"),
+      env: {}
+    }),
+    "/repo:/workspace"
+  );
+  assert.equal(
+    wsl2Paths.volumeArg("native", "/repo", "/workspace", ":ro", {
+      platform: "linux",
+      fs: fakeSelinuxFs("0\n"),
+      env: {}
+    }),
+    "/repo:/workspace:ro"
+  );
+});
+
+test("volumeArg adds shared selinux labels on native enforcing hosts", async () => {
+  const wsl2Paths = await loadFreshEsm("lib/sandbox/engines/wsl2-paths.js");
+  const fsImpl = fakeSelinuxFs("1\n");
+
+  assert.equal(
+    wsl2Paths.volumeArg("native", "/repo", "/workspace", "", {
+      platform: "linux",
+      fs: fsImpl,
+      env: {}
+    }),
+    "/repo:/workspace:z"
+  );
+  assert.equal(
+    wsl2Paths.volumeArg("native", "/repo/.ssh", "/home/devuser/.ssh", ":ro", {
+      platform: "linux",
+      fs: fsImpl,
+      env: {}
+    }),
+    "/repo/.ssh:/home/devuser/.ssh:ro,z"
+  );
+});
+
+test("volumeArg respects selinux label controls", async () => {
+  const wsl2Paths = await loadFreshEsm("lib/sandbox/engines/wsl2-paths.js");
+
+  assert.equal(
+    wsl2Paths.volumeArg("native", "/repo", "/workspace", "", {
+      platform: "linux",
+      fs: fakeSelinuxFs("1\n"),
+      env: { AGENT_INFRA_SELINUX_DISABLE: "1" }
+    }),
+    "/repo:/workspace"
+  );
+  assert.equal(
+    wsl2Paths.volumeArg("native", "/repo", "/workspace", "", {
+      platform: "linux",
+      fs: fakeSelinuxFs("1\n"),
+      env: {},
+      selinux: "none"
+    }),
+    "/repo:/workspace"
+  );
+});
+
+test("volumeArg ignores selinux labels for non-native engines", async () => {
+  const wsl2Paths = await loadFreshEsm("lib/sandbox/engines/wsl2-paths.js");
+  const fsImpl = fakeSelinuxFs("1\n");
+
+  assert.equal(
+    wsl2Paths.volumeArg("wsl2", "F:\\repo", "/workspace", "", {
+      platform: "linux",
+      fs: fsImpl,
+      env: {}
+    }),
+    "/mnt/f/repo:/workspace"
+  );
+  assert.equal(
+    wsl2Paths.volumeArg("orbstack", "/repo", "/workspace", "", {
+      platform: "linux",
+      fs: fsImpl,
+      env: {}
+    }),
+    "/repo:/workspace"
+  );
+  assert.equal(fsImpl.reads, 0);
 });
 
 test("rebuild buildArgs converts Docker build paths for WSL2", async () => {
