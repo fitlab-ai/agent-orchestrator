@@ -272,6 +272,62 @@ test("refresh reports unchanged status when destination matches blob", async () 
   }
 });
 
+test("refresh reconciles from a newer project file without probing claude status", async () => {
+  const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-file-newer-"));
+  const hostBlob = validBlob(100);
+  const fileBlob = validBlob(200);
+  const hostPath = path.join(tmpDir, ".claude", ".credentials.json");
+  const filePath = path.join(tmpDir, ".agent-infra", "credentials", "agent-infra", "claude-code", ".credentials.json");
+  const stdout = [];
+  let probeCalled = false;
+
+  try {
+    fs.mkdirSync(path.dirname(hostPath), { recursive: true });
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(hostPath, hostBlob, "utf8");
+    fs.writeFileSync(filePath, fileBlob, "utf8");
+
+    const code = await withHome(tmpDir, () => withPlatform("linux", () => refresh([], {
+      discoverFn: () => ["agent-infra"],
+      spawnFn: () => {
+        probeCalled = true;
+        return { status: 0, stderr: "" };
+      },
+      writeStdout: (chunk) => stdout.push(chunk),
+      writeStderr: () => {}
+    })));
+
+    assert.equal(code, 0);
+    assert.equal(probeCalled, false);
+    assert.match(stdout.join(""), /\[host\] reconciled from file:agent-infra/);
+    assert.match(stdout.join(""), /\[agent-infra\] unchanged;/);
+    assert.equal(fs.readFileSync(hostPath, "utf8"), fileBlob);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("refresh exits 1 when newer sandbox credentials cannot be written to host", async () => {
+  const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
+  const stderr = [];
+
+  const code = await withPlatform("darwin", () => refresh([], {
+    discoverFn: () => ["agent-infra"],
+    execFn: () => {
+      throw new Error("missing");
+    },
+    readFn: () => validBlob(200),
+    existsFn: () => true,
+    writeHostFn: () => ({ ok: false, error: "keychain locked" }),
+    writeStdout: () => {},
+    writeStderr: (chunk) => stderr.push(chunk)
+  }));
+
+  assert.equal(code, 1);
+  assert.match(stderr.join(""), /keychain write failed: keychain locked/);
+});
+
 test("refresh continues on per-project sync failure and exits 1 at end", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-fail-"));
