@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync, execSync, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -92,6 +92,17 @@ function fakeSelinuxFs(flag) {
       return flag;
     }
   };
+}
+
+function validClaudeCredentialsBlob(expiresAt) {
+  return JSON.stringify({
+    claudeAiOauth: {
+      accessToken: `token-${expiresAt}`,
+      refreshToken: `refresh-${expiresAt}`,
+      scopes: ["user:profile", "user:sessions:claude_code"],
+      expiresAt
+    }
+  });
 }
 
 test("runInteractive emits terminal reset on normal exit", () => {
@@ -734,6 +745,131 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       assert.match(dockerCalls[0][5], /tmux has-session/);
       assert.match(dockerCalls[0][5], /tmux new-session -t "\$SESSION"/);
     }
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("sandbox exec reconciles newer Claude credentials from a neighbouring project", () => {
+  if (process.platform === "win32") {
+    return;
+  }
+
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-credentials-"));
+  const repoDir = path.join(tmpDir, "repo");
+  const binDir = path.join(tmpDir, "bin");
+  const logPath = path.join(tmpDir, "docker-log.jsonl");
+  const dockerPath = path.join(binDir, "docker");
+  const fakeKeychainPath = path.join(tmpDir, "fake-keychain.json");
+  const hostCredentialsPath = path.join(tmpDir, ".claude", ".credentials.json");
+  const alphaCredentialsPath = path.join(
+    tmpDir,
+    ".agent-infra",
+    "credentials",
+    "alpha",
+    "claude-code",
+    ".credentials.json"
+  );
+  const betaCredentialsPath = path.join(
+    tmpDir,
+    ".agent-infra",
+    "credentials",
+    "beta",
+    "claude-code",
+    ".credentials.json"
+  );
+  const alphaBlob = validClaudeCredentialsBlob(Date.now() + 5_400_000);
+  const newerBlob = validClaudeCredentialsBlob(Date.now() + 7_200_000);
+
+  try {
+    fs.mkdirSync(repoDir, { recursive: true });
+    fs.mkdirSync(path.join(repoDir, ".agents"), { recursive: true });
+    fs.mkdirSync(binDir, { recursive: true });
+    fs.mkdirSync(path.dirname(hostCredentialsPath), { recursive: true });
+    fs.mkdirSync(path.dirname(alphaCredentialsPath), { recursive: true });
+    fs.mkdirSync(path.dirname(betaCredentialsPath), { recursive: true });
+    execSync("git init", { cwd: repoDir, env: gitSafeEnv(), stdio: "pipe" });
+    fs.writeFileSync(
+      path.join(repoDir, ".agents", ".airc.json"),
+      JSON.stringify({
+        project: "alpha",
+        org: "fitlab-ai",
+        sandbox: { tools: ["claude-code"] }
+      }, null, 2) + "\n",
+      "utf8"
+    );
+    fs.writeFileSync(hostCredentialsPath, validClaudeCredentialsBlob(Date.now() + 3_600_000), "utf8");
+    fs.writeFileSync(alphaCredentialsPath, alphaBlob, "utf8");
+    fs.writeFileSync(betaCredentialsPath, newerBlob, "utf8");
+    fs.writeFileSync(
+      dockerPath,
+      `#!/bin/sh
+set -eu
+if [ "$1" = "ps" ]; then
+  printf '%s\\n' alpha-dev-agent-infra-feature-cli-generic-sandbox
+  exit 0
+fi
+node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.argv.slice(2)) + "\\n")' "$DOCKER_LOG_PATH" "$@"
+`,
+      "utf8"
+    );
+    fs.chmodSync(dockerPath, 0o755);
+
+    if (process.platform === "darwin") {
+      // Inject a fake `security` shim so the CLI subprocess does not touch the
+      // real macOS Keychain on CI runners (which can hang on add-generic-password
+      // due to login keychain ACL prompts). The shim reports MISSING for reads
+      // and persists writes to FAKE_KEYCHAIN_FILE so the assertion can read back.
+      const securityShimPath = path.join(binDir, "security");
+      fs.writeFileSync(
+        securityShimPath,
+        `#!/bin/sh
+case "$1" in
+  find-generic-password) exit 44 ;;
+  add-generic-password)
+    shift
+    while [ $# -gt 0 ]; do
+      if [ "$1" = "-w" ]; then
+        shift
+        printf '%s' "$1" > "$FAKE_KEYCHAIN_FILE"
+        exit 0
+      fi
+      shift
+    done
+    exit 1 ;;
+esac
+exit 2
+`,
+        "utf8"
+      );
+      fs.chmodSync(securityShimPath, 0o755);
+    }
+
+    const result = spawnSync(
+      process.execPath,
+      [filePath("bin/cli.js"), "sandbox", "exec", "agent-infra-feature-cli-generic-sandbox", "true"],
+      {
+        cwd: repoDir,
+        env: {
+          ...envWithPrependedPath(gitSafeEnv(), binDir),
+          HOME: tmpDir,
+          DOCKER_LOG_PATH: logPath,
+          FAKE_KEYCHAIN_FILE: fakeKeychainPath
+        },
+        encoding: "utf8",
+        stdio: ["ignore", "pipe", "pipe"]
+      }
+    );
+
+    assert.equal(result.status, 0);
+    assert.match(result.stderr, /from sandbox refresh/);
+    if (process.platform === "darwin") {
+      assert.equal(fs.readFileSync(fakeKeychainPath, "utf8"), newerBlob);
+    } else {
+      assert.equal(fs.readFileSync(hostCredentialsPath, "utf8"), newerBlob);
+    }
+    assert.equal(fs.readFileSync(alphaCredentialsPath, "utf8"), newerBlob);
+    assert.equal(fs.readFileSync(betaCredentialsPath, "utf8"), newerBlob);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
