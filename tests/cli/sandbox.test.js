@@ -331,6 +331,7 @@ test("loadConfig derives sandbox defaults from .agents/.airc.json", async () => 
     assert.equal(config.engine, null);
     assert.deepEqual(config.vm, { cpu: null, memory: null, disk: null });
     assert.equal(config.worktreeBase, path.join(process.env.HOME, ".agent-infra", "worktrees", "demo"));
+    assert.equal(config.shareBase, path.join(process.env.HOME, ".agent-infra", "share", "demo"));
   } finally {
     process.chdir(previousCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -3211,6 +3212,18 @@ test("assertValidBranchName rejects invalid branch names", async () => {
   const sandboxConstants = await loadFreshEsm("lib/sandbox/constants.js");
 
   assert.throws(() => sandboxConstants.assertValidBranchName("bad branch name"), /Invalid branch name/);
+});
+
+test("share helpers compose project share namespace under shareBase", async () => {
+  const sandboxConstants = await loadFreshEsm("lib/sandbox/constants.js");
+  const config = { shareBase: "/tmp/share/demo" };
+
+  assert.equal(sandboxConstants.shareDir(config), "/tmp/share/demo");
+  assert.equal(sandboxConstants.shareCommonDir(config), "/tmp/share/demo/common");
+  assert.equal(
+    sandboxConstants.shareBranchDir(config, "feat/foo"),
+    "/tmp/share/demo/branches/feat..foo"
+  );
 });
 
 test("resolveTaskBranch returns plain branch names unchanged", async () => {
