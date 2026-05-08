@@ -201,8 +201,6 @@ CLI 会收集项目元数据，向所有支持的 AI TUI 安装 `update-agent-in
 
 `ai sandbox exec` 也会向容器透传一小组终端检测白名单变量（`TERM_PROGRAM`、`TERM_PROGRAM_VERSION`、`LC_TERMINAL`、`LC_TERMINAL_VERSION`）。这样可以让交互式 TUI 保持与宿主终端一致的行为，例如 Claude Code 的 `Shift+Enter` 换行支持，同时避免把整个宿主环境灌入容器。
 
-自定义 Dockerfile 需要 bake `/usr/local/bin/sandbox-tmux-entry` 才能支持 `ai sandbox exec` 的交互式入口；或显式传入 cmd 参数。
-
 `ai sandbox refresh` 用于把宿主机 Claude Code 凭证同步到 `~/.agent-infra/credentials/*` 下的所有沙箱项目副本。它会检查宿主 Keychain 状态、在凭证过期时尝试 `claude /status` 探活、仅在字节不同时重写每个项目副本——这样 host token 轮换可以传播到正在运行的沙箱，无需重建。
 
 <a id="architecture-overview"></a>
