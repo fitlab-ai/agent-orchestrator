@@ -760,6 +760,7 @@ test("sandbox exec reconciles newer Claude credentials from a neighbouring proje
   const binDir = path.join(tmpDir, "bin");
   const logPath = path.join(tmpDir, "docker-log.jsonl");
   const dockerPath = path.join(binDir, "docker");
+  const fakeKeychainPath = path.join(tmpDir, "fake-keychain.json");
   const hostCredentialsPath = path.join(tmpDir, ".claude", ".credentials.json");
   const alphaCredentialsPath = path.join(
     tmpDir,
@@ -814,6 +815,36 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
     );
     fs.chmodSync(dockerPath, 0o755);
 
+    if (process.platform === "darwin") {
+      // Inject a fake `security` shim so the CLI subprocess does not touch the
+      // real macOS Keychain on CI runners (which can hang on add-generic-password
+      // due to login keychain ACL prompts). The shim reports MISSING for reads
+      // and persists writes to FAKE_KEYCHAIN_FILE so the assertion can read back.
+      const securityShimPath = path.join(binDir, "security");
+      fs.writeFileSync(
+        securityShimPath,
+        `#!/bin/sh
+case "$1" in
+  find-generic-password) exit 44 ;;
+  add-generic-password)
+    shift
+    while [ $# -gt 0 ]; do
+      if [ "$1" = "-w" ]; then
+        shift
+        printf '%s' "$1" > "$FAKE_KEYCHAIN_FILE"
+        exit 0
+      fi
+      shift
+    done
+    exit 1 ;;
+esac
+exit 2
+`,
+        "utf8"
+      );
+      fs.chmodSync(securityShimPath, 0o755);
+    }
+
     const result = spawnSync(
       process.execPath,
       [filePath("bin/cli.js"), "sandbox", "exec", "agent-infra-feature-cli-generic-sandbox", "true"],
@@ -822,7 +853,8 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
         env: {
           ...envWithPrependedPath(gitSafeEnv(), binDir),
           HOME: tmpDir,
-          DOCKER_LOG_PATH: logPath
+          DOCKER_LOG_PATH: logPath,
+          FAKE_KEYCHAIN_FILE: fakeKeychainPath
         },
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"]
@@ -831,7 +863,11 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
 
     assert.equal(result.status, 0);
     assert.match(result.stderr, /from sandbox refresh/);
-    assert.equal(fs.readFileSync(hostCredentialsPath, "utf8"), newerBlob);
+    if (process.platform === "darwin") {
+      assert.equal(fs.readFileSync(fakeKeychainPath, "utf8"), newerBlob);
+    } else {
+      assert.equal(fs.readFileSync(hostCredentialsPath, "utf8"), newerBlob);
+    }
     assert.equal(fs.readFileSync(alphaCredentialsPath, "utf8"), newerBlob);
     assert.equal(fs.readFileSync(betaCredentialsPath, "utf8"), newerBlob);
   } finally {
