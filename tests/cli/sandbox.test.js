@@ -522,6 +522,31 @@ test("composeDockerfile installs tmux for in-container session recovery", async 
   }
 });
 
+test("composeDockerfile bakes sandbox-tmux-entry script", async () => {
+  const sandboxDockerfile = await loadFreshEsm("lib/sandbox/dockerfile.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-tmux-entry-"));
+
+  try {
+    const dockerfilePath = sandboxDockerfile.composeDockerfile({
+      repoRoot: tmpDir,
+      project: "demo",
+      runtimes: ["node20"],
+      dockerfile: null
+    });
+    const content = fs.readFileSync(dockerfilePath, "utf8");
+
+    assert.match(content, /cat > \/usr\/local\/bin\/sandbox-tmux-entry <<'SCRIPT'/);
+    assert.match(content, /chmod \+x \/usr\/local\/bin\/sandbox-tmux-entry/);
+    assert.match(content, /command -v tmux/);
+    assert.match(content, /tmux has-session -t "\$SESSION"/);
+    assert.match(content, /tmux list-sessions -F '#\{session_name\} #\{session_attached\}'/);
+    assert.match(content, /tmux kill-session -t "\$name"/);
+    assert.match(content, /exec tmux new-session -t "\$SESSION"/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("composeDockerfile configures tmux extended keys and terminal env forwarding", async () => {
   const sandboxDockerfile = await loadFreshEsm("lib/sandbox/dockerfile.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-tmux-config-"));
@@ -633,24 +658,7 @@ test("terminalEnvFlags omits unset variables instead of forwarding empty values"
   assert.deepEqual(flags, ["-e", "TERM_PROGRAM=iTerm.app"]);
 });
 
-test("TMUX_ENTRY_SCRIPT includes fallback, primary session bootstrap, linked sessions, and cleanup", async () => {
-  const sandboxEnter = await loadFreshEsm("lib/sandbox/commands/enter.js");
-
-  assert.match(sandboxEnter.TMUX_ENTRY_SCRIPT, /command -v tmux/);
-  assert.match(sandboxEnter.TMUX_ENTRY_SCRIPT, /tmux has-session -t "\$SESSION"/);
-  assert.match(sandboxEnter.TMUX_ENTRY_SCRIPT, /tmux new-session -s "\$SESSION"/);
-  assert.match(sandboxEnter.TMUX_ENTRY_SCRIPT, /tmux list-sessions -F '#\{session_name\} #\{session_attached\}'/);
-  assert.match(sandboxEnter.TMUX_ENTRY_SCRIPT, /case "\$name" in/);
-  assert.match(sandboxEnter.TMUX_ENTRY_SCRIPT, /''\|\*\[!0-9\]\*\) continue ;;/);
-  assert.match(sandboxEnter.TMUX_ENTRY_SCRIPT, /tmux kill-session -t "\$name"/);
-  assert.match(sandboxEnter.TMUX_ENTRY_SCRIPT, /tmux new-session -t "\$SESSION"/);
-});
-
 test("sandbox exec enters tmux automatically for interactive shells", () => {
-  if (process.platform === "win32") {
-    return;
-  }
-
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
@@ -721,19 +729,13 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
 
     const dockerCalls = fs.readFileSync(logPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
     assert.equal(dockerCalls.length, 1);
-    assert.deepEqual(dockerCalls[0].slice(0, 5), [
+    assert.deepEqual(dockerCalls[0], [
       "exec",
       "-it",
       "demo-dev-agent-infra-feature-cli-generic-sandbox",
       "bash",
-      "-c"
+      "/usr/local/bin/sandbox-tmux-entry"
     ]);
-    if (process.platform === "win32") {
-      assert.equal(dockerCalls[0][5], "SESSION=work");
-    } else {
-      assert.match(dockerCalls[0][5], /tmux has-session/);
-      assert.match(dockerCalls[0][5], /tmux new-session -t "\$SESSION"/);
-    }
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -1122,6 +1124,31 @@ test("commandForEngine wraps commands with wsl.exe for WSL2", async () => {
     sandboxShell.commandForEngine("native", "docker", ["info"]),
     { cmd: "docker", args: ["info"] }
   );
+});
+
+test("sandbox exec routes through wsl.exe with single-arg entry script on wsl2", async () => {
+  const sandboxShell = await loadFreshEsm("lib/sandbox/shell.js");
+  const command = sandboxShell.commandForEngine("wsl2", "docker", [
+    "exec",
+    "-it",
+    "demo-dev-agent-infra-feature-cli-generic-sandbox",
+    "bash",
+    "/usr/local/bin/sandbox-tmux-entry"
+  ]);
+
+  assert.deepEqual(command, {
+    cmd: "wsl.exe",
+    args: [
+      "--",
+      "docker",
+      "exec",
+      "-it",
+      "demo-dev-agent-infra-feature-cli-generic-sandbox",
+      "bash",
+      "/usr/local/bin/sandbox-tmux-entry"
+    ]
+  });
+  assert.equal(command.args.some((arg) => arg.includes("\n")), false);
 });
 
 test("sandbox command modules route docker calls through engine-aware helpers", () => {

@@ -201,6 +201,8 @@ The sandbox image also preinstalls `gh`. When `gh auth token` succeeds on the ho
 
 `ai sandbox exec` also forwards a small terminal-detection whitelist (`TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `LC_TERMINAL`, `LC_TERMINAL_VERSION`) into the container. This keeps interactive TUIs aligned with the host terminal for behaviors such as Claude Code's Shift+Enter newline support, without passing through the full host environment.
 
+Custom Dockerfiles must bake `/usr/local/bin/sandbox-tmux-entry` to support the interactive `ai sandbox exec` entry; alternatively pass an explicit cmd.
+
 `ai sandbox refresh` syncs the host's Claude Code credentials into all sandbox project copies under `~/.agent-infra/credentials/*`. It inspects the host Keychain, probes `claude /status` when host credentials look stale, and rewrites each project copy only when the bytes differ — so token rotations propagate to long-running sandboxes without rebuilding them.
 
 <a id="architecture-overview"></a>

@@ -105,6 +105,32 @@ else
 fi
 SCRIPT
 
+RUN cat > /usr/local/bin/sandbox-tmux-entry <<'SCRIPT' && chmod +x /usr/local/bin/sandbox-tmux-entry
+#!/bin/sh
+set -eu
+
+SESSION=work
+
+if ! command -v tmux >/dev/null 2>&1; then
+  exec bash
+fi
+
+if ! tmux has-session -t "$SESSION" 2>/dev/null; then
+  exec tmux new-session -s "$SESSION"
+fi
+
+tmux list-sessions -F '#{session_name} #{session_attached}' 2>/dev/null | \
+  while read -r name attached; do
+    [ "$name" = "$SESSION" ] && continue
+    case "$name" in
+      ''|*[!0-9]*) continue ;;
+    esac
+    [ "$attached" = "0" ] && tmux kill-session -t "$name" 2>/dev/null || true
+  done
+
+exec tmux new-session -t "$SESSION"
+SCRIPT
+
 ENV LANG=en_US.UTF-8
 ENV LC_ALL=en_US.UTF-8
 ENV TERM=xterm-256color
