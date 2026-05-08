@@ -659,6 +659,14 @@ test("terminalEnvFlags omits unset variables instead of forwarding empty values"
 });
 
 test("sandbox exec enters tmux automatically for interactive shells", () => {
+  // On Windows, the engine is auto-detected as wsl2, so docker calls are
+  // routed through `wsl.exe -- docker ...` and bypass this test's docker.cmd
+  // shim. The wsl2 argv shape is covered separately by the commandForEngine
+  // wrapping test below.
+  if (process.platform === "win32") {
+    return;
+  }
+
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
