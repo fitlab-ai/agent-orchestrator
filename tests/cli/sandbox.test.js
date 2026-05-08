@@ -5,6 +5,7 @@ import { execFileSync, execSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import * as toml from "smol-toml";
 
 import {
   assertModeBits,
@@ -756,6 +757,36 @@ test("claude-code tool pins CLAUDE_CONFIG_DIR so $HOME/.claude.json preseed reac
   assert.equal(tools[0].envVars?.CLAUDE_CONFIG_DIR, "/home/devuser/.claude");
 });
 
+test("opencode tool pins OPENCODE_CONFIG to the sandbox config file", async () => {
+  const sandboxTools = await loadFreshEsm("lib/sandbox/tools.js");
+  const tools = sandboxTools.resolveTools({
+    home: "/home/host-user",
+    project: "demo",
+    tools: ["opencode"]
+  });
+
+  assert.equal(tools.length, 1);
+  assert.equal(tools[0].containerMount, "/home/devuser/.local/share/opencode");
+  assert.equal(
+    tools[0].envVars?.OPENCODE_CONFIG,
+    "/home/devuser/.local/share/opencode/opencode.json"
+  );
+});
+
+test("gemini-cli tool preseeds host settings for model and thinking config inheritance", async () => {
+  const sandboxTools = await loadFreshEsm("lib/sandbox/tools.js");
+  const [tool] = sandboxTools.resolveTools({
+    home: "/home/host-user",
+    project: "demo",
+    tools: ["gemini-cli"]
+  });
+
+  assert.ok(tool.hostPreSeedFiles?.some((entry) => (
+    entry.hostPath === "/home/host-user/.gemini/settings.json"
+    && entry.sandboxName === "settings.json"
+  )));
+});
+
 test("resolveTools consolidates sandbox bases under ~/.agent-infra", async () => {
   const sandboxTools = await loadFreshEsm("lib/sandbox/tools.js");
   const tools = sandboxTools.resolveTools({
@@ -946,6 +977,88 @@ test("ensureClaudeOnboarding skips write when flag already set", async () => {
   }
 });
 
+test("ensureClaudeOnboarding inherits host model when sandbox model is absent", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-onboarding-model-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-model-"));
+
+  try {
+    fs.writeFileSync(path.join(hostHome, ".claude.json"), JSON.stringify({ model: "claude-opus-4-7" }), "utf8");
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(data.model, "claude-opus-4-7");
+    assert.equal(data.hasCompletedOnboarding, true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeOnboarding preserves existing sandbox model", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-onboarding-keep-model-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-keep-model-"));
+
+  try {
+    fs.writeFileSync(path.join(hostHome, ".claude.json"), JSON.stringify({ model: "claude-opus-4-7" }), "utf8");
+    fs.writeFileSync(path.join(tmpDir, ".claude.json"), JSON.stringify({ model: "claude-sonnet-4-5" }), "utf8");
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(data.model, "claude-sonnet-4-5");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeOnboarding skips host model when it is missing", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-onboarding-missing-model-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-missing-model-"));
+
+  try {
+    fs.writeFileSync(path.join(hostHome, ".claude.json"), JSON.stringify({ theme: "dark" }), "utf8");
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(Object.hasOwn(data, "model"), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeOnboarding skips empty host model", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-onboarding-empty-model-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-empty-model-"));
+
+  try {
+    fs.writeFileSync(path.join(hostHome, ".claude.json"), JSON.stringify({ model: "" }), "utf8");
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(Object.hasOwn(data, "model"), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeOnboarding ignores malformed host json", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-onboarding-malformed-host-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-malformed-"));
+
+  try {
+    fs.writeFileSync(path.join(hostHome, ".claude.json"), "{", "utf8");
+    assert.doesNotThrow(() => sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome));
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(Object.hasOwn(data, "model"), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
 test("ensureClaudeSettings creates settings.json with skipDangerousModePermissionPrompt", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-settings-"));
@@ -974,6 +1087,376 @@ test("ensureClaudeSettings skips write when skipDangerousModePermissionPrompt is
     assert.equal(mtimeBefore, mtimeAfter);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeSettings inherits host effort level when sandbox field is absent", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-settings-effort-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-effort-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".claude"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".claude", "settings.json"),
+      JSON.stringify({ effortLevel: "high" }),
+      "utf8"
+    );
+    sandboxCreate.ensureClaudeSettings(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, "settings.json"), "utf8"));
+    assert.equal(data.effortLevel, "high");
+    assert.equal(data.skipDangerousModePermissionPrompt, true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeSettings preserves existing sandbox effort level", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-settings-keep-effort-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-keep-effort-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".claude"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".claude", "settings.json"),
+      JSON.stringify({ effortLevel: "xhigh" }),
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, "settings.json"),
+      JSON.stringify({ skipDangerousModePermissionPrompt: true, effortLevel: "low" }),
+      "utf8"
+    );
+    sandboxCreate.ensureClaudeSettings(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, "settings.json"), "utf8"));
+    assert.equal(data.effortLevel, "low");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeSettings skips missing host effort level", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-settings-missing-effort-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-missing-effort-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(hostHome, ".claude", "settings.json"), JSON.stringify({ theme: "dark" }), "utf8");
+    sandboxCreate.ensureClaudeSettings(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, "settings.json"), "utf8"));
+    assert.equal(Object.hasOwn(data, "effortLevel"), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeSettings skips empty host effort level", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-settings-empty-effort-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-host-empty-effort-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".claude"), { recursive: true });
+    fs.writeFileSync(path.join(hostHome, ".claude", "settings.json"), JSON.stringify({ effortLevel: "" }), "utf8");
+    sandboxCreate.ensureClaudeSettings(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, "settings.json"), "utf8"));
+    assert.equal(Object.hasOwn(data, "effortLevel"), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureCodexModelInheritance creates config with host model fields", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-model-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-host-model-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".codex"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".codex", "config.toml"),
+      'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\n',
+      "utf8"
+    );
+    sandboxCreate.ensureCodexModelInheritance(tmpDir, hostHome);
+    const data = toml.parse(fs.readFileSync(path.join(tmpDir, "config.toml"), "utf8"));
+    assert.equal(data.model, "gpt-5.5");
+    assert.equal(data.model_reasoning_effort, "high");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureCodexModelInheritance keeps model fields before workspace trust section", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-model-order-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-host-order-"));
+  const configPath = path.join(tmpDir, "config.toml");
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".codex"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".codex", "config.toml"),
+      'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\n',
+      "utf8"
+    );
+    fs.writeFileSync(configPath, '[projects."/workspace"]\ntrust_level = "trusted"\n', "utf8");
+    sandboxCreate.ensureCodexModelInheritance(tmpDir, hostHome);
+    const content = fs.readFileSync(configPath, "utf8");
+    const data = toml.parse(content);
+    assert.equal(data.model, "gpt-5.5");
+    assert.equal(data.model_reasoning_effort, "high");
+    assert.equal(data.projects["/workspace"].trust_level, "trusted");
+    const lines = content.split(/\r?\n/);
+    const modelLine = lines.findIndex((line) => line.startsWith("model = "));
+    const sectionLine = lines.findIndex((line) => line.startsWith("[projects."));
+    assert.ok(modelLine >= 0);
+    assert.ok(sectionLine > modelLine);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureCodexModelInheritance ignores model fields outside the root table", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-model-section-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-host-section-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".codex"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".codex", "config.toml"),
+      '[profiles.default]\nmodel = "gpt-5.5"\nmodel_reasoning_effort = "high"\n',
+      "utf8"
+    );
+    sandboxCreate.ensureCodexModelInheritance(tmpDir, hostHome);
+    assert.equal(fs.existsSync(path.join(tmpDir, "config.toml")), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureCodexModelInheritance preserves existing sandbox model field", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-model-keep-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-host-keep-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".codex"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".codex", "config.toml"),
+      'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\n',
+      "utf8"
+    );
+    fs.writeFileSync(path.join(tmpDir, "config.toml"), 'model = "gpt-5.4"\n', "utf8");
+    sandboxCreate.ensureCodexModelInheritance(tmpDir, hostHome);
+    const data = toml.parse(fs.readFileSync(path.join(tmpDir, "config.toml"), "utf8"));
+    assert.equal(data.model, "gpt-5.4");
+    assert.equal(data.model_reasoning_effort, "high");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureCodexModelInheritance ignores malformed host config", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-model-malformed-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-host-malformed-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".codex"), { recursive: true });
+    fs.writeFileSync(path.join(hostHome, ".codex", "config.toml"), "=", "utf8");
+    assert.doesNotThrow(() => sandboxCreate.ensureCodexModelInheritance(tmpDir, hostHome));
+    assert.equal(fs.existsSync(path.join(tmpDir, "config.toml")), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureCodexModelInheritance leaves malformed sandbox config alone", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-model-malformed-sandbox-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-codex-host-valid-for-malformed-sandbox-"));
+  const configPath = path.join(tmpDir, "config.toml");
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".codex"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".codex", "config.toml"),
+      'model = "gpt-5.5"\nmodel_reasoning_effort = "high"\n',
+      "utf8"
+    );
+    fs.writeFileSync(configPath, "=", "utf8");
+    assert.doesNotThrow(() => sandboxCreate.ensureCodexModelInheritance(tmpDir, hostHome));
+    assert.equal(fs.readFileSync(configPath, "utf8"), "=");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureOpenCodeModelInheritance creates config with host model fields", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-model-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-host-model-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".config", "opencode"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".config", "opencode", "opencode.json"),
+      JSON.stringify({
+        model: "anthropic/claude-opus-4-7",
+        small_model: "openai/gpt-5.5-mini"
+      }),
+      "utf8"
+    );
+    sandboxCreate.ensureOpenCodeModelInheritance(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, "opencode.json"), "utf8"));
+    assert.equal(data.model, "anthropic/claude-opus-4-7");
+    assert.equal(data.small_model, "openai/gpt-5.5-mini");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureOpenCodeModelInheritance preserves existing sandbox model fields", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-model-keep-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-host-keep-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".config", "opencode"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".config", "opencode", "opencode.json"),
+      JSON.stringify({
+        model: "anthropic/claude-opus-4-7",
+        small_model: "openai/gpt-5.5-mini"
+      }),
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, "opencode.json"),
+      JSON.stringify({
+        model: "openai/gpt-5.5",
+        small_model: "anthropic/claude-sonnet-4-5"
+      }),
+      "utf8"
+    );
+    sandboxCreate.ensureOpenCodeModelInheritance(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, "opencode.json"), "utf8"));
+    assert.equal(data.model, "openai/gpt-5.5");
+    assert.equal(data.small_model, "anthropic/claude-sonnet-4-5");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureOpenCodeModelInheritance inherits small model when host model is missing", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-small-model-only-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-host-small-model-only-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".config", "opencode"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".config", "opencode", "opencode.json"),
+      JSON.stringify({ small_model: "openai/gpt-5.5-mini" }),
+      "utf8"
+    );
+    sandboxCreate.ensureOpenCodeModelInheritance(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, "opencode.json"), "utf8"));
+    assert.equal(Object.hasOwn(data, "model"), false);
+    assert.equal(data.small_model, "openai/gpt-5.5-mini");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureOpenCodeModelInheritance skips missing host model fields", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-model-missing-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-host-missing-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".config", "opencode"), { recursive: true });
+    fs.writeFileSync(path.join(hostHome, ".config", "opencode", "opencode.json"), JSON.stringify({ theme: "dark" }), "utf8");
+    sandboxCreate.ensureOpenCodeModelInheritance(tmpDir, hostHome);
+    assert.equal(fs.existsSync(path.join(tmpDir, "opencode.json")), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureOpenCodeModelInheritance skips empty host model fields", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-model-empty-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-host-empty-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".config", "opencode"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".config", "opencode", "opencode.json"),
+      JSON.stringify({ model: "", small_model: "" }),
+      "utf8"
+    );
+    sandboxCreate.ensureOpenCodeModelInheritance(tmpDir, hostHome);
+    assert.equal(fs.existsSync(path.join(tmpDir, "opencode.json")), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureOpenCodeModelInheritance ignores malformed host json", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-model-malformed-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-host-malformed-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".config", "opencode"), { recursive: true });
+    fs.writeFileSync(path.join(hostHome, ".config", "opencode", "opencode.json"), "{", "utf8");
+    assert.doesNotThrow(() => sandboxCreate.ensureOpenCodeModelInheritance(tmpDir, hostHome));
+    assert.equal(fs.existsSync(path.join(tmpDir, "opencode.json")), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureOpenCodeModelInheritance leaves malformed sandbox config alone", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-model-malformed-sandbox-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-opencode-host-valid-for-malformed-sandbox-"));
+
+  try {
+    fs.mkdirSync(path.join(hostHome, ".config", "opencode"), { recursive: true });
+    fs.writeFileSync(
+      path.join(hostHome, ".config", "opencode", "opencode.json"),
+      JSON.stringify({ model: "anthropic/claude-opus-4-7" }),
+      "utf8"
+    );
+    const configPath = path.join(tmpDir, "opencode.json");
+    fs.writeFileSync(configPath, "{", "utf8");
+    assert.doesNotThrow(() => sandboxCreate.ensureOpenCodeModelInheritance(tmpDir, hostHome));
+    assert.equal(fs.readFileSync(configPath, "utf8"), "{");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
   }
 });
 
