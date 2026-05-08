@@ -203,6 +203,23 @@ The sandbox image also preinstalls `gh`. When `gh auth token` succeeds on the ho
 
 `ai sandbox exec` and `ai sandbox refresh` reconcile Claude Code credentials in both directions across the host credential store and every sandbox project copy under `~/.agent-infra/credentials/*`. When a long-running sandbox refreshes OAuth tokens first, the next entry or refresh command writes the freshest valid copy back to the host Keychain or `~/.claude/.credentials.json`; when the host is fresher, it updates the project copies. If every copy is stale, `ai sandbox refresh` probes `claude /status` and asks you to log in only when the probe cannot recover credentials.
 
+### Host-sandbox file exchange
+
+`ai sandbox create` mounts two writable directories for dropping files between
+the host and the sandbox without polluting the git worktree:
+
+- `/share/common` <- `~/.agent-infra/share/<project>/common/` - visible to every
+  sandbox of the same project, regardless of branch.
+- `/share/branch` <- `~/.agent-infra/share/<project>/branches/<branch>/` -
+  exclusive to the current branch sandbox.
+
+These paths are intentionally hardcoded; there is no `.airc.json` knob. Both
+host directories are created automatically on first `create`. When you
+`ai sandbox rm <branch>` or `ai sandbox rm --all`, you will be prompted (default
+yes) to clean up the corresponding share dirs alongside the worktrees.
+Existing sandboxes pick up these mounts after `ai sandbox rm <branch>` and
+`ai sandbox create <branch>`.
+
 <a id="architecture-overview"></a>
 
 ## Architecture Overview
