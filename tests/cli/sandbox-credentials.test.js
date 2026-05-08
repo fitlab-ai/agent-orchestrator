@@ -548,7 +548,13 @@ test("reconcileClaudeCredentials picks the freshest credentials across multiple 
   }
 });
 
-test("reconcileClaudeCredentials keeps host authoritative when host expiresAt is unknown", async () => {
+test("reconcileClaudeCredentials keeps host authoritative but does not overwrite mount when host expiresAt is unknown", async () => {
+  // Host is selected as authoritative (chooseAuthoritativeEndpoint early-returns
+  // host when its expiresAt is non-numeric) but shouldWriteEndpoint stays
+  // conservative: it refuses to overwrite a mount that is already OK with a
+  // numeric expiresAt, because the host blob may be leaner (missing fields like
+  // subscriptionType). A real rotation will produce a strictly larger expiresAt
+  // and let the right side win cleanly next time.
   const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-reconcile-host-unknown-expiry-"));
   const hostBlob = validBlob({ accessToken: "host", expiresAt: undefined });
@@ -568,8 +574,8 @@ test("reconcileClaudeCredentials keeps host authoritative when host expiresAt is
 
     assert.equal(result.status, "OK");
     assert.equal(result.authoritative, "host");
-    assert.deepEqual(result.filesWritten, ["demo"]);
-    assert.equal(fs.readFileSync(filePath, "utf8"), hostBlob);
+    assert.deepEqual(result.filesWritten, []);
+    assert.equal(fs.readFileSync(filePath, "utf8"), fileBlob);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -707,6 +713,122 @@ test("reconcileClaudeCredentials reports missing when no endpoint exists", async
 
     assert.equal(result.status, "MISSING");
     assert.equal(result.authoritative, null);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("reconcileClaudeCredentials does not overwrite mount when host expiresAt is missing", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-reconcile-host-no-expires-"));
+  const hostBlob = JSON.stringify({
+    claudeAiOauth: {
+      accessToken: "host-access",
+      refreshToken: "host-refresh",
+      scopes: ["user:profile", "user:sessions:claude_code"]
+    }
+  });
+  const fileBlob = validBlob({ accessToken: "file-access", expiresAt: 999_999_999_999 });
+  const hostPath = path.join(tmpDir, ".claude", ".credentials.json");
+  const filePath = path.join(tmpDir, ".agent-infra", "credentials", "demo", "claude-code", ".credentials.json");
+
+  try {
+    fs.mkdirSync(path.dirname(hostPath), { recursive: true });
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(hostPath, hostBlob, "utf8");
+    fs.writeFileSync(filePath, fileBlob, "utf8");
+
+    const result = withPlatform("linux", () => credentials.reconcileClaudeCredentials(tmpDir, {
+      projects: ["demo"]
+    }));
+
+    assert.equal(result.status, "OK");
+    assert.deepEqual(result.filesWritten, []);
+    assert.equal(result.hostWritten, false);
+    assert.equal(fs.readFileSync(filePath, "utf8"), fileBlob);
+    assert.equal(fs.readFileSync(hostPath, "utf8"), hostBlob);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("reconcileClaudeCredentials does not overwrite mount when host expiresAt is a non-numeric value", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-reconcile-host-string-expires-"));
+  const hostBlob = JSON.stringify({
+    claudeAiOauth: {
+      accessToken: "host-access",
+      refreshToken: "host-refresh",
+      scopes: ["user:profile", "user:sessions:claude_code"],
+      expiresAt: "1778233047257"
+    }
+  });
+  const fileBlob = validBlob({ accessToken: "file-access", expiresAt: 1778233047257 });
+  const hostPath = path.join(tmpDir, ".claude", ".credentials.json");
+  const filePath = path.join(tmpDir, ".agent-infra", "credentials", "demo", "claude-code", ".credentials.json");
+
+  try {
+    fs.mkdirSync(path.dirname(hostPath), { recursive: true });
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(hostPath, hostBlob, "utf8");
+    fs.writeFileSync(filePath, fileBlob, "utf8");
+
+    const result = withPlatform("linux", () => credentials.reconcileClaudeCredentials(tmpDir, {
+      projects: ["demo"]
+    }));
+
+    assert.equal(result.status, "OK");
+    assert.deepEqual(result.filesWritten, []);
+    assert.equal(result.hostWritten, false);
+    assert.equal(fs.readFileSync(filePath, "utf8"), fileBlob);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("reconcileClaudeCredentials preserves mount subscriptionType when host blob is leaner (production incident regression)", async () => {
+  // Regression for the manual verification incident: host Keychain held a blob
+  // missing subscriptionType, the mount file held the full blob with
+  // subscriptionType=max, and reconcile was overwriting the mount with the
+  // leaner host blob — silently downgrading the user from max tier.
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-reconcile-prod-incident-"));
+  const hostBlob = JSON.stringify({
+    claudeAiOauth: {
+      accessToken: "shared-access",
+      refreshToken: "shared-refresh",
+      scopes: ["user:profile", "user:sessions:claude_code"],
+      expiresAt: "1778233047257"
+    }
+  });
+  const fileBlob = JSON.stringify({
+    claudeAiOauth: {
+      accessToken: "shared-access",
+      refreshToken: "shared-refresh",
+      scopes: ["user:profile", "user:sessions:claude_code"],
+      expiresAt: 1778233047257,
+      subscriptionType: "max",
+      rateLimitTier: "tier-3"
+    }
+  });
+  const hostPath = path.join(tmpDir, ".claude", ".credentials.json");
+  const filePath = path.join(tmpDir, ".agent-infra", "credentials", "agent-infra", "claude-code", ".credentials.json");
+
+  try {
+    fs.mkdirSync(path.dirname(hostPath), { recursive: true });
+    fs.mkdirSync(path.dirname(filePath), { recursive: true });
+    fs.writeFileSync(hostPath, hostBlob, "utf8");
+    fs.writeFileSync(filePath, fileBlob, "utf8");
+
+    const result = withPlatform("linux", () => credentials.reconcileClaudeCredentials(tmpDir, {
+      projects: ["agent-infra"]
+    }));
+
+    assert.equal(result.status, "OK");
+    assert.deepEqual(result.filesWritten, []);
+    const mountAfter = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    assert.equal(mountAfter.claudeAiOauth.subscriptionType, "max");
+    assert.equal(mountAfter.claudeAiOauth.rateLimitTier, "tier-3");
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
