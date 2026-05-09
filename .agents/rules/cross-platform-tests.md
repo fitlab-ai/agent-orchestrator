@@ -27,9 +27,9 @@ test("restoreTerminal does not throw when stty is unavailable", () => {
 
 不要再新增 `e2eOnPlatforms()`、`unitOnly()`、`skipOnWindows()` 等别名。`onPlatforms()` 是唯一的整条测试平台守卫 helper。
 
-## 2. 同一条测试覆盖多平台行为差异
+## 2. 同一条测试覆盖多平台行为差异（含其调用的 helper）
 
-同一条测试需要在多个平台运行，并断言不同平台的不同结果时，可以在测试体内读取 `process.platform`。这种分支必须用于断言或 fixture 构造，不得用于跳过整条测试。
+同一条测试需要在多个平台运行，并断言不同平台的不同结果时，可以在测试体内或其调用的共享 helper / fixture 函数内部读取 `process.platform`。这种分支必须用于断言、构造或资源 setup，不得用于跳过整条测试。
 
 ✅ 推荐：
 
@@ -38,6 +38,18 @@ if (process.platform === "darwin") {
   assert.equal(readKeychain(), expected);
 } else {
   assert.equal(fs.readFileSync(credentialsPath, "utf8"), expected);
+}
+```
+
+✅ helper / fixture 内的合法分支：
+
+```js
+function writeFakeGh(filePathname) {
+  if (process.platform === "win32") {
+    writeNodeCommandShim(filePathname, filePathname);
+    return;
+  }
+  fs.chmodSync(filePathname, 0o755);
 }
 ```
 

@@ -58,6 +58,7 @@ node --test tests/cli/*.test.js tests/templates/*.test.js tests/core/*.test.js t
 
 1. **禁止关键词语义断言**：不要通过匹配自然语言措辞来验证 skill 文档内容（如 `assert.match(content, /某段具体描述/)`）。SKILL.md 的文案会频繁调整，绑定措辞的测试极其脆弱。只做结构性检查：frontmatter 合法性、步骤编号连续、引用完整性、体积阈值等。
 2. **禁止反向删除断言**：已删除的功能不需要断言其不存在（如 `assert.doesNotMatch(content, /removedField/)`）。删除即彻底删除，不要用测试永久记住一个不再存在的概念，否则会形成无止境的测试债务。
+3. **平台守卫只走 helper**：跨平台测试的「整条是否运行」判定必须通过 `tests/helpers.js` 的 `onPlatforms()` 表达，不得在测试体内写 `if (process.platform === ...) return;` 早返回。同测试体内覆盖多平台行为差异（断言/构造分支）、运行时回退（如 EPERM）属于合法用例。详见 `.agents/rules/cross-platform-tests.md`。
 
 ## 提交与 PR 规范
 
