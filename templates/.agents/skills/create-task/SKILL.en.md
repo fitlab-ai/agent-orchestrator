@@ -109,7 +109,7 @@ The rule's content is determined by the configured code platform:
 
 Handle the result:
 - Rule successfully created the Issue: `issue_number` has been written back to task.md per the rule; continue by reading `.agents/rules/issue-sync.md`, completing upstream repository and permission detection, then sync the task comment and set `status: waiting-for-triage` by rule
-- Rule failed (auth / network / template parse / etc.): do not roll back task.md; get the current time and append an `Issue Creation Skipped` Activity Log entry with the reason
+- Rule failed (auth / network / template parse / etc.): do not roll back task.md; do NOT append an extra Activity Log entry; follow "Scenario C: Issue creation failed" output to surface `error_code` and `error_message` to the user so they can decide whether to retry manually or write `issue_number` later
 - Rule was a no-op (custom or empty platform): do not create comments, do not block the workflow, and do not write an Activity Log entry
 - task.md already has `issue_number`: the rule's prerequisite check skips creation; `create-task` proceeds directly to step 5
 

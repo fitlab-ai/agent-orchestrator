@@ -428,6 +428,94 @@ test("validate-artifact create-task task-meta rejects invalid branch naming", ()
   }
 });
 
+test("validate-artifact activity-log passes for create-task happy path with Issue created", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-create-task-activity-pass-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+
+  try {
+    const now = formatTimestamp(new Date());
+    write(path.join(taskDir, "task.md"), [
+      buildTaskFrontmatter({
+        branch: "agent-infra-refactor-create-task-gate",
+        current_step: "requirement-analysis",
+        issue_number: 296,
+        updated_at: now
+      }),
+      "",
+      "# 任务：创建任务",
+      "",
+      "## 活动日志",
+      "",
+      `- ${now} — **Task Created** by codex — Task created from description`
+    ].join("\n"));
+
+    const result = runValidator(["check", "activity-log", taskDir, "--skill", "create-task"]);
+    assert.equal(result.status, 0, result.stderr);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact activity-log fails for create-task when Create Issue entry is appended", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-create-task-create-issue-fail-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+
+  try {
+    const now = formatTimestamp(new Date());
+    write(path.join(taskDir, "task.md"), [
+      buildTaskFrontmatter({
+        branch: "agent-infra-refactor-create-task-gate",
+        current_step: "requirement-analysis",
+        issue_number: 296,
+        updated_at: now
+      }),
+      "",
+      "# 任务：创建任务",
+      "",
+      "## 活动日志",
+      "",
+      `- ${now} — **Task Created** by codex — Task created from description`,
+      `- ${now} — **Create Issue** by codex — Created GitHub Issue #296`
+    ].join("\n"));
+
+    const result = runValidator(["check", "activity-log", taskDir, "--skill", "create-task"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /Latest action 'Create Issue' does not match/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
+test("validate-artifact activity-log fails for create-task when Issue Creation Skipped entry is appended", () => {
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-create-task-skipped-fail-"));
+  const taskDir = path.join(tempRoot, "TASK-20260328-000001");
+
+  try {
+    const now = formatTimestamp(new Date());
+    write(path.join(taskDir, "task.md"), [
+      buildTaskFrontmatter({
+        branch: "agent-infra-refactor-create-task-gate",
+        current_step: "requirement-analysis",
+        issue_number: "N/A",
+        updated_at: now
+      }),
+      "",
+      "# 任务：创建任务",
+      "",
+      "## 活动日志",
+      "",
+      `- ${now} — **Task Created** by codex — Task created from description`,
+      `- ${now} — **Issue Creation Skipped** by codex — GitHub Issue creation failed`
+    ].join("\n"));
+
+    const result = runValidator(["check", "activity-log", taskDir, "--skill", "create-task"]);
+    assert.equal(result.status, 1);
+    assert.match(result.stdout, /Latest action 'Issue Creation Skipped' does not match/);
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+});
+
 test("validate-artifact artifact check fails when a required section is missing", () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-gate-fail-"));
   const taskDir = path.join(tempRoot, "TASK-20260328-000001");
