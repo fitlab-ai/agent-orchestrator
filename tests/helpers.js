@@ -121,6 +121,16 @@ function assertModeBits(filePathname, expectedMode) {
   assertEqual(actualMode, expectedMode);
 }
 
+/**
+ * Restrict a node:test case to the listed Node.js process.platform values.
+ *
+ * Use this as the test options argument: test(name, onPlatforms("linux", "darwin"), fn).
+ * Allowed values are "linux", "darwin", and "win32". Do not use early returns
+ * such as `if (process.platform === "...") return;` to skip a whole test body.
+ *
+ * Branching on process.platform inside a test remains valid when the same test
+ * intentionally covers platform-specific assertions or fixture construction.
+ */
 function onPlatforms(...allowed) {
   return {
     skip: allowed.includes(process.platform)

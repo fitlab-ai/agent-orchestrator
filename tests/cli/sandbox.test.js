@@ -148,7 +148,7 @@ test("restoreTerminal is a no-op when stdout is not a TTY", () => {
   assert.equal(output, "");
 });
 
-test("restoreTerminal does not throw when stty is unavailable", { skip: process.platform === "win32" }, () => {
+test("restoreTerminal does not throw when stty is unavailable", onPlatforms("linux", "darwin"), () => {
   const output = withFakeStty(1, () => withTTY(true, () => captureStdoutWrite(() => {
     assert.doesNotThrow(() => restoreTerminal());
   })));
@@ -427,11 +427,7 @@ test("loadConfig fails when .agents/.airc.json is missing", async () => {
   }
 });
 
-test("loadConfig uses os.homedir on Windows when HOME is unset", async () => {
-  if (process.platform !== 'win32') {
-    return;
-  }
-
+test("loadConfig uses os.homedir on Windows when HOME is unset", onPlatforms("win32"), async () => {
   const sandboxConfig = await loadFreshEsm("lib/sandbox/config.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-userprofile-"));
   const previousCwd = process.cwd();
@@ -671,15 +667,11 @@ test("terminalEnvFlags omits unset variables instead of forwarding empty values"
   assert.deepEqual(flags, ["-e", "TERM_PROGRAM=iTerm.app"]);
 });
 
-test("sandbox exec enters tmux automatically for interactive shells", () => {
-  // On Windows, the engine is auto-detected as wsl2, so docker calls are
-  // routed through `wsl.exe -- docker ...` and bypass this test's docker.cmd
-  // shim. The wsl2 argv shape is covered separately by the commandForEngine
-  // wrapping test below.
-  if (process.platform === "win32") {
-    return;
-  }
-
+// On Windows, `lib/sandbox/engine.js` detectEngine forces the engine to wsl2,
+// so docker calls are routed through `wsl.exe -- docker ...` and bypass this
+// test's docker.cmd shim. Keep the shim for future enablement; commandForEngine
+// covers wsl2.
+test("sandbox exec enters tmux automatically for interactive shells", onPlatforms("linux", "darwin"), () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
@@ -762,11 +754,10 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
   }
 });
 
-test("sandbox exec reconciles newer Claude credentials from a neighbouring project", () => {
-  if (process.platform === "win32") {
-    return;
-  }
-
+// Windows currently routes docker calls through the wsl2 engine, so this test's
+// docker shim is bypassed. Non-darwin credential writes use the same file path
+// on Linux and Windows once the sandbox engine can be overridden in tests.
+test("sandbox exec reconciles newer Claude credentials from a neighbouring project", onPlatforms("linux", "darwin"), () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-credentials-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
