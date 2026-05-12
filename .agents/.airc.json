@@ -82,6 +82,8 @@
       "**/post-release.*",
       ".agents/skills/post-release/SKILL.*"
     ],
-    "ejected": []
+    "ejected": [
+      ".agents/rules/cross-platform-tests.md"
+    ]
   }
 }
