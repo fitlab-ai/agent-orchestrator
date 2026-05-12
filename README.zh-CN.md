@@ -295,7 +295,7 @@ Linux 直接使用宿主内核上的原生 Docker，没有受管 VM。`sandbox.v
 下列场景在本期未做主动验证：
 
 - **Rootless Docker**：后续跟踪 [#256](https://github.com/fitlab-ai/agent-infra/issues/256)。
-- 用 **Podman** 替代 Docker：Fedora 40+ 上通过 `podman-docker` shim 实验性支持（`sudo dnf install podman podman-docker`）。多数子命令可用，但 `ai sandbox ls` 在存在沙箱时仍会静默显示「No sandbox containers」——底层 Go 模板与 podman 不兼容。变通方式：用 `docker ps -a --filter "label=<project>.sandbox" --format '{{.Names}} {{index .Labels "<project>.sandbox.branch"}}'` 自行查询（将 `<project>` 替换为项目名；`{{.Names}}` 和 `{{index .Labels ...}}` 是 Go 模板字面量，请保持原样）。如需抑制每条命令前的「Emulate Docker CLI using podman」stderr 提示，运行 `sudo touch /etc/containers/nodocker`。完整的 pass/fail 矩阵见 [#257](https://github.com/fitlab-ai/agent-infra/issues/257)。
+- 用 **Podman** 替代 Docker：Fedora 40+ 上通过 `podman-docker` shim 已可使用（`sudo dnf install podman podman-docker`；可选 `sudo touch /etc/containers/nodocker` 抑制 podman 在每条命令前打印的提示）。
 - **SELinux enforcing** 宿主机（Fedora / RHEL）：`ai sandbox create` 会自动给 bind mount 加 Docker 共享 `:z` 标签，无需手动准备。如需排障可设 `AGENT_INFRA_SELINUX_DISABLE=1` 关闭。
 - `ai sandbox vm` 在 Linux 上是空操作。Linux 直接使用 native Docker，没有 VM 需要管理；请直接使用 `ai sandbox create`、`ai sandbox exec`、`ai sandbox refresh`、`ai sandbox ls`、`ai sandbox rebuild`、`ai sandbox rm`。
 

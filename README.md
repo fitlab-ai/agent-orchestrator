@@ -302,7 +302,7 @@ Linux uses native Docker on the host kernel, so there is no managed VM. `sandbox
 These configurations are not actively tested in this release:
 
 - **Rootless Docker**: Track [#256](https://github.com/fitlab-ai/agent-infra/issues/256).
-- **Podman** instead of Docker: Experimental via the `podman-docker` shim on Fedora 40+ (`sudo dnf install podman podman-docker`). Most subcommands work, but `ai sandbox ls` silently shows "No sandbox containers" even when sandboxes exist because the underlying Go template is incompatible with podman. Workaround: list sandboxes with `docker ps -a --filter "label=<project>.sandbox" --format '{{.Names}} {{index .Labels "<project>.sandbox.branch"}}'` (replace `<project>` with your project name; leave the `{{.Names}}` and `{{index .Labels ...}}` Go template literals as-is). To suppress the per-command "Emulate Docker CLI using podman" stderr line, run `sudo touch /etc/containers/nodocker`. See [#257](https://github.com/fitlab-ai/agent-infra/issues/257) for the full pass/fail matrix.
+- **Podman** instead of Docker: Works on Fedora 40+ via the `podman-docker` shim (`sudo dnf install podman podman-docker`; optionally `sudo touch /etc/containers/nodocker` to silence its per-command notice).
 - **SELinux-enforcing** hosts (Fedora / RHEL): `ai sandbox create` automatically labels bind mounts with Docker's shared `:z` flag — no setup required. Set `AGENT_INFRA_SELINUX_DISABLE=1` to opt out for debugging.
 - `ai sandbox vm` is a no-op on Linux. Linux uses native Docker directly with no VM to manage; use `ai sandbox create`, `ai sandbox exec`, `ai sandbox refresh`, `ai sandbox ls`, `ai sandbox rebuild`, `ai sandbox rm` directly.
 

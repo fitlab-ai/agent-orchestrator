@@ -4082,3 +4082,21 @@ test("resolveTaskBranch rejects missing task files and missing branch metadata",
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
+
+test("sandbox ls uses a docker/podman-compatible Go template", async () => {
+  const { containerListFormat } = await loadFreshEsm("lib/sandbox/commands/ls.js");
+  const fmt = containerListFormat("demo-project.sandbox");
+
+  assert.doesNotMatch(fmt, /\{\{\.Label\b/, "must not use the .Label method form");
+  assert.match(fmt, /\{\{index\s+\.Labels\s+"demo-project\.sandbox\.branch"\}\}/);
+  assert.doesNotMatch(fmt, /^table\s/, "must not use the table prefix");
+});
+
+test("sandbox ls format embeds Names and Status columns in stable order", async () => {
+  const { containerListFormat } = await loadFreshEsm("lib/sandbox/commands/ls.js");
+
+  assert.equal(
+    containerListFormat("proj.sandbox"),
+    '{{.Names}}\t{{.Status}}\t{{index .Labels "proj.sandbox.branch"}}'
+  );
+});
