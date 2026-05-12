@@ -23,9 +23,14 @@ on:
 
 jobs:
   sandbox-linux:
-    name: Linux native Docker sandbox lifecycle
+    name: Linux native Docker sandbox lifecycle (${{ matrix.mode }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.mode == 'rootless' }} # TODO(#256 follow-up): remove once rootless matrix has 3+ green runs.
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [rootful, rootless]
     permissions:
       contents: read
     steps:
@@ -43,6 +48,17 @@ jobs:
 
       - name: Link local CLI
         run: npm link
+
+      - name: Setup rootless Docker
+        if: matrix.mode == 'rootless'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y uidmap slirp4netns dbus-user-session
+          sudo systemctl disable --now docker docker.socket || true
+          dockerd-rootless-setuptool.sh install
+          echo "DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock" >> "$GITHUB_ENV"
+          export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
+          docker info
 
       - name: Prepare host state
         run: |

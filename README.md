@@ -297,11 +297,41 @@ agent-infra runs on macOS and Linux. The CLI itself only needs Node.js (>=22); c
 
 Linux uses native Docker on the host kernel, so there is no managed VM. `sandbox.vm.*` and the `--cpu / --memory` flags do not apply. To cap container resources, use `docker run --cpus / --memory` per container or configure host cgroups.
 
+#### Rootless Docker (optional)
+
+**Skip this section if you followed the Quick setup above.** The Quick setup installs the default rootful Docker, which works out of the box with `ai sandbox` — no extra configuration is required.
+
+Rootless Docker is a separate Docker installation where the daemon runs as your normal user instead of `root`. It is typically chosen on shared hosts, multi-tenant servers, or when a security policy forbids a root-owned daemon. If you have intentionally installed rootless Docker (or plan to), follow the steps below; otherwise stay with rootful.
+
+To install and verify rootless Docker:
+
+```bash
+sudo apt install -y uidmap slirp4netns dbus-user-session
+dockerd-rootless-setuptool.sh install
+systemctl --user enable --now docker
+export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
+docker info
+```
+
+Add the `DOCKER_HOST` export to your shell startup file after validation.
+
+When rootless Docker is detected, agent-infra builds the sandbox image with `HOST_UID=0` and `HOST_GID=0`. Inside the container the sandbox user can read bind mounts such as `~/.ssh` without relaxing host file permissions. On the host, the daemon and container processes still run under the current user, so this does not grant host root privileges.
+
+Known rootless differences:
+
+- Networking uses slirp4netns by default and can be slower than rootful bridge networking.
+- Processes run as UID 0 inside the container, unlike rootful Docker where agent-infra mirrors the host UID.
+- The CI rootless matrix is initially allowed to fail while runner stability is observed.
+
+Troubleshooting:
+
+- If `docker info` fails, check `systemctl --user status docker` and confirm `DOCKER_HOST` points at `$XDG_RUNTIME_DIR/docker.sock`.
+- If SSH files are still unreadable inside the sandbox, confirm the shell has not overridden `DOCKER_HOST` or Docker build arguments.
+
 #### Known limitations on Linux
 
 These configurations are not actively tested in this release:
 
-- **Rootless Docker**: Track [#256](https://github.com/fitlab-ai/agent-infra/issues/256).
 - **Podman** instead of Docker: Works on Fedora 40+ and other `dnf`-based RHEL family distros (RHEL, CentOS Stream, Rocky, Alma) via the `podman-docker` shim (`sudo dnf install podman podman-docker`; optionally `sudo touch /etc/containers/nodocker` to silence its per-command notice).
 - **SELinux-enforcing** hosts (Fedora / RHEL): `ai sandbox create` automatically labels bind mounts with Docker's shared `:z` flag — no setup required. Set `AGENT_INFRA_SELINUX_DISABLE=1` to opt out for debugging.
 - `ai sandbox vm` is a no-op on Linux. Linux uses native Docker directly with no VM to manage; use `ai sandbox create`, `ai sandbox exec`, `ai sandbox refresh`, `ai sandbox ls`, `ai sandbox rebuild`, `ai sandbox rm` directly.
