@@ -7,7 +7,10 @@ RUN if [ -z "${AI_TOOL_PACKAGES}" ]; then \
       echo "AI_TOOL_PACKAGES build arg is required"; \
       exit 1; \
     fi && \
-    npm install -g ${AI_TOOL_PACKAGES}
+    set -e && \
+    for pkg in ${AI_TOOL_PACKAGES}; do \
+      npm install -g "$pkg"; \
+    done
 
 RUN npm install -g pyright
 
