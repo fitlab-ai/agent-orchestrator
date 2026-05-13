@@ -486,6 +486,66 @@ test("composeDockerfile joins runtime fragments in order", async () => {
   }
 });
 
+// Intent: each package in AI_TOOL_PACKAGES gets its own `npm install -g <pkg>`
+// invocation, so npm's batch-install path (which drops platform-specific
+// optionalDependencies for `npm:` aliased packages — Issue #293) is not
+// triggered. This is a behavior test: we execute the dockerfile's RUN body
+// against a stubbed `npm` and a synthetic 3-package list, then assert each
+// package was installed at least once. Form-agnostic — accepts `for` loops,
+// `xargs -n1`, or any equivalent rewrite that preserves the semantic.
+test("composeDockerfile installs each AI tool package separately", onPlatforms("linux", "darwin"), async () => {
+  const sandboxDockerfile = await loadFreshEsm("lib/sandbox/dockerfile.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-ai-tools-loop-"));
+  const stubDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-npm-stub-"));
+
+  try {
+    const dockerfilePath = sandboxDockerfile.composeDockerfile({
+      repoRoot: tmpDir,
+      project: "demo",
+      runtimes: ["node20"],
+      dockerfile: null
+    });
+    const content = fs.readFileSync(dockerfilePath, "utf8");
+
+    const runBlock = content
+      .split(/^(?=FROM |USER |ENV |ARG |RUN |WORKDIR |CMD |COPY |ADD )/m)
+      .find((block) => block.startsWith("RUN ") && block.includes("AI_TOOL_PACKAGES"));
+    assert.ok(runBlock, "expected a RUN block consuming AI_TOOL_PACKAGES");
+
+    const shellBody = runBlock.replace(/^RUN\s+/, "").replace(/\\\n\s*/g, " ").trim();
+
+    const logFile = path.join(stubDir, "invocations.log");
+    const npmStub = path.join(stubDir, "npm");
+    fs.writeFileSync(npmStub, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${logFile}"\n`, { mode: 0o755 });
+
+    const packages = ["@acme/tool-a", "@acme/tool-b", "@acme/tool-c"];
+    const result = spawnSync("/bin/sh", ["-c", shellBody], {
+      env: {
+        ...process.env,
+        PATH: `${stubDir}:${process.env.PATH}`,
+        AI_TOOL_PACKAGES: packages.join(" ")
+      },
+      encoding: "utf8"
+    });
+
+    assert.equal(result.status, 0, `RUN body exited non-zero: ${result.stderr}`);
+    const invocations = fs.existsSync(logFile)
+      ? fs.readFileSync(logFile, "utf8").trim().split("\n").filter(Boolean)
+      : [];
+    const installedPackages = invocations
+      .map((line) => line.match(/^install -g (\S+)$/))
+      .filter(Boolean)
+      .map((m) => m[1]);
+    for (const pkg of packages) {
+      const count = installedPackages.filter((p) => p === pkg).length;
+      assert.ok(count >= 1, `expected ${pkg} to be installed by its own 'npm install -g <pkg>' invocation, got ${count} (invocations: ${JSON.stringify(invocations)})`);
+    }
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(stubDir, { recursive: true, force: true });
+  }
+});
+
 test("composeDockerfile includes gh CLI and bash_aliases sourcing", async () => {
   const sandboxDockerfile = await loadFreshEsm("lib/sandbox/dockerfile.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-gh-"));
