@@ -52,12 +52,33 @@ jobs:
       - name: Setup rootless Docker
         if: matrix.mode == 'rootless'
         run: |
+          set -euxo pipefail
           sudo apt-get update
-          sudo apt-get install -y uidmap slirp4netns dbus-user-session
-          sudo systemctl disable --now docker docker.socket || true
+          # docker-ce-rootless-extras ships dockerd-rootless-setuptool.sh; uidmap /
+          # slirp4netns / dbus-user-session are the runtime dependencies the
+          # setuptool checks for during install.
+          sudo apt-get install -y uidmap slirp4netns dbus-user-session docker-ce-rootless-extras
+          # Stop the preinstalled rootful daemon so its socket does not shadow
+          # the rootless one we are about to bring up.
+          sudo systemctl disable --now docker.service docker.socket || true
+          # systemd --user services die with the login session unless lingering
+          # is enabled, which keeps the user manager alive for the runner user.
+          sudo loginctl enable-linger "$USER"
+          # The setuptool needs XDG_RUNTIME_DIR (and the dbus user socket inside
+          # it) to be ready before invocation; the user manager may take a
+          # moment to materialise the runtime dir after enable-linger.
+          for _ in $(seq 1 30); do
+            [ -d "/run/user/$(id -u)" ] && break
+            sleep 1
+          done
+          export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
           dockerd-rootless-setuptool.sh install
-          echo "DOCKER_HOST=unix:///run/user/$(id -u)/docker.sock" >> "$GITHUB_ENV"
-          export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
+          DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/docker.sock"
+          echo "DOCKER_HOST=${DOCKER_HOST}" >> "$GITHUB_ENV"
+          echo "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" >> "$GITHUB_ENV"
+          export DOCKER_HOST
           docker info
 
       - name: Prepare host state
