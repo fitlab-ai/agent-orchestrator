@@ -63,6 +63,11 @@ jobs:
           sudo systemctl stop docker.service docker.socket || true
           sudo systemctl disable docker.service docker.socket || true
           sudo rm -f /var/run/docker.sock
+          # Ubuntu 23.10+ ships with apparmor_restrict_unprivileged_userns=1,
+          # which makes rootlesskit fail with `fork/exec /proc/self/exe:
+          # permission denied`. The runner is ephemeral so we relax the sysctl
+          # globally instead of authoring a dedicated AppArmor profile.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
           # systemd --user services die with the login session unless lingering
           # is enabled, which keeps the user manager alive for the runner user.
           sudo loginctl enable-linger "$USER"
