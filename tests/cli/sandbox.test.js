@@ -2373,6 +2373,37 @@ test("detectEngine rejects unsupported configured sandbox engines early", async 
   );
 });
 
+test("detectEngine throws an actionable error on unsupported platforms", async () => {
+  const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
+
+  assert.throws(
+    () => sandboxEngine.detectEngine({}, { platformFn: () => "freebsd" }),
+    (error) => {
+      assert.match(error.message, /freebsd/);
+      assert.match(error.message, /linux \(native\)/);
+      assert.match(error.message, /darwin \(colima/);
+      assert.match(error.message, /win32 \(wsl2\)/);
+      assert.match(error.message, /agent-infra\/issues\/new/);
+      return true;
+    }
+  );
+});
+
+test("isVmManaged returns false on unsupported platforms instead of throwing", async () => {
+  const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
+
+  assert.equal(sandboxEngine.isVmManaged({}, { platformFn: () => "freebsd" }), false);
+});
+
+test("isVmManaged keeps invalid sandbox engine config errors actionable", async () => {
+  const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
+
+  assert.throws(
+    () => sandboxEngine.isVmManaged({ engine: "podman" }, { platformFn: () => "darwin" }),
+    /Expected one of: null, colima, orbstack, docker-desktop.*only affects macOS/s
+  );
+});
+
 test("detectEngine returns Colima on macOS when no engine is configured", async () => {
   const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
   const dependencies = {
