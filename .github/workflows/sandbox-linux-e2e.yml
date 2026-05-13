@@ -54,10 +54,9 @@ jobs:
         run: |
           set -euxo pipefail
           sudo apt-get update
-          # docker-ce-rootless-extras ships dockerd-rootless-setuptool.sh; uidmap /
-          # slirp4netns / dbus-user-session are the runtime dependencies the
-          # setuptool checks for during install.
-          sudo apt-get install -y uidmap slirp4netns dbus-user-session docker-ce-rootless-extras
+          # uidmap / slirp4netns / dbus-user-session are the runtime dependencies
+          # the rootless setup script checks for during install.
+          sudo apt-get install -y uidmap slirp4netns dbus-user-session
           # Stop the preinstalled rootful daemon so its socket does not shadow
           # the rootless one we are about to bring up.
           sudo systemctl disable --now docker.service docker.socket || true
@@ -73,6 +72,13 @@ jobs:
           done
           export XDG_RUNTIME_DIR="/run/user/$(id -u)"
           export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+          # Install the rootless Docker tarball under ~/bin (includes
+          # dockerd-rootless-setuptool.sh). docker-ce-rootless-extras is not in
+          # the apt repos available on ubuntu-latest, so use the official curl
+          # bootstrap as Docker's docs recommend for that case.
+          curl -fsSL https://get.docker.com/rootless | sh
+          export PATH="$HOME/bin:$PATH"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
           dockerd-rootless-setuptool.sh install
           DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/docker.sock"
           echo "DOCKER_HOST=${DOCKER_HOST}" >> "$GITHUB_ENV"
