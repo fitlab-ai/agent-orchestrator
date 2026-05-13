@@ -57,9 +57,12 @@ jobs:
           # uidmap / slirp4netns / dbus-user-session are the runtime dependencies
           # the rootless setup script checks for during install.
           sudo apt-get install -y uidmap slirp4netns dbus-user-session
-          # Stop the preinstalled rootful daemon so its socket does not shadow
-          # the rootless one we are about to bring up.
-          sudo systemctl disable --now docker.service docker.socket || true
+          # Stop and disable the preinstalled rootful daemon and remove its
+          # stale socket, otherwise the get.docker.com installer aborts with
+          # "rootful Docker is running and accessible".
+          sudo systemctl stop docker.service docker.socket || true
+          sudo systemctl disable docker.service docker.socket || true
+          sudo rm -f /var/run/docker.sock
           # systemd --user services die with the login session unless lingering
           # is enabled, which keeps the user manager alive for the runner user.
           sudo loginctl enable-linger "$USER"
@@ -76,7 +79,9 @@ jobs:
           # dockerd-rootless-setuptool.sh). docker-ce-rootless-extras is not in
           # the apt repos available on ubuntu-latest, so use the official curl
           # bootstrap as Docker's docs recommend for that case.
-          curl -fsSL https://get.docker.com/rootless | sh
+          # FORCE_ROOTLESS_INSTALL bypasses the safety check in case any rootful
+          # docker residue (e.g. cached socket) is still detectable.
+          curl -fsSL https://get.docker.com/rootless | FORCE_ROOTLESS_INSTALL=1 sh
           export PATH="$HOME/bin:$PATH"
           echo "$HOME/bin" >> "$GITHUB_PATH"
           dockerd-rootless-setuptool.sh install
