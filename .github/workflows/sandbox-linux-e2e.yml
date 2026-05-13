@@ -23,9 +23,14 @@ on:
 
 jobs:
   sandbox-linux:
-    name: Linux native Docker sandbox lifecycle
+    name: Linux native Docker sandbox lifecycle (${{ matrix.mode }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.mode == 'rootless' }} # TODO(#256 follow-up): remove once rootless matrix has 3+ green runs.
     timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [rootful, rootless]
     permissions:
       contents: read
     steps:
@@ -43,6 +48,54 @@ jobs:
 
       - name: Link local CLI
         run: npm link
+
+      - name: Setup rootless Docker
+        if: matrix.mode == 'rootless'
+        run: |
+          set -euxo pipefail
+          sudo apt-get update
+          # uidmap / slirp4netns / dbus-user-session are the runtime dependencies
+          # the rootless setup script checks for during install.
+          sudo apt-get install -y uidmap slirp4netns dbus-user-session
+          # Stop and disable the preinstalled rootful daemon and remove its
+          # stale socket, otherwise the get.docker.com installer aborts with
+          # "rootful Docker is running and accessible".
+          sudo systemctl stop docker.service docker.socket || true
+          sudo systemctl disable docker.service docker.socket || true
+          sudo rm -f /var/run/docker.sock
+          # Ubuntu 23.10+ ships with apparmor_restrict_unprivileged_userns=1,
+          # which makes rootlesskit fail with `fork/exec /proc/self/exe:
+          # permission denied`. The runner is ephemeral so we relax the sysctl
+          # globally instead of authoring a dedicated AppArmor profile.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          # systemd --user services die with the login session unless lingering
+          # is enabled, which keeps the user manager alive for the runner user.
+          sudo loginctl enable-linger "$USER"
+          # The setuptool needs XDG_RUNTIME_DIR (and the dbus user socket inside
+          # it) to be ready before invocation; the user manager may take a
+          # moment to materialise the runtime dir after enable-linger.
+          for _ in $(seq 1 30); do
+            [ -d "/run/user/$(id -u)" ] && break
+            sleep 1
+          done
+          export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+          # Install the rootless Docker tarball under ~/bin (includes
+          # dockerd-rootless-setuptool.sh). docker-ce-rootless-extras is not in
+          # the apt repos available on ubuntu-latest, so use the official curl
+          # bootstrap as Docker's docs recommend for that case.
+          # FORCE_ROOTLESS_INSTALL bypasses the safety check in case any rootful
+          # docker residue (e.g. cached socket) is still detectable.
+          curl -fsSL https://get.docker.com/rootless | FORCE_ROOTLESS_INSTALL=1 sh
+          export PATH="$HOME/bin:$PATH"
+          echo "$HOME/bin" >> "$GITHUB_PATH"
+          dockerd-rootless-setuptool.sh install
+          DOCKER_HOST="unix://${XDG_RUNTIME_DIR}/docker.sock"
+          echo "DOCKER_HOST=${DOCKER_HOST}" >> "$GITHUB_ENV"
+          echo "XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR}" >> "$GITHUB_ENV"
+          echo "DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}" >> "$GITHUB_ENV"
+          export DOCKER_HOST
+          docker info
 
       - name: Prepare host state
         run: |

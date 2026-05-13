@@ -290,11 +290,41 @@ agent-infra 支持 macOS 和 Linux。CLI 本身只需要 Node.js (>=22)；容器
 
 Linux 直接使用宿主内核上的原生 Docker，没有受管 VM。`sandbox.vm.*` 与 `--cpu / --memory` 标志均不生效。如需限制容器资源，请用 `docker run --cpus / --memory` 设置单容器限制，或配置宿主 cgroups。
 
+#### Rootless Docker（可选）
+
+**如果你已按上面的 Quick setup 装好 rootful Docker，跳过本节即可。** Quick setup 装的就是默认的 rootful Docker，`ai sandbox` 开箱可用，不需要任何额外配置。
+
+Rootless Docker 是一种另起一套的 Docker 安装方式：daemon 以你的普通用户身份运行，而不是 root。它通常用在共享主机、多租户服务器，或安全策略禁止 root 守护进程的场景。如果你**主动选择**安装了 rootless Docker（或打算这么做），按下面的步骤配置；否则继续用 rootful 就好。
+
+安装并验证 rootless Docker：
+
+```bash
+sudo apt install -y uidmap slirp4netns dbus-user-session
+dockerd-rootless-setuptool.sh install
+systemctl --user enable --now docker
+export DOCKER_HOST="unix:///run/user/$(id -u)/docker.sock"
+docker info
+```
+
+验证通过后，请把 `DOCKER_HOST` export 写入 shell 启动文件。
+
+agent-infra 检测到 rootless Docker 后，会用 `HOST_UID=0` 和 `HOST_GID=0` 构建 sandbox 镜像。这样容器内 sandbox 用户可以读取 `~/.ssh` 等 bind mount，无需放宽宿主文件权限。在宿主侧，daemon 和容器进程仍以当前用户身份运行，不会获得宿主 root 权限。
+
+Rootless 模式的已知差异：
+
+- 网络默认使用 slirp4netns，可能比 rootful bridge 网络慢。
+- 容器内进程以 UID 0 运行；rootful Docker 下 agent-infra 仍会镜像宿主 UID。
+- CI rootless matrix 初期允许失败，用于观察 GitHub runner 稳定性。
+
+排障：
+
+- 如果 `docker info` 失败，请检查 `systemctl --user status docker`，并确认 `DOCKER_HOST` 指向 `$XDG_RUNTIME_DIR/docker.sock`。
+- 如果 sandbox 内仍无法读取 SSH 文件，请确认 shell 没有覆盖 `DOCKER_HOST` 或 Docker build args。
+
 #### Linux 已知限制
 
 下列场景在本期未做主动验证：
 
-- **Rootless Docker**：后续跟踪 [#256](https://github.com/fitlab-ai/agent-infra/issues/256)。
 - 用 **Podman** 替代 Docker：Fedora 40+ 及其他 `dnf` 系 RHEL 发行版（RHEL、CentOS Stream、Rocky、Alma）上通过 `podman-docker` shim 已可使用（`sudo dnf install podman podman-docker`；可选 `sudo touch /etc/containers/nodocker` 抑制 podman 在每条命令前打印的提示）。
 - **SELinux enforcing** 宿主机（Fedora / RHEL）：`ai sandbox create` 会自动给 bind mount 加 Docker 共享 `:z` 标签，无需手动准备。如需排障可设 `AGENT_INFRA_SELINUX_DISABLE=1` 关闭。
 - `ai sandbox vm` 在 Linux 上是空操作。Linux 直接使用 native Docker，没有 VM 需要管理；请直接使用 `ai sandbox create`、`ai sandbox exec`、`ai sandbox refresh`、`ai sandbox ls`、`ai sandbox rebuild`、`ai sandbox rm`。

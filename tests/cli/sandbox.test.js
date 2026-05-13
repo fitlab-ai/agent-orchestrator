@@ -1680,6 +1680,9 @@ test("buildImage uses verbose docker build output while keeping host UID/GID loo
         }
         throw new Error(`unexpected quiet command: ${actualCmd} ${actualArgs.join(" ")}`);
       },
+      runSafeFn() {
+        return "";
+      },
       runVerboseFn(engine, cmd, args, opts) {
         calls.push({ type: "verbose", engine, cmd, args, opts });
       }
@@ -2002,6 +2005,9 @@ test("buildImage forwards HOST_UID=0 and HOST_GID=0 unchanged when host runs as 
         }
         throw new Error(`unexpected quiet command: ${cmd} ${args.join(" ")}`);
       },
+      runSafeFn() {
+        return "";
+      },
       runVerboseFn(engine, cmd, args, opts) {
         calls.push({ type: "verbose", engine, cmd, args, opts });
       }
@@ -2018,6 +2024,75 @@ test("buildImage forwards HOST_UID=0 and HOST_GID=0 unchanged when host runs as 
   assert.equal(calls[2].cmd, "docker");
   assert.equal(calls[2].opts.cwd, "/repo");
   assert.deepEqual(calls[2].args.slice(0, 7), [
+    "build",
+    "-t",
+    "demo-sandbox:latest",
+    "--build-arg",
+    "HOST_UID=0",
+    "--build-arg",
+    "HOST_GID=0"
+  ]);
+});
+
+test("isRootlessDocker returns true when DOCKER_HOST points at rootless socket", async () => {
+  const { isRootlessDocker } = await loadFreshEsm("lib/sandbox/engines/native.js");
+
+  assert.equal(
+    isRootlessDocker({ env: { DOCKER_HOST: "unix:///run/user/1000/docker.sock" } }),
+    true
+  );
+});
+
+test("isRootlessDocker falls back to docker info SecurityOptions", async () => {
+  const { isRootlessDocker } = await loadFreshEsm("lib/sandbox/engines/native.js");
+
+  assert.equal(
+    isRootlessDocker({
+      env: {},
+      runSafe(cmd, args) {
+        assert.equal(cmd, "docker");
+        assert.deepEqual(args, ["info", "--format", "{{.SecurityOptions}}"]);
+        return "[name=rootless,name=seccomp=builtin]";
+      }
+    }),
+    true
+  );
+});
+
+test("buildImage rewrites HOST_UID and HOST_GID to 0 when Docker is rootless", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const calls = [];
+
+  sandboxCreate.buildImage(
+    { project: "demo", imageName: "demo-sandbox:latest", repoRoot: "/repo" },
+    [{ npmPackage: "@acme/tool" }],
+    "/tmp/Dockerfile",
+    "sig-123",
+    {
+      engine: "native",
+      runFn(engine, cmd, args) {
+        calls.push({ type: "run", engine, cmd, args });
+        if (cmd === "id" && args[0] === "-u") {
+          return "1000";
+        }
+        if (cmd === "id" && args[0] === "-g") {
+          return "1000";
+        }
+        throw new Error(`unexpected quiet command: ${cmd} ${args.join(" ")}`);
+      },
+      runSafeFn() {
+        return "";
+      },
+      runVerboseFn(engine, cmd, args, opts) {
+        calls.push({ type: "verbose", engine, cmd, args, opts });
+      },
+      env: { DOCKER_HOST: "unix:///run/user/1000/docker.sock" }
+    }
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].type, "verbose");
+  assert.deepEqual(calls[0].args.slice(0, 7), [
     "build",
     "-t",
     "demo-sandbox:latest",
@@ -2645,7 +2720,11 @@ test("ensureDocker throws native daemon-down hint when docker info fails and ver
       },
       runSafeFn(cmd, args) {
         assert.equal(cmd, "docker");
-        assert.deepEqual(args, ["version", "--format", "{{.Server.Version}}"]);
+        if (args[0] === "version") {
+          assert.deepEqual(args, ["version", "--format", "{{.Server.Version}}"]);
+          return "";
+        }
+        assert.deepEqual(args, ["info", "--format", "{{.SecurityOptions}}"]);
         return "";
       }
     }),
@@ -2655,6 +2734,70 @@ test("ensureDocker throws native daemon-down hint when docker info fails and ver
     ["which", "docker"],
     ["docker", "info"]
   ]);
+});
+
+test("ensureDocker uses rootless-specific hint when rootless daemon is unreachable", async () => {
+  const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
+  const previousDockerHost = process.env.DOCKER_HOST;
+  process.env.DOCKER_HOST = "unix:///run/user/1000/docker.sock";
+
+  try {
+    await assert.rejects(
+      () => sandboxEngine.ensureDocker({}, null, {
+        platformFn: () => "linux",
+        runOkFn(cmd, args) {
+          if (cmd === "which") {
+            return true;
+          }
+          if (cmd === "docker" && args[0] === "info") {
+            return false;
+          }
+          throw new Error(`unexpected check: ${cmd} ${args.join(" ")}`);
+        },
+        runSafeFn(cmd, args) {
+          assert.equal(cmd, "docker");
+          assert.deepEqual(args, ["version", "--format", "{{.Server.Version}}"]);
+          return "";
+        }
+      }),
+      /rootless daemon[\s\S]*systemctl --user/
+    );
+  } finally {
+    if (previousDockerHost === undefined) {
+      delete process.env.DOCKER_HOST;
+    } else {
+      process.env.DOCKER_HOST = previousDockerHost;
+    }
+  }
+});
+
+test("ensureDocker uses rootless permission hint when version succeeds but info fails", async () => {
+  const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
+
+  await assert.rejects(
+    () => sandboxEngine.ensureDocker({}, null, {
+      platformFn: () => "linux",
+      runOkFn(cmd, args) {
+        if (cmd === "which") {
+          return true;
+        }
+        if (cmd === "docker" && args[0] === "info") {
+          return false;
+        }
+        throw new Error(`unexpected check: ${cmd} ${args.join(" ")}`);
+      },
+      runSafeFn(cmd, args) {
+        assert.equal(cmd, "docker");
+        if (args[0] === "version") {
+          assert.deepEqual(args, ["version", "--format", "{{.Server.Version}}"]);
+          return "25.0.0";
+        }
+        assert.deepEqual(args, ["info", "--format", "{{.SecurityOptions}}"]);
+        return "[name=rootless,name=seccomp=builtin]";
+      }
+    }),
+    /docker info failed[\s\S]*XDG_RUNTIME_DIR/
+  );
 });
 
 test("ensureDocker throws native permission hint when docker info fails but version succeeds", async () => {
@@ -2674,8 +2817,12 @@ test("ensureDocker throws native permission hint when docker info fails but vers
       },
       runSafeFn(cmd, args) {
         assert.equal(cmd, "docker");
-        assert.deepEqual(args, ["version", "--format", "{{.Server.Version}}"]);
-        return "25.0.0";
+        if (args[0] === "version") {
+          assert.deepEqual(args, ["version", "--format", "{{.Server.Version}}"]);
+          return "25.0.0";
+        }
+        assert.deepEqual(args, ["info", "--format", "{{.SecurityOptions}}"]);
+        return "";
       }
     }),
     /lack permission[\s\S]*usermod -aG docker/
