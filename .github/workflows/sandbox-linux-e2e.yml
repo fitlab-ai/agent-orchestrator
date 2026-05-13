@@ -149,3 +149,96 @@ jobs:
           git -C /tmp/test-repo worktree remove --force "$HOME/.agent-infra/worktrees/linux-e2e/test-branch" 2>/dev/null || true
           git -C /tmp/test-repo branch -D test-branch 2>/dev/null || true
           rm -rf "$HOME/.agent-infra/worktrees/linux-e2e" "$HOME/.agent-infra/sandboxes"
+
+  sandbox-linux-debian:
+    name: Linux native Docker sandbox lifecycle (debian-12)
+    runs-on: ubuntu-latest
+    # TODO(#159 follow-up): remove continue-on-error after 3+ green runs.
+    continue-on-error: true
+    timeout-minutes: 20
+    container:
+      image: debian:12-slim
+      volumes:
+        - /var/run/docker.sock:/var/run/docker.sock
+        - /home/runner/work:/home/runner/work
+    env:
+      HOME: /home/runner/work/_temp/debian-home
+      DEBIAN_TEST_REPO: /home/runner/work/${{ github.event.repository.name }}/${{ github.event.repository.name }}/test-repo
+    permissions:
+      contents: read
+    steps:
+      - name: Install host prerequisites
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            ca-certificates curl git xz-utils docker.io
+
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Link local CLI
+        run: npm link
+
+      - name: Prepare host state
+        # Keep in sync with sandbox-linux job lifecycle.
+        run: |
+          mkdir -p "$HOME/.claude"
+          cat > "$HOME/.claude/.credentials.json" <<'JSON'
+          {
+            "accessToken": "stub-access-token",
+            "refreshToken": "stub-refresh-token",
+            "expiresAt": "2999-01-01T00:00:00.000Z",
+            "scopes": ["user:profile", "user:sessions:claude_code"]
+          }
+          JSON
+
+      - name: Prepare test repository
+        # Keep in sync with sandbox-linux job lifecycle.
+        run: |
+          mkdir -p "$DEBIAN_TEST_REPO/.agents"
+          cd "$DEBIAN_TEST_REPO"
+          git init
+          git config user.name "agent-infra CI"
+          git config user.email "agent-infra-ci@example.com"
+          git branch -M main
+          cat > .agents/.airc.json <<'JSON'
+          {
+            "project": "linux-e2e",
+            "org": "fitlab-ai",
+            "sandbox": {
+              "runtimes": ["node20"],
+              "tools": ["claude-code"]
+            }
+          }
+          JSON
+          printf '# linux e2e\n' > README.md
+          git add README.md .agents/.airc.json
+          git commit -m "chore: prepare linux sandbox e2e fixture"
+
+      - name: Run sandbox lifecycle
+        working-directory: ${{ env.DEBIAN_TEST_REPO }}
+        run: |
+          docker info
+          ai sandbox create test-branch main
+          ai sandbox ls
+          container="$(docker ps --filter "label=linux-e2e.sandbox.branch=test-branch" --format '{{.Names}}' | head -n 1)"
+          test -n "$container"
+          docker exec "$container" sh -lc 'echo hello && node --version'
+
+      - name: Cleanup sandbox artifacts
+        if: always()
+        run: |
+          docker ps -aq --filter "label=linux-e2e.sandbox" | xargs -r docker rm -f
+          docker images -q --filter "label=linux-e2e.sandbox" | xargs -r docker rmi -f
+          git -C "$DEBIAN_TEST_REPO" worktree remove --force "$HOME/.agent-infra/worktrees/linux-e2e/test-branch" 2>/dev/null || true
+          git -C "$DEBIAN_TEST_REPO" branch -D test-branch 2>/dev/null || true
+          rm -rf "$HOME/.agent-infra/worktrees/linux-e2e" "$HOME/.agent-infra/sandboxes"
