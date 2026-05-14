@@ -3045,6 +3045,35 @@ test("hostHasGpgKeys reports whether the host keyring is available", async () =>
   }), false);
 });
 
+test("ensureShellConfigSymlinks runs a single docker exec wiring all four $HOME entries", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const calls = [];
+  const fakeExec = (engine, cmd, args) => {
+    calls.push({ engine, cmd, args });
+    return "";
+  };
+
+  sandboxCreate.ensureShellConfigSymlinks("docker", "agent-infra-dev-demo", fakeExec);
+
+  assert.equal(calls.length, 1, "single docker exec");
+  assert.equal(calls[0].engine, "docker");
+  assert.equal(calls[0].cmd, "docker");
+  assert.deepEqual(calls[0].args.slice(0, 4), [
+    "exec",
+    "agent-infra-dev-demo",
+    "bash",
+    "-lc"
+  ]);
+  const script = calls[0].args[4];
+  for (const file of [".gitconfig", ".gitignore_global", ".stCommitMsg", ".bash_aliases"]) {
+    assert.match(
+      script,
+      new RegExp(`ln -sf \\.host-shell-config/${file.replace(".", "\\.")} /home/devuser/${file.replace(".", "\\.")}`),
+      `script wires ${file}`
+    );
+  }
+});
+
 test("prepareHostShellConfig writes sanitized config files and returns read-only mount metadata", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-host-shell-config-"));
@@ -3078,22 +3107,17 @@ test("prepareHostShellConfig writes sanitized config files and returns read-only
     );
     assert.deepEqual(prepared.mounts, [
       {
-        hostPath: path.join(prepared.hostDir, ".gitconfig"),
-        containerPath: "/home/devuser/.gitconfig"
-      },
-      {
-        hostPath: path.join(prepared.hostDir, ".gitignore_global"),
-        containerPath: "/home/devuser/.gitignore_global"
-      },
-      {
-        hostPath: path.join(prepared.hostDir, ".stCommitMsg"),
-        containerPath: "/home/devuser/.stCommitMsg"
-      },
-      {
-        hostPath: path.join(prepared.hostDir, ".bash_aliases"),
-        containerPath: "/home/devuser/.bash_aliases"
+        hostPath: prepared.hostDir,
+        containerPath: "/home/devuser/.host-shell-config"
       }
     ]);
+    for (const file of [".gitconfig", ".gitignore_global", ".stCommitMsg", ".bash_aliases"]) {
+      assert.equal(
+        fs.existsSync(path.join(prepared.hostDir, file)),
+        true,
+        `${file} present in host dir`
+      );
+    }
     assert.deepEqual(
       fs.readFileSync(path.join(prepared.hostDir, ".gitconfig"), "utf8").split("\n").filter(Boolean),
       [
@@ -3110,6 +3134,38 @@ test("prepareHostShellConfig writes sanitized config files and returns read-only
       fs.readFileSync(path.join(prepared.hostDir, ".bash_aliases"), "utf8"),
       fs.readFileSync(aliases.path, "utf8")
     );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("prepareHostShellConfig writes a minimal .gitconfig with safe.directory entries when the host has none", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-host-shell-config-no-gitconfig-"));
+
+  try {
+    // Intentionally do NOT create tmpDir/.gitconfig — simulate a host without one.
+    sandboxCreate.ensureSandboxAliasesFile(tmpDir);
+
+    const prepared = sandboxCreate.prepareHostShellConfig({
+      home: tmpDir,
+      project: "demo",
+      branch: "feature/demo",
+      repoRoot: "/repo"
+    });
+
+    const gitconfigPath = path.join(prepared.hostDir, ".gitconfig");
+    assert.equal(
+      fs.existsSync(gitconfigPath),
+      true,
+      "sandbox .gitconfig is produced even without a host .gitconfig"
+    );
+    const lines = fs.readFileSync(gitconfigPath, "utf8").split("\n").filter(Boolean);
+    assert.deepEqual(lines, [
+      "[safe]",
+      "\tdirectory = /workspace",
+      "\tdirectory = /repo"
+    ]);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -3134,10 +3190,6 @@ test("prepareHostShellConfig removes stale files from the previous host config s
     });
 
     assert.equal(fs.existsSync(path.join(prepared.hostDir, ".stCommitMsg")), false);
-    assert.equal(
-      prepared.mounts.some(({ hostPath }) => hostPath.endsWith(".stCommitMsg")),
-      false
-    );
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
