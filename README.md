@@ -203,8 +203,6 @@ The sandbox image also preinstalls `gh`. When `gh auth token` succeeds on the ho
 
 `ai sandbox exec` and `ai sandbox refresh` reconcile Claude Code credentials in both directions across the host credential store and every sandbox project copy under `~/.agent-infra/credentials/*`. When a long-running sandbox refreshes OAuth tokens first, the next entry or refresh command writes the freshest valid copy back to the host Keychain or `~/.claude/.credentials.json`; when the host is fresher, it updates the project copies. If every copy is stale, `ai sandbox refresh` probes `claude /status` and asks you to log in only when the probe cannot recover credentials.
 
-On macOS over SSH, the login keychain may be locked and reject non-interactive reads or writes. Unlock it with `security unlock-keychain ~/Library/Keychains/login.keychain-db`, or bypass the keychain by setting `AGENT_INFRA_CLAUDE_CREDENTIALS_FILE` to an absolute credentials JSON path such as `$HOME/.claude/.credentials.json`; sandbox create, exec, and refresh will then use that file instead of the keychain.
-
 ### Host-sandbox file exchange
 
 `ai sandbox create` mounts two writable directories for dropping files between
@@ -277,6 +275,34 @@ agent-infra runs on macOS and Linux. The CLI itself only needs Node.js (>=22); c
 | Docker Desktop | warned | warned | warned | manual | Resources must be set in Docker Desktop GUI (Settings -> Resources). |
 
 `vm.memory` and `--memory` values are expressed in GiB.
+
+#### SSH / locked keychain
+
+On macOS over SSH, the login keychain may be locked and reject non-interactive reads or writes with `errSecInteractionNotAllowed`. You can unlock it on the host and re-run `ai sandbox refresh`:
+
+```bash
+security unlock-keychain ~/Library/Keychains/login.keychain-db
+ai sandbox refresh
+```
+
+For long-lived SSH sessions or CI, bypass the keychain with `AGENT_INFRA_CLAUDE_CREDENTIALS_FILE`. macOS stores Claude Code credentials in the keychain by default, so seed the override file once from a session where the keychain is unlocked:
+
+```bash
+security unlock-keychain ~/Library/Keychains/login.keychain-db
+umask 077 && mkdir -p "$HOME/.agent-infra" && \
+  security find-generic-password -s "Claude Code-credentials" -w \
+  > "$HOME/.agent-infra/claude-credentials.json"
+chmod 600 "$HOME/.agent-infra/claude-credentials.json"
+```
+
+Then on the SSH / CI side:
+
+```bash
+export AGENT_INFRA_CLAUDE_CREDENTIALS_FILE="$HOME/.agent-infra/claude-credentials.json"
+ai sandbox refresh
+```
+
+After that, sandbox create, exec, and refresh use the file instead of the keychain for Claude Code credential reads and writes.
 
 ### Linux
 

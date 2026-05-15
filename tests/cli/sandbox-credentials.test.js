@@ -86,6 +86,17 @@ test("env override helpers validate absolute credential file paths", async () =>
   );
 });
 
+test("buildLockedGuidance includes macOS env override seed instructions", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+  const guidance = credentials.buildLockedGuidance();
+
+  assert.match(guidance, /security unlock-keychain/);
+  assert.match(guidance, /security find-generic-password -s "Claude Code-credentials" -w/);
+  assert.match(guidance, /\$HOME\/\.agent-infra\/claude-credentials\.json/);
+  assert.match(guidance, /AGENT_INFRA_CLAUDE_CREDENTIALS_FILE/);
+  assert.doesNotMatch(guidance, /\$HOME\/\.claude\/\.credentials\.json/);
+});
+
 test("extractClaudeCredentialsBlob reads the full Claude Code credentials blob from macOS Keychain", async () => {
   const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
   const rawBlob = validBlob();
