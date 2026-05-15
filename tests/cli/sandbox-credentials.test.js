@@ -30,6 +30,62 @@ function validBlob(overrides = {}) {
   }, null, 2);
 }
 
+function taintedSecurityError(stderr = "") {
+  const error = new Error(
+    'Command failed: security add-generic-password -w {"claudeAiOauth":{"accessToken":"sk-ant-oat01-123456789012345678901234567890","refreshToken":"sk-ant-ort01-123456789012345678901234567890"}}'
+  );
+  error.stderr = Buffer.from(stderr);
+  return error;
+}
+
+test("redactCommandError strips credential-shaped tokens", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+
+  const redacted = credentials.redactCommandError([
+    'oauth={"claudeAiOauth":{"accessToken":"sk-ant-oat01-123456789012345678901234567890"}}',
+    "github=ghp_123456789012345678901234567890123456",
+    "installation=ghs_123456789012345678901234567890123456",
+    "header=Bearer abcdefghijklmnopqrstuvwxyz1234567890"
+  ].join("\n"));
+
+  assert.doesNotMatch(redacted, /sk-ant-oat01/);
+  assert.doesNotMatch(redacted, /claudeAiOauth/);
+  assert.doesNotMatch(redacted, /ghp_123456789012345678901234567890123456/);
+  assert.doesNotMatch(redacted, /ghs_123456789012345678901234567890123456/);
+  assert.match(redacted, /\[REDACTED credentials blob\]/);
+  assert.match(redacted, /\[REDACTED github token\]/);
+  assert.match(redacted, /Bearer \[REDACTED\]/);
+});
+
+test("redactCommandError preserves benign short lookalikes", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+
+  assert.equal(
+    credentials.redactCommandError("image sha256:abc123 and token-ish ghp_short"),
+    "image sha256:abc123 and token-ish ghp_short"
+  );
+});
+
+test("env override helpers validate absolute credential file paths", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+
+  assert.equal(credentials.claudeCredentialsEnvOverride({}), null);
+  assert.deepEqual(
+    credentials.claudeCredentialsEnvOverride({ AGENT_INFRA_CLAUDE_CREDENTIALS_FILE: "/tmp/creds.json" }),
+    { path: "/tmp/creds.json", source: "AGENT_INFRA_CLAUDE_CREDENTIALS_FILE" }
+  );
+  assert.doesNotThrow(() => credentials.validateClaudeCredentialsEnvOverride({}));
+  assert.doesNotThrow(() => credentials.validateClaudeCredentialsEnvOverride({
+    AGENT_INFRA_CLAUDE_CREDENTIALS_FILE: "/tmp/creds.json"
+  }));
+  assert.throws(
+    () => credentials.validateClaudeCredentialsEnvOverride({
+      AGENT_INFRA_CLAUDE_CREDENTIALS_FILE: "relative/creds.json"
+    }),
+    /absolute file path/
+  );
+});
+
 test("extractClaudeCredentialsBlob reads the full Claude Code credentials blob from macOS Keychain", async () => {
   const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
   const rawBlob = validBlob();
@@ -229,19 +285,68 @@ test("assertClaudeCredentialsAvailable throws a readable error when credentials 
   ), /Claude Code credentials not found on host/);
 });
 
+test("assertClaudeCredentialsAvailable reports keychain locked guidance", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+
+  assert.throws(() => credentials.assertClaudeCredentialsAvailable(
+    "/Users/demo",
+    "agent-infra",
+    [{ tool: { id: "claude-code" }, dir: "/tmp/claude" }],
+    () => null,
+    () => {},
+    () => ({ status: "KEYCHAIN_LOCKED", detail: "security: User interaction is not allowed." })
+  ), (error) => {
+    assert.match(error.message, /keychain is locked/);
+    assert.match(error.message, /security unlock-keychain/);
+    assert.match(error.message, /AGENT_INFRA_CLAUDE_CREDENTIALS_FILE/);
+    return true;
+  });
+});
+
 test("inspectClaudeKeychainStatus reports macOS credential states", async () => {
   const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
 
   withPlatform("darwin", () => {
     assert.equal(credentials.inspectClaudeKeychainStatus("/Users/demo", () => validBlob()).status, "OK");
     assert.equal(credentials.inspectClaudeKeychainStatus("/Users/demo", () => {
-      throw new Error("missing");
+      throw Object.assign(new Error("missing"), {
+        stderr: Buffer.from("security: SecKeychainSearchCopyNext: The specified item could not be found.")
+      });
     }).status, "MISSING");
+    assert.equal(credentials.inspectClaudeKeychainStatus("/Users/demo", () => {
+      throw taintedSecurityError("security: errSecInteractionNotAllowed: User interaction is not allowed.");
+    }).status, "KEYCHAIN_LOCKED");
+    assert.equal(credentials.inspectClaudeKeychainStatus("/Users/demo", () => {
+      throw taintedSecurityError("security: arbitrary failure");
+    }).status, "KEYCHAIN_ERROR");
     assert.equal(credentials.inspectClaudeKeychainStatus("/Users/demo", () => "not-json").status, "STALE_ACCESS");
     assert.equal(credentials.inspectClaudeKeychainStatus("/Users/demo", () => JSON.stringify({
       claudeAiOauth: { accessToken: "token" }
     })).status, "STALE_ACCESS");
   });
+});
+
+test("inspectClaudeKeychainStatus reads env override without touching keychain", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-env-inspect-"));
+  const overridePath = path.join(tmpDir, "credentials.json");
+
+  try {
+    fs.writeFileSync(overridePath, validBlob({ expiresAt: 123456 }), "utf8");
+    withPlatform("darwin", () => {
+      assert.deepEqual(credentials.inspectClaudeKeychainStatus("/Users/demo", () => {
+        assert.fail("security should not be called when env override is set");
+      }, {
+        envFn: () => ({ AGENT_INFRA_CLAUDE_CREDENTIALS_FILE: overridePath })
+      }), {
+        status: "OK",
+        blob: validBlob({ expiresAt: 123456 }),
+        expiresAt: 123456
+      });
+    });
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 test("inspectClaudeKeychainStatus reports Linux credential states", async () => {
@@ -332,6 +437,7 @@ test("writeClaudeCredentialsToHost updates macOS Keychain credentials", async ()
           rawBlob
         ]);
         assert.deepEqual(options, {
+          encoding: "utf8",
           stdio: ["ignore", "ignore", "pipe"]
         });
       }
@@ -345,12 +451,59 @@ test("writeClaudeCredentialsToHost returns a soft failure when macOS Keychain wr
   withPlatform("darwin", () => {
     const result = credentials.writeClaudeCredentialsToHost("/Users/demo", validBlob(), {
       execFn: () => {
-        throw new Error("keychain locked");
+        throw taintedSecurityError("security: arbitrary failure");
       }
     });
 
-    assert.deepEqual(result, { ok: false, error: "keychain locked" });
+    assert.equal(result.ok, false);
+    assert.equal(result.classification, "OTHER");
+    assert.match(result.error, /^security command failed:/);
+    assert.doesNotMatch(result.error, /sk-ant-oat01/);
+    assert.doesNotMatch(result.error, /claudeAiOauth/);
   });
+});
+
+test("writeClaudeCredentialsToHost returns locked guidance without leaking OAuth data", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+
+  withPlatform("darwin", () => {
+    const result = credentials.writeClaudeCredentialsToHost("/Users/demo", validBlob(), {
+      execFn: () => {
+        throw taintedSecurityError("security: errSecInteractionNotAllowed: User interaction is not allowed.");
+      }
+    });
+
+    assert.equal(result.ok, false);
+    assert.equal(result.classification, "LOCKED");
+    assert.match(result.error, /security unlock-keychain/);
+    assert.match(result.error, /AGENT_INFRA_CLAUDE_CREDENTIALS_FILE/);
+    assert.doesNotMatch(result.error, /sk-ant-oat01/);
+    assert.doesNotMatch(result.error, /claudeAiOauth/);
+    assert.doesNotMatch(result.error, /Command failed/);
+  });
+});
+
+test("writeClaudeCredentialsToHost writes env override file without touching keychain", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-env-write-"));
+  const overridePath = path.join(tmpDir, "credentials.json");
+  const rawBlob = validBlob();
+
+  try {
+    withPlatform("darwin", () => {
+      assert.deepEqual(credentials.writeClaudeCredentialsToHost("/Users/demo", rawBlob, {
+        envFn: () => ({ AGENT_INFRA_CLAUDE_CREDENTIALS_FILE: overridePath }),
+        execFn: () => {
+          assert.fail("security should not be called when env override is set");
+        },
+        randomFn: () => "fixed"
+      }), { ok: true });
+    });
+    assert.equal(fs.readFileSync(overridePath, "utf8"), rawBlob);
+    assertModeBits(overridePath, 0o600);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 test("writeClaudeCredentialsToHost atomically replaces Linux host credentials", async () => {
@@ -392,7 +545,7 @@ test("writeClaudeCredentialsToHost preserves Linux host credentials when rename 
         }
       });
 
-      assert.deepEqual(result, { ok: false, error: "rename failed" });
+      assert.deepEqual(result, { ok: false, classification: "OTHER", error: "rename failed" });
     });
 
     assert.equal(fs.readFileSync(targetPath, "utf8"), "original");
@@ -443,7 +596,9 @@ test("syncClaudeCredentialsFromKeychain and formatRemaining handle unavailable o
     withPlatform("darwin", () => {
       assert.deepEqual(credentials.syncClaudeCredentialsFromKeychain("/Users/demo", "agent-infra", {
         execFn: () => {
-          throw new Error("missing");
+          throw Object.assign(new Error("missing"), {
+            stderr: Buffer.from("security: SecKeychainSearchCopyNext: The specified item could not be found.")
+          });
         },
         writeFn: () => {
           writeCalled = true;
@@ -589,7 +744,9 @@ test("reconcileClaudeCredentials reports KEYCHAIN_WRITE_FAILED when host write f
     const result = credentials.reconcileClaudeCredentials("/Users/demo", {
       projects: ["demo"],
       execFn: () => {
-        throw new Error("missing");
+        throw Object.assign(new Error("missing"), {
+          stderr: Buffer.from("security: SecKeychainSearchCopyNext: The specified item could not be found.")
+        });
       },
       readFn: () => fileBlob,
       existsFn: () => true,
@@ -598,7 +755,28 @@ test("reconcileClaudeCredentials reports KEYCHAIN_WRITE_FAILED when host write f
 
     assert.equal(result.status, "KEYCHAIN_WRITE_FAILED");
     assert.equal(result.authoritative, "file:demo");
-    assert.deepEqual(result.warnings, ["keychain locked"]);
+    assert.deepEqual(result.warnings, [{
+      source: "host-keychain",
+      classification: "OTHER",
+      message: "keychain locked"
+    }]);
+  });
+});
+
+test("reconcileClaudeCredentials reports KEYCHAIN_LOCKED when host is locked and no file is usable", async () => {
+  const credentials = await loadFreshEsm("lib/sandbox/credentials.js");
+
+  withPlatform("darwin", () => {
+    const result = credentials.reconcileClaudeCredentials("/Users/demo", {
+      projects: [],
+      inspection: {
+        status: "KEYCHAIN_LOCKED",
+        detail: "security: User interaction is not allowed."
+      }
+    });
+
+    assert.equal(result.status, "KEYCHAIN_LOCKED");
+    assert.equal(result.detail, "security: User interaction is not allowed.");
   });
 });
 

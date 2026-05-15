@@ -200,7 +200,9 @@ test("refresh exits 1 with login prompt when host credentials are missing", asyn
     const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
       discoverFn: () => ["agent-infra"],
       execFn: () => {
-        throw new Error("missing");
+        throw Object.assign(new Error("missing"), {
+          stderr: Buffer.from("security: SecKeychainSearchCopyNext: The specified item could not be found.")
+        });
       },
       writeStdout: () => {},
       writeStderr: (chunk) => stderr.push(chunk)
@@ -229,6 +231,31 @@ test("refresh exits 1 when probe fails after stale host credentials", async () =
 
     assert.equal(code, 1);
     assert.match(stderr.join(""), /claude \/login/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("refresh redacts tokens from failed probe stderr", async () => {
+  const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-probe-redact-"));
+  const stderr = [];
+
+  try {
+    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
+      discoverFn: () => ["agent-infra"],
+      execFn: () => "not-json",
+      spawnFn: () => ({
+        status: 1,
+        stderr: "Authentication failed: ghp_123456789012345678901234567890123456"
+      }),
+      writeStdout: () => {},
+      writeStderr: (chunk) => stderr.push(chunk)
+    })));
+
+    assert.equal(code, 1);
+    assert.match(stderr.join(""), /\[REDACTED github token\]/);
+    assert.doesNotMatch(stderr.join(""), /ghp_123456789012345678901234567890123456/);
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -325,7 +352,9 @@ test("refresh exits 1 when newer sandbox credentials cannot be written to host",
   const code = await withPlatform("darwin", () => refresh([], {
     discoverFn: () => ["agent-infra"],
     execFn: () => {
-      throw new Error("missing");
+      throw Object.assign(new Error("missing"), {
+        stderr: Buffer.from("security: SecKeychainSearchCopyNext: The specified item could not be found.")
+      });
     },
     readFn: () => validBlob(200),
     existsFn: () => true,
@@ -336,6 +365,89 @@ test("refresh exits 1 when newer sandbox credentials cannot be written to host",
 
   assert.equal(code, 1);
   assert.match(stderr.join(""), /keychain write failed: keychain locked/);
+});
+
+test("refresh emits keychain guidance when host keychain is locked", async () => {
+  const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
+  const stderr = [];
+
+  const code = await withPlatform("darwin", () => refresh([], {
+    discoverFn: () => ["agent-infra"],
+    execFn: () => {
+      const error = new Error(
+        'Command failed: security find-generic-password {"claudeAiOauth":{"accessToken":"sk-ant-oat01-123456789012345678901234567890"}}'
+      );
+      error.stderr = Buffer.from("security: errSecInteractionNotAllowed: User interaction is not allowed.");
+      throw error;
+    },
+    writeStdout: () => {},
+    writeStderr: (chunk) => stderr.push(chunk)
+  }));
+
+  assert.equal(code, 1);
+  assert.match(stderr.join(""), /security unlock-keychain/);
+  assert.match(stderr.join(""), /AGENT_INFRA_CLAUDE_CREDENTIALS_FILE/);
+  assert.doesNotMatch(stderr.join(""), /sk-ant-oat01/);
+  assert.doesNotMatch(stderr.join(""), /claudeAiOauth/);
+});
+
+test("refresh emits keychain error detail and guidance for non-locked failures", async () => {
+  const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
+  const stderr = [];
+
+  const code = await withPlatform("darwin", () => refresh([], {
+    discoverFn: () => ["agent-infra"],
+    execFn: () => {
+      const error = new Error(
+        'Command failed: security find-generic-password {"claudeAiOauth":{"accessToken":"sk-ant-oat01-123456789012345678901234567890"}}'
+      );
+      error.stderr = Buffer.from("security: errSecAuthFailed: Authorization failed.");
+      throw error;
+    },
+    writeStdout: () => {},
+    writeStderr: (chunk) => stderr.push(chunk)
+  }));
+
+  assert.equal(code, 1);
+  assert.match(stderr.join(""), /Host keychain error: security: errSecAuthFailed/);
+  assert.match(stderr.join(""), /security unlock-keychain/);
+  assert.match(stderr.join(""), /AGENT_INFRA_CLAUDE_CREDENTIALS_FILE/);
+  assert.doesNotMatch(stderr.join(""), /sk-ant-oat01/);
+  assert.doesNotMatch(stderr.join(""), /claudeAiOauth/);
+  assert.doesNotMatch(stderr.join(""), /Command failed/);
+});
+
+test("refresh uses env override credentials without touching keychain", async () => {
+  const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-env-"));
+  const overridePath = path.join(tmpDir, "credentials.json");
+  const targetDir = path.join(tmpDir, ".agent-infra", "credentials", "agent-infra", "claude-code");
+  const previousOverride = process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE;
+
+  try {
+    fs.writeFileSync(overridePath, validBlob(), "utf8");
+    fs.mkdirSync(targetDir, { recursive: true });
+    process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE = overridePath;
+
+    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
+      discoverFn: () => ["agent-infra"],
+      execFn: () => {
+        assert.fail("security should not be called when env override is set");
+      },
+      writeStdout: () => {},
+      writeStderr: () => {}
+    })));
+
+    assert.equal(code, 0);
+    assert.ok(fs.existsSync(path.join(targetDir, ".credentials.json")));
+  } finally {
+    if (previousOverride === undefined) {
+      delete process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE;
+    } else {
+      process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE = previousOverride;
+    }
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 test("refresh continues on per-project sync failure and exits 1 at end", async () => {

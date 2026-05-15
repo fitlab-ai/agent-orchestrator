@@ -16,7 +16,7 @@ import {
   onPlatforms,
   withGitSafeProcessEnv
 } from "../helpers.js";
-import { restoreTerminal, runInteractive } from "../../lib/sandbox/shell.js";
+import { restoreTerminal, runInteractive, runVerbose } from "../../lib/sandbox/shell.js";
 
 function restoreDockerContext(previousValue) {
   if (previousValue === undefined) {
@@ -645,55 +645,105 @@ test("composeDockerfile configures tmux extended keys and terminal env forwardin
   }
 });
 
-test("buildContainerEnvArgs injects GH_TOKEN when available", async () => {
+test("buildContainerEnvFile writes tool env vars to a private env file", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-env-file-"));
 
-  const envArgs = sandboxCreate.buildContainerEnvArgs([
-    { tool: { envVars: { FOO: "bar" } } },
-    { tool: { envVars: { BAZ: "qux" } } }
-  ], "native", (engine, cmd, args) => {
-    assert.equal(engine, "native");
-    assert.equal(cmd, "gh");
-    assert.deepEqual(args, ["auth", "token"]);
-    return "token-123";
-  });
+  try {
+    const envFile = sandboxCreate.buildContainerEnvFile([
+      { tool: { envVars: { FOO: "bar" } } },
+      { tool: { envVars: { BAZ: "qux" } } }
+    ], "native", () => "", { tmpDir });
 
-  assert.deepEqual(envArgs, [
-    "-e", "FOO=bar",
-    "-e", "BAZ=qux",
-    "-e", "GH_TOKEN=token-123"
-  ]);
+    assert.equal(envFile.dockerArgs[0], "--env-file");
+    assert.equal(path.dirname(path.dirname(envFile.dockerArgs[1])), tmpDir);
+    assert.equal(fs.readFileSync(envFile.dockerArgs[1], "utf8"), "FOO=bar\nBAZ=qux\n");
+    assertModeBits(path.dirname(envFile.dockerArgs[1]), 0o700);
+    assertModeBits(envFile.dockerArgs[1], 0o600);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
-test("buildContainerEnvArgs skips GH_TOKEN when auth token is unavailable", async () => {
+test("buildContainerEnvFile stores GH_TOKEN in the env file but not docker argv", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-env-file-token-"));
+
+  try {
+    const envFile = sandboxCreate.buildContainerEnvFile([
+      { tool: { envVars: { FOO: "bar" } } }
+    ], "native", (engine, cmd, args) => {
+      assert.equal(engine, "native");
+      assert.equal(cmd, "gh");
+      assert.deepEqual(args, ["auth", "token"]);
+      return "ghp_123456789012345678901234567890123456";
+    }, { tmpDir });
+
+    assert.deepEqual(envFile.dockerArgs, ["--env-file", envFile.dockerArgs[1]]);
+    assert.ok(!envFile.dockerArgs.some((arg) => arg.includes("ghp_123456789012345678901234567890123456")));
+    assert.match(fs.readFileSync(envFile.dockerArgs[1], "utf8"), /GH_TOKEN=ghp_123456789012345678901234567890123456/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("buildContainerEnvFile returns empty docker args when there are no env vars", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
 
-  const envArgs = sandboxCreate.buildContainerEnvArgs([
-    { tool: { envVars: { FOO: "bar" } } }
+  const envFile = sandboxCreate.buildContainerEnvFile([
+    { tool: { envVars: {} } }
   ], "native", () => "");
 
-  assert.deepEqual(envArgs, ["-e", "FOO=bar"]);
+  assert.deepEqual(envFile.dockerArgs, []);
+  assert.doesNotThrow(() => envFile.cleanup());
 });
 
-test("buildContainerEnvArgs uses engine-aware gh", async () => {
+test("buildContainerEnvFile cleanup removes the temporary directory", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-env-file-cleanup-"));
 
-  const envArgs = sandboxCreate.buildContainerEnvArgs([
-    { tool: { envVars: { FOO: "bar" } } }
-  ], "wsl2", () => "");
+  try {
+    const envFile = sandboxCreate.buildContainerEnvFile([
+      { tool: { envVars: { FOO: "bar" } } }
+    ], "native", () => "", { tmpDir });
+    const envDir = path.dirname(envFile.dockerArgs[1]);
 
-  assert.ok(envArgs.includes("-e"), "env args include -e flag");
-  assert.deepEqual(envArgs, ["-e", "FOO=bar"]);
+    assert.ok(fs.existsSync(envDir));
+    envFile.cleanup();
+    assert.equal(fs.existsSync(envDir), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
-test("buildContainerEnvArgs includes GH_TOKEN from engine-aware runSafeEngine", async () => {
+test("buildContainerEnvFile rejects newlines and removes the temporary directory", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-env-file-newline-"));
+
+  try {
+    assert.throws(() => sandboxCreate.buildContainerEnvFile([
+      { tool: { envVars: { FOO: "bar\nbaz" } } }
+    ], "native", () => "", { tmpDir }), /must not contain newlines/);
+    assert.deepEqual(fs.readdirSync(tmpDir), []);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("buildContainerEnvFile uses engine-aware env-file paths for WSL2", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
 
-  const envArgs = sandboxCreate.buildContainerEnvArgs([
+  const envFile = sandboxCreate.buildContainerEnvFile([
     { tool: { envVars: { FOO: "bar" } } }
-  ], "wsl2", () => "ghp_testtoken123");
+  ], "wsl2", () => "", {
+    tmpDir: "F:\\tmp",
+    mkdtempFn: () => "F:\\tmp\\agent-infra-env-fixed",
+    writeFileFn: () => {},
+    chmodFn: () => {},
+    rmFn: () => {}
+  });
 
-  assert.deepEqual(envArgs, ["-e", "FOO=bar", "-e", "GH_TOKEN=ghp_testtoken123"]);
+  assert.deepEqual(envFile.dockerArgs, ["--env-file", "/mnt/f/tmp/agent-infra-env-fixed/env"]);
 });
 
 test("terminalEnvFlags forwards iTerm2 detection variables for Shift+Enter support", async () => {
@@ -725,6 +775,19 @@ test("terminalEnvFlags omits unset variables instead of forwarding empty values"
   });
 
   assert.deepEqual(flags, ["-e", "TERM_PROGRAM=iTerm.app"]);
+});
+
+test("sandbox exec formats host keychain unavailable credential sync warnings", async () => {
+  const sandboxEnter = await loadFreshEsm("lib/sandbox/commands/enter.js");
+
+  assert.equal(
+    sandboxEnter.formatCredentialSyncStatus({ status: "KEYCHAIN_LOCKED" }),
+    'Warning: Host keychain is unavailable; Claude credential sync skipped. Run "ai sandbox refresh" for details.\n'
+  );
+  assert.equal(
+    sandboxEnter.formatCredentialSyncStatus({ status: "KEYCHAIN_ERROR" }),
+    'Warning: Host keychain is unavailable; Claude credential sync skipped. Run "ai sandbox refresh" for details.\n'
+  );
 });
 
 // On Windows, `lib/sandbox/engine.js` detectEngine forces the engine to wsl2,
@@ -2179,6 +2242,41 @@ test("commandErrorMessage prefers stderr over the generic execFileSync message",
   });
 
   assert.equal(message, "fatal: invalid reference: missing-branch");
+});
+
+test("commandErrorMessage redacts tokens from fallback error messages", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  const message = sandboxCreate.commandErrorMessage({
+    message: "Command failed: docker run -e GH_TOKEN=ghp_123456789012345678901234567890123456"
+  });
+
+  assert.doesNotMatch(message, /ghp_123456789012345678901234567890123456/);
+  assert.match(message, /\[REDACTED github token\]/);
+});
+
+test("runVerbose error messages do not include argv", () => {
+  assert.throws(
+    () => runVerbose(process.execPath, ["-e", "process.exit(1)", "SECRET_ARG_VALUE"]),
+    (error) => {
+      assert.match(error.message, /^Command failed with exit code 1:/);
+      assert.doesNotMatch(error.message, /SECRET_ARG_VALUE/);
+      return true;
+    }
+  );
+});
+
+test("runVerbose timeout messages do not include argv", () => {
+  assert.throws(
+    () => runVerbose(process.execPath, ["-e", "setTimeout(() => {}, 10_000)", "SECRET_TIMEOUT_VALUE"], {
+      timeout: 1
+    }),
+    (error) => {
+      assert.match(error.message, /^Command timed out after 1ms:/);
+      assert.doesNotMatch(error.message, /SECRET_TIMEOUT_VALUE/);
+      return true;
+    }
+  );
 });
 
 test("ensureSandboxAliasesFile creates the default aliases once", async () => {

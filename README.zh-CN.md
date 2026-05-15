@@ -203,6 +203,8 @@ CLI 会收集项目元数据，向所有支持的 AI TUI 安装 `update-agent-in
 
 `ai sandbox exec` 和 `ai sandbox refresh` 会在宿主机凭证存储与 `~/.agent-infra/credentials/*` 下的所有沙箱项目副本之间做双向 reconcile。长时间运行的沙箱如果先刷新了 OAuth token，下一次进入或刷新命令会把最新有效副本回写到宿主 Keychain 或 `~/.claude/.credentials.json`；宿主机更新时也会继续覆盖项目副本。如果所有副本都已失效，`ai sandbox refresh` 会尝试 `claude /status` 探活，只有探活无法恢复时才提示重新登录。
 
+在 macOS 上通过 SSH 使用时，login keychain 可能处于锁定状态并拒绝非交互式读写。可以运行 `security unlock-keychain ~/Library/Keychains/login.keychain-db` 解锁，或把 `AGENT_INFRA_CLAUDE_CREDENTIALS_FILE` 设置为绝对路径形式的凭据 JSON 文件（例如 `$HOME/.claude/.credentials.json`）；之后 sandbox create、exec、refresh 都会使用该文件而不是 keychain。
+
 ### 宿主-沙箱文件交换
 
 `ai sandbox create` 会自动挂载两个可读写目录，方便宿主与容器之间互相 drop 文件，不污染 git 工作树：

@@ -203,6 +203,8 @@ The sandbox image also preinstalls `gh`. When `gh auth token` succeeds on the ho
 
 `ai sandbox exec` and `ai sandbox refresh` reconcile Claude Code credentials in both directions across the host credential store and every sandbox project copy under `~/.agent-infra/credentials/*`. When a long-running sandbox refreshes OAuth tokens first, the next entry or refresh command writes the freshest valid copy back to the host Keychain or `~/.claude/.credentials.json`; when the host is fresher, it updates the project copies. If every copy is stale, `ai sandbox refresh` probes `claude /status` and asks you to log in only when the probe cannot recover credentials.
 
+On macOS over SSH, the login keychain may be locked and reject non-interactive reads or writes. Unlock it with `security unlock-keychain ~/Library/Keychains/login.keychain-db`, or bypass the keychain by setting `AGENT_INFRA_CLAUDE_CREDENTIALS_FILE` to an absolute credentials JSON path such as `$HOME/.claude/.credentials.json`; sandbox create, exec, and refresh will then use that file instead of the keychain.
+
 ### Host-sandbox file exchange
 
 `ai sandbox create` mounts two writable directories for dropping files between
