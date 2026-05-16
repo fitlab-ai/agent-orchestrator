@@ -344,6 +344,7 @@ test("loadConfig derives sandbox defaults from .agents/.airc.json", async () => 
     assert.deepEqual(config.vm, { cpu: null, memory: null, disk: null });
     assert.equal(config.worktreeBase, path.join(process.env.HOME, ".agent-infra", "worktrees", "demo"));
     assert.equal(config.shareBase, path.join(process.env.HOME, ".agent-infra", "share", "demo"));
+    assert.equal(config.dotfilesDir, path.join(process.env.HOME, ".agent-infra", "dotfiles"));
   } finally {
     process.chdir(previousCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -616,6 +617,57 @@ test("composeDockerfile bakes sandbox-tmux-entry script", async () => {
   }
 });
 
+test("composeDockerfile bakes sandbox-dotfiles-link script", async () => {
+  const sandboxDockerfile = await loadFreshEsm("lib/sandbox/dockerfile.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-dotfiles-link-"));
+
+  try {
+    const dockerfilePath = sandboxDockerfile.composeDockerfile({
+      repoRoot: tmpDir,
+      project: "demo",
+      runtimes: ["node20"],
+      dockerfile: null
+    });
+    const content = fs.readFileSync(dockerfilePath, "utf8");
+
+    assert.match(content, /cat > \/usr\/local\/bin\/sandbox-dotfiles-link <<'SCRIPT'/);
+    assert.match(content, /chmod \+x \/usr\/local\/bin\/sandbox-dotfiles-link/);
+    assert.match(content, /DOTFILES_SRC=\/dotfiles/);
+    assert.match(content, /\[ -d "\$DOTFILES_SRC" \] \|\| exit 0/);
+    assert.match(content, /find \. -type f -print/);
+    assert.match(content, /\.ssh\|\.ssh\/\*/);
+    assert.match(content, /\.gnupg\|\.gnupg\/\*/);
+    assert.match(content, /\.config\/opencode\|\.config\/opencode\/\*/);
+    assert.match(content, /\.gitconfig\|\.gitignore_global\|\.stCommitMsg\|\.bash_aliases/);
+    assert.match(content, /mkdir -p "\$\(dirname "\$target"\)"/);
+    assert.match(content, /\[ -d "\$target" \] && \[ ! -L "\$target" \]/);
+    assert.match(content, /skipping %s \(existing directory; use nested path like %s\/<file> instead\)/);
+    assert.match(content, /ln -sfn "\$DOTFILES_SRC\/\$rel" "\$target"/);
+    assert.match(content, /printf 'sandbox-dotfiles-link: failed to link %s\\n' "\$target" >&2/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("composeDockerfile invokes sandbox-dotfiles-link from sandbox-tmux-entry", async () => {
+  const sandboxDockerfile = await loadFreshEsm("lib/sandbox/dockerfile.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-dotfiles-entry-"));
+
+  try {
+    const dockerfilePath = sandboxDockerfile.composeDockerfile({
+      repoRoot: tmpDir,
+      project: "demo",
+      runtimes: ["node20"],
+      dockerfile: null
+    });
+    const content = fs.readFileSync(dockerfilePath, "utf8");
+
+    assert.match(content, /sandbox-dotfiles-link >\/dev\/null \|\| true/);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test("composeDockerfile configures tmux extended keys and terminal env forwarding", async () => {
   const sandboxDockerfile = await loadFreshEsm("lib/sandbox/dockerfile.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-tmux-config-"));
@@ -744,6 +796,34 @@ test("buildContainerEnvFile uses engine-aware env-file paths for WSL2", async ()
   });
 
   assert.deepEqual(envFile.dockerArgs, ["--env-file", "/mnt/f/tmp/agent-infra-env-fixed/env"]);
+});
+
+test("buildDotfilesVolumeArgs returns volume args when host dir exists", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  const args = sandboxCreate.buildDotfilesVolumeArgs("native", "/host/dotfiles", () => true);
+
+  assert.deepEqual(args, ["-v", "/host/dotfiles:/dotfiles:ro"]);
+});
+
+test("buildDotfilesVolumeArgs returns empty when host dir is missing or falsy", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  assert.deepEqual(sandboxCreate.buildDotfilesVolumeArgs("native", "/host/dotfiles", () => false), []);
+  assert.deepEqual(sandboxCreate.buildDotfilesVolumeArgs("native", null), []);
+  assert.deepEqual(sandboxCreate.buildDotfilesVolumeArgs("native", ""), []);
+});
+
+test("buildDotfilesVolumeArgs applies engine-aware path on wsl2", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+
+  const args = sandboxCreate.buildDotfilesVolumeArgs(
+    "wsl2",
+    "C:\\Users\\u\\.agent-infra\\dotfiles",
+    () => true
+  );
+
+  assert.deepEqual(args, ["-v", "/mnt/c/Users/u/.agent-infra/dotfiles:/dotfiles:ro"]);
 });
 
 test("terminalEnvFlags forwards iTerm2 detection variables for Shift+Enter support", async () => {

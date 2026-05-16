@@ -220,6 +220,63 @@ yes) to clean up the corresponding share dirs alongside the worktrees.
 Existing sandboxes pick up these mounts after `ai sandbox rm <branch>` and
 `ai sandbox create <branch>`.
 
+### User-level dotfiles channel
+
+`ai sandbox create` also mounts an optional read-only channel for host user preferences:
+
+- `/dotfiles` <- `~/.agent-infra/dotfiles/` - read-only, host-owned source.
+
+The host tree mirrors the expected paths under the container `$HOME`, in the
+same style as GNU stow or chezmoi:
+
+```text
+~/.agent-infra/dotfiles/
+├── .tmux.conf
+└── .config/
+    ├── lazygit/config.yml
+    └── yazi/yazi.toml
+```
+
+On each sandbox entry, `sandbox-dotfiles-link` links every file to
+`$HOME/<relative-path>` with `ln -sfn`, overriding image defaults. If the host
+directory does not exist, the mount and link step are skipped.
+
+To add future preferences such as `starship.toml` or `.gitconfig.local`, put
+files in `~/.agent-infra/dotfiles/`; no Dockerfile or `ai sandbox create`
+changes are needed.
+
+> **Do not put secrets in `~/.agent-infra/dotfiles/`.** The mount is read-only
+> inside the container, but the full preference tree is linked into every
+> project sandbox. Do not place `.ssh/`, `.aws/credentials`, `.netrc`,
+> `.gnupg/`, `.npmrc` files containing `_authToken`, AI tool OAuth/access token
+> files, or `.gitconfig` there. Use the dedicated SSH and credential channels,
+> and prefer `.gitconfig.local` with `[include]` for local Git preferences.
+> Also avoid symlinks in this tree; the hook uses `find -type f` and does not
+> follow them.
+
+**Protected paths** are ignored by the hook even if they appear under
+`~/.agent-infra/dotfiles/`:
+
+| Path pattern | Reason |
+|---|---|
+| `.ssh/*` | Host SSH credentials are managed by the read-only SSH mount. |
+| `.gnupg/*` | GPG private material is managed by `gpg-agent`. |
+| `.claude/*`, `.codex/*`, `.gemini/*` | AI tool credentials use dedicated bind mounts. |
+| `.config/opencode/*`, `.local/share/opencode/*` | OpenCode credentials and data use dedicated bind mounts. |
+| `.host-shell-config/*` | agent-infra managed shell and Git configuration. |
+| `.gitconfig`, `.gitignore_global`, `.stCommitMsg`, `.bash_aliases` | agent-infra symlinks these to `.host-shell-config/`, including `safe.directory` and GPG sync state. |
+
+Other existing real directories, such as `~/.config/` or `~/.cache/`, are not
+replaced by top-level dotfiles. If a file conflicts with one of those
+directories, the hook prints a warning and skips it:
+
+```text
+sandbox-dotfiles-link: skipping /home/devuser/.config (existing directory; use nested path like .config/<file> instead)
+```
+
+Use nested paths such as `~/.agent-infra/dotfiles/.config/lazygit/config.yml`
+instead of treating `.config` as a top-level file.
+
 <a id="architecture-overview"></a>
 
 ## Architecture Overview

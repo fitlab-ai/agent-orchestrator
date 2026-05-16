@@ -213,6 +213,49 @@ CLI 会收集项目元数据，向所有支持的 AI TUI 安装 `update-agent-in
 这两条路径硬编码，不暴露 `.airc.json` 配置项。首次 `create` 时会自动创建宿主目录；`ai sandbox rm <branch>` 与 `ai sandbox rm --all` 删除时会附带询问是否清理（默认 yes）。
 已有沙箱需要执行 `ai sandbox rm <branch>` 后再执行 `ai sandbox create <branch>`，才能加载新的挂载点。
 
+#### 用户级 dotfiles 通道
+
+`ai sandbox create` 还会自动挂载一条可选的只读通道，用于把宿主机用户级偏好带进沙箱：
+
+- `/dotfiles` <- `~/.agent-infra/dotfiles/`：只读，host 作为单向源。
+
+host 端目录树镜像容器 `$HOME` 下的预期路径，风格类似 GNU stow 或 chezmoi：
+
+```text
+~/.agent-infra/dotfiles/
+├── .tmux.conf
+└── .config/
+    ├── lazygit/config.yml
+    └── yazi/yazi.toml
+```
+
+每次进入沙箱时，`sandbox-dotfiles-link` 会用 `ln -sfn` 把每个文件链接到
+`$HOME/<相对路径>`，覆盖镜像默认。host 端目录不存在时，会跳过挂载和链接步骤。
+
+未来要加 `starship.toml`、`.gitconfig.local` 等偏好，只需把文件放进
+`~/.agent-infra/dotfiles/`，无需修改 Dockerfile 或 `ai sandbox create`。
+
+> **不要往 `~/.agent-infra/dotfiles/` 放任何凭证。** 容器内是只读挂载，但整棵偏好树会链入所有项目沙箱。不要放 `.ssh/`、`.aws/credentials`、`.netrc`、`.gnupg/`、包含 `_authToken` 的 `.npmrc`、任何 AI 工具 OAuth/access token 文件，也不要放 `.gitconfig`。SSH 和工具凭证请使用专用通道；本地 Git 偏好建议用 `.gitconfig.local` 配合 `[include]`。也不要在这棵目录里放符号链接；钩子使用 `find -type f` 遍历，不会跟随符号链接。
+
+**受保护路径**即使出现在 `~/.agent-infra/dotfiles/` 下，也会被钩子忽略：
+
+| 路径模式 | 原因 |
+|---|---|
+| `.ssh/*` | host SSH 凭证由只读 SSH 挂载管理。 |
+| `.gnupg/*` | GPG 私钥由 `gpg-agent` 管理。 |
+| `.claude/*`, `.codex/*`, `.gemini/*` | AI 工具凭证使用专用 bind mount。 |
+| `.config/opencode/*`, `.local/share/opencode/*` | OpenCode 凭证和数据使用专用 bind mount。 |
+| `.host-shell-config/*` | agent-infra 管理的 shell 和 Git 配置。 |
+| `.gitconfig`, `.gitignore_global`, `.stCommitMsg`, `.bash_aliases` | agent-infra 将这些路径软链到 `.host-shell-config/`，包含 `safe.directory` 和 GPG 同步状态。 |
+
+其他已经存在的真实目录（如 `~/.config/`、`~/.cache/`）不会被顶层 dotfile 替换。如果某个文件与这类目录冲突，钩子会打印警告并跳过：
+
+```text
+sandbox-dotfiles-link: skipping /home/devuser/.config (existing directory; use nested path like .config/<file> instead)
+```
+
+正确用法是嵌套路径，例如 `~/.agent-infra/dotfiles/.config/lazygit/config.yml`，不要把 `.config` 当成顶层文件。
+
 <a id="architecture-overview"></a>
 
 ## 架构概览

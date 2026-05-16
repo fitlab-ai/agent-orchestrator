@@ -105,9 +105,48 @@ else
 fi
 SCRIPT
 
+RUN cat > /usr/local/bin/sandbox-dotfiles-link <<'SCRIPT' && chmod +x /usr/local/bin/sandbox-dotfiles-link
+#!/bin/sh
+# Mirror /dotfiles/ tree as symlinks under $HOME/, overwriting any image-baked
+# defaults. Future preferences only need to land in the host directory.
+set -eu
+
+DOTFILES_SRC=/dotfiles
+[ -d "$DOTFILES_SRC" ] || exit 0
+
+cd "$DOTFILES_SRC"
+find . -type f -print | while IFS= read -r rel; do
+  rel=${rel#./}
+  target="$HOME/$rel"
+  case "$rel" in
+    .ssh|.ssh/*|\
+    .gnupg|.gnupg/*|\
+    .claude|.claude/*|\
+    .codex|.codex/*|\
+    .gemini|.gemini/*|\
+    .config/opencode|.config/opencode/*|\
+    .local/share/opencode|.local/share/opencode/*|\
+    .host-shell-config|.host-shell-config/*|\
+    .gitconfig|.gitignore_global|.stCommitMsg|.bash_aliases)
+      continue ;;
+  esac
+
+  mkdir -p "$(dirname "$target")"
+  if [ -d "$target" ] && [ ! -L "$target" ]; then
+    printf 'sandbox-dotfiles-link: skipping %s (existing directory; use nested path like %s/<file> instead)\n' "$target" "$rel" >&2
+    continue
+  fi
+
+  ln -sfn "$DOTFILES_SRC/$rel" "$target" 2>/dev/null \
+    || printf 'sandbox-dotfiles-link: failed to link %s\n' "$target" >&2
+done
+SCRIPT
+
 RUN cat > /usr/local/bin/sandbox-tmux-entry <<'SCRIPT' && chmod +x /usr/local/bin/sandbox-tmux-entry
 #!/bin/sh
 set -eu
+
+sandbox-dotfiles-link >/dev/null || true
 
 SESSION=work
 
