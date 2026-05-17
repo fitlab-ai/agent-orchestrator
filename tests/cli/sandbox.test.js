@@ -32,9 +32,54 @@ function restoreDockerContext(previousValue) {
 // process becomes env-equivalent to the CLI subprocess. We try both the
 // full args ("ps --format {{.Names}}") and a simpler form to isolate any
 // Node 22 .cmd-arg-hardening interaction.
-function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath }) {
+function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoDir, tmpDir }) {
   if (process.platform !== "win32") return null;
   const out = {};
+  // Subprocess probe: spawn a minimal Node script with the SAME env the CLI
+  // gets, then have it report what it actually sees (Path, PATHEXT, whether
+  // docker.cmd is resolvable). If the subprocess shows binDir missing from
+  // Path, then execFileSync's env option is not propagating correctly.
+  const probeScript = [
+    "const fs = require('node:fs');",
+    "const path = require('node:path');",
+    "const lines = [];",
+    "const pathVal = process.env.Path || process.env.PATH || '';",
+    "lines.push('Path-len: ' + pathVal.length);",
+    "lines.push('Path-head: ' + JSON.stringify(pathVal.slice(0, 250)));",
+    "lines.push('PATHEXT: ' + (process.env.PATHEXT || '(unset)'));",
+    "const binDir = process.argv[2];",
+    "lines.push('binDir-arg: ' + binDir);",
+    "lines.push('binDir-in-Path: ' + pathVal.split(';').includes(binDir));",
+    "lines.push('docker.cmd-exists: ' + fs.existsSync(path.join(binDir, 'docker.cmd')));",
+    "lines.push('cwd: ' + process.cwd());",
+    "// Mimic resolveCommand exactly",
+    "const exts = (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean);",
+    "let resolved = null;",
+    "for (const dir of pathVal.split(';').filter(Boolean)) {",
+    "  for (const ext of exts) {",
+    "    const p = path.join(dir, 'docker' + ext.toLowerCase());",
+    "    if (fs.existsSync(p)) { resolved = p; break; }",
+    "  }",
+    "  if (resolved) break;",
+    "}",
+    "lines.push('resolveCommand-result: ' + (resolved || 'NULL'));",
+    "console.log(lines.join('\\n'));"
+  ].join("\n");
+  const probeResult = spawnSync(process.execPath, ["-e", probeScript, binDir], {
+    cwd: repoDir,
+    env: {
+      ...envWithPrependedPath(gitSafeEnv(), binDir),
+      HOME: tmpDir,
+      USERPROFILE: tmpDir
+    },
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"]
+  });
+  out.subprocessProbe = {
+    status: probeResult.status,
+    stderr: (probeResult.stderr ?? "").trim(),
+    output: (probeResult.stdout ?? "").trim()
+  };
   // Direct fs check — tests resolveCommand's core operation
   out.shimExists = {
     "docker.cmd": fs.existsSync(path.join(binDir, "docker.cmd")),
@@ -1076,7 +1121,7 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
     // the CLI subprocess) using the same runSafe path. If preflight
     // succeeds but the CLI fails, the issue is env propagation. If both
     // fail, the issue is in resolveCommand or spawnSync(shell:true).
-    const preflight = collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath });
+    const preflight = collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoDir, tmpDir });
 
     runCliWithDiagnostic(
       process.execPath,
