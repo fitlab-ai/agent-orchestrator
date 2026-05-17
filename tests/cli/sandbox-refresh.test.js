@@ -50,6 +50,18 @@ function withPlatform(platform, fn) {
   }
 }
 
+// Force a fresh empty HOME on a chosen platform so refresh tests never read the
+// developer's real ~/.agent-infra state. tmpDir is removed after fn resolves, so
+// any filesystem assertion that depends on it must run inside the callback.
+async function withTempHomeOn(platform, fn) {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-"));
+  try {
+    return await withHome(tmpDir, () => withPlatform(platform, () => fn(tmpDir)));
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+}
+
 function validBlob(expiresAt = Date.now() + 3_600_000) {
   return JSON.stringify({
     claudeAiOauth: {
@@ -119,24 +131,21 @@ test("runProbe resolves Windows command shims through the shell wrapper", async 
 
 test("refresh batch mode lists discovered projects and syncs each one", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-"));
   const stdout = [];
 
-  try {
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
+  await withTempHomeOn("darwin", async (home) => {
+    const code = await refresh([], {
       discoverFn: () => ["alpha", "beta"],
       execFn: () => validBlob(Date.now() + 3_600_000),
       writeStdout: (chunk) => stdout.push(chunk),
       writeStderr: () => {}
-    })));
+    });
 
     assert.equal(code, 0);
     assert.equal(stdout.filter((line) => line.startsWith("[")).length, 2);
-    assert.ok(fs.existsSync(path.join(tmpDir, ".agent-infra", "credentials", "alpha", "claude-code", ".credentials.json")));
-    assert.ok(fs.existsSync(path.join(tmpDir, ".agent-infra", "credentials", "beta", "claude-code", ".credentials.json")));
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+    assert.ok(fs.existsSync(path.join(home, ".agent-infra", "credentials", "alpha", "claude-code", ".credentials.json")));
+    assert.ok(fs.existsSync(path.join(home, ".agent-infra", "credentials", "beta", "claude-code", ".credentials.json")));
+  });
 });
 
 test("refresh batch mode writes nothing when no projects exist", async () => {
@@ -193,139 +202,115 @@ test("refresh rejects positional arguments", async () => {
 
 test("refresh exits 1 with login prompt when host credentials are missing", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-missing-"));
   const stderr = [];
 
-  try {
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
-      discoverFn: () => ["agent-infra"],
-      execFn: () => {
-        throw Object.assign(new Error("missing"), {
-          stderr: Buffer.from("security: SecKeychainSearchCopyNext: The specified item could not be found.")
-        });
-      },
-      writeStdout: () => {},
-      writeStderr: (chunk) => stderr.push(chunk)
-    })));
+  const code = await withTempHomeOn("darwin", () => refresh([], {
+    discoverFn: () => ["agent-infra"],
+    execFn: () => {
+      throw Object.assign(new Error("missing"), {
+        stderr: Buffer.from("security: SecKeychainSearchCopyNext: The specified item could not be found.")
+      });
+    },
+    writeStdout: () => {},
+    writeStderr: (chunk) => stderr.push(chunk)
+  }));
 
-    assert.equal(code, 1);
-    assert.match(stderr.join(""), /claude \/login/);
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  assert.equal(code, 1);
+  assert.match(stderr.join(""), /claude \/login/);
 });
 
 test("refresh exits 1 when probe fails after stale host credentials", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-stale-"));
   const stderr = [];
 
-  try {
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
-      discoverFn: () => ["agent-infra"],
-      execFn: () => "not-json",
-      spawnFn: () => ({ status: 1, stderr: "stale" }),
-      writeStdout: () => {},
-      writeStderr: (chunk) => stderr.push(chunk)
-    })));
+  const code = await withTempHomeOn("darwin", () => refresh([], {
+    discoverFn: () => ["agent-infra"],
+    execFn: () => "not-json",
+    spawnFn: () => ({ status: 1, stderr: "stale" }),
+    writeStdout: () => {},
+    writeStderr: (chunk) => stderr.push(chunk)
+  }));
 
-    assert.equal(code, 1);
-    assert.match(stderr.join(""), /claude \/login/);
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  assert.equal(code, 1);
+  assert.match(stderr.join(""), /claude \/login/);
 });
 
 test("refresh redacts tokens from failed probe stderr", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-probe-redact-"));
   const stderr = [];
 
-  try {
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
-      discoverFn: () => ["agent-infra"],
-      execFn: () => "not-json",
-      spawnFn: () => ({
-        status: 1,
-        stderr: "Authentication failed: ghp_123456789012345678901234567890123456"
-      }),
-      writeStdout: () => {},
-      writeStderr: (chunk) => stderr.push(chunk)
-    })));
+  const code = await withTempHomeOn("darwin", () => refresh([], {
+    discoverFn: () => ["agent-infra"],
+    execFn: () => "not-json",
+    spawnFn: () => ({
+      status: 1,
+      stderr: "Authentication failed: ghp_123456789012345678901234567890123456"
+    }),
+    writeStdout: () => {},
+    writeStderr: (chunk) => stderr.push(chunk)
+  }));
 
-    assert.equal(code, 1);
-    assert.match(stderr.join(""), /\[REDACTED github token\]/);
-    assert.doesNotMatch(stderr.join(""), /ghp_123456789012345678901234567890123456/);
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  assert.equal(code, 1);
+  assert.match(stderr.join(""), /\[REDACTED github token\]/);
+  assert.doesNotMatch(stderr.join(""), /ghp_123456789012345678901234567890123456/);
 });
 
 test("refresh succeeds after stale host credentials when probe restores valid credentials", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-probe-"));
   let inspected = 0;
 
-  try {
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
-      discoverFn: () => ["agent-infra"],
-      execFn: () => {
-        inspected += 1;
-        return inspected === 1 ? "not-json" : validBlob();
-      },
-      spawnFn: () => ({ status: 0, stderr: "" }),
-      writeStdout: () => {},
-      writeStderr: () => {}
-    })));
+  const code = await withTempHomeOn("darwin", () => refresh([], {
+    discoverFn: () => ["agent-infra"],
+    execFn: () => {
+      inspected += 1;
+      return inspected === 1 ? "not-json" : validBlob();
+    },
+    spawnFn: () => ({ status: 0, stderr: "" }),
+    writeStdout: () => {},
+    writeStderr: () => {}
+  }));
 
-    assert.equal(code, 0);
-    assert.equal(inspected, 2);
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  assert.equal(code, 0);
+  assert.equal(inspected, 2);
 });
 
 test("refresh reports unchanged status when destination matches blob", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-unchanged-"));
   const blob = validBlob();
-  const targetDir = path.join(tmpDir, ".agent-infra", "credentials", "agent-infra", "claude-code");
   const stdout = [];
 
-  try {
+  await withTempHomeOn("darwin", async (home) => {
+    const targetDir = path.join(home, ".agent-infra", "credentials", "agent-infra", "claude-code");
     fs.mkdirSync(targetDir, { recursive: true });
     fs.writeFileSync(path.join(targetDir, ".credentials.json"), blob, "utf8");
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
+    const code = await refresh([], {
       discoverFn: () => ["agent-infra"],
       execFn: () => blob,
       writeStdout: (chunk) => stdout.push(chunk),
       writeStderr: () => {}
-    })));
+    });
 
     assert.equal(code, 0);
     assert.match(stdout.join(""), /\[agent-infra\] unchanged;/);
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  });
 });
 
 test("refresh reconciles from a newer project file without probing claude status", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-file-newer-"));
   const hostBlob = validBlob(100);
   const fileBlob = validBlob(200);
-  const hostPath = path.join(tmpDir, ".claude", ".credentials.json");
-  const filePath = path.join(tmpDir, ".agent-infra", "credentials", "agent-infra", "claude-code", ".credentials.json");
   const stdout = [];
   let probeCalled = false;
 
-  try {
+  await withTempHomeOn("linux", async (home) => {
+    const hostPath = path.join(home, ".claude", ".credentials.json");
+    const filePath = path.join(home, ".agent-infra", "credentials", "agent-infra", "claude-code", ".credentials.json");
     fs.mkdirSync(path.dirname(hostPath), { recursive: true });
     fs.mkdirSync(path.dirname(filePath), { recursive: true });
     fs.writeFileSync(hostPath, hostBlob, "utf8");
     fs.writeFileSync(filePath, fileBlob, "utf8");
 
-    const code = await withHome(tmpDir, () => withPlatform("linux", () => refresh([], {
+    const code = await refresh([], {
       discoverFn: () => ["agent-infra"],
       spawnFn: () => {
         probeCalled = true;
@@ -333,23 +318,21 @@ test("refresh reconciles from a newer project file without probing claude status
       },
       writeStdout: (chunk) => stdout.push(chunk),
       writeStderr: () => {}
-    })));
+    });
 
     assert.equal(code, 0);
     assert.equal(probeCalled, false);
     assert.match(stdout.join(""), /\[host\] reconciled from file:agent-infra/);
     assert.match(stdout.join(""), /\[agent-infra\] unchanged;/);
     assert.equal(fs.readFileSync(hostPath, "utf8"), fileBlob);
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  });
 });
 
 test("refresh exits 1 when newer sandbox credentials cannot be written to host", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
   const stderr = [];
 
-  const code = await withPlatform("darwin", () => refresh([], {
+  const code = await withTempHomeOn("darwin", () => refresh([], {
     discoverFn: () => ["agent-infra"],
     execFn: () => {
       throw Object.assign(new Error("missing"), {
@@ -371,7 +354,7 @@ test("refresh emits keychain guidance when host keychain is locked", async () =>
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
   const stderr = [];
 
-  const code = await withPlatform("darwin", () => refresh([], {
+  const code = await withTempHomeOn("darwin", () => refresh([], {
     discoverFn: () => ["agent-infra"],
     execFn: () => {
       const error = new Error(
@@ -395,7 +378,7 @@ test("refresh emits keychain error detail and guidance for non-locked failures",
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
   const stderr = [];
 
-  const code = await withPlatform("darwin", () => refresh([], {
+  const code = await withTempHomeOn("darwin", () => refresh([], {
     discoverFn: () => ["agent-infra"],
     execFn: () => {
       const error = new Error(
@@ -419,54 +402,51 @@ test("refresh emits keychain error detail and guidance for non-locked failures",
 
 test("refresh uses env override credentials without touching keychain", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-env-"));
-  const overridePath = path.join(tmpDir, "credentials.json");
-  const targetDir = path.join(tmpDir, ".agent-infra", "credentials", "agent-infra", "claude-code");
   const previousOverride = process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE;
 
   try {
-    fs.writeFileSync(overridePath, validBlob(), "utf8");
-    fs.mkdirSync(targetDir, { recursive: true });
-    process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE = overridePath;
+    await withTempHomeOn("darwin", async (home) => {
+      const overridePath = path.join(home, "credentials.json");
+      const targetDir = path.join(home, ".agent-infra", "credentials", "agent-infra", "claude-code");
+      fs.writeFileSync(overridePath, validBlob(), "utf8");
+      fs.mkdirSync(targetDir, { recursive: true });
+      process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE = overridePath;
 
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
-      discoverFn: () => ["agent-infra"],
-      execFn: () => {
-        assert.fail("security should not be called when env override is set");
-      },
-      writeStdout: () => {},
-      writeStderr: () => {}
-    })));
+      const code = await refresh([], {
+        discoverFn: () => ["agent-infra"],
+        execFn: () => {
+          assert.fail("security should not be called when env override is set");
+        },
+        writeStdout: () => {},
+        writeStderr: () => {}
+      });
 
-    assert.equal(code, 0);
-    assert.ok(fs.existsSync(path.join(targetDir, ".credentials.json")));
+      assert.equal(code, 0);
+      assert.ok(fs.existsSync(path.join(targetDir, ".credentials.json")));
+    });
   } finally {
     if (previousOverride === undefined) {
       delete process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE;
     } else {
       process.env.AGENT_INFRA_CLAUDE_CREDENTIALS_FILE = previousOverride;
     }
-    fs.rmSync(tmpDir, { recursive: true, force: true });
   }
 });
 
 test("refresh continues on per-project sync failure and exits 1 at end", async () => {
   const { refresh } = await loadFreshEsm("lib/sandbox/commands/refresh.js");
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-refresh-fail-"));
   const stderr = [];
 
-  try {
-    fs.writeFileSync(path.join(tmpDir, ".agent-infra"), "x", "utf8");
-    const code = await withHome(tmpDir, () => withPlatform("darwin", () => refresh([], {
+  await withTempHomeOn("darwin", async (home) => {
+    fs.writeFileSync(path.join(home, ".agent-infra"), "x", "utf8");
+    const code = await refresh([], {
       discoverFn: () => ["agent-infra"],
       execFn: () => validBlob(),
       writeStdout: () => {},
       writeStderr: (chunk) => stderr.push(chunk)
-    })));
+    });
 
     assert.equal(code, 1);
     assert.match(stderr.join(""), /\[agent-infra\] sync failed:/);
-  } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  }
+  });
 });
