@@ -39,6 +39,9 @@ function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoD
   // gets, then have it report what it actually sees (Path, PATHEXT, whether
   // docker.cmd is resolvable). If the subprocess shows binDir missing from
   // Path, then execFileSync's env option is not propagating correctly.
+  // Embed binDir as a string literal (passing via argv was unreliable on
+  // win32: previous iteration had argv[2] undefined despite spawn passing it).
+  const binDirLiteral = JSON.stringify(binDir);
   const probeScript = [
     "const fs = require('node:fs');",
     "const path = require('node:path');",
@@ -47,11 +50,13 @@ function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoD
     "lines.push('Path-len: ' + pathVal.length);",
     "lines.push('Path-head: ' + JSON.stringify(pathVal.slice(0, 250)));",
     "lines.push('PATHEXT: ' + (process.env.PATHEXT || '(unset)'));",
-    "const binDir = process.argv[2];",
-    "lines.push('binDir-arg: ' + binDir);",
+    `const binDir = ${binDirLiteral};`,
+    "lines.push('binDir-literal: ' + binDir);",
     "lines.push('binDir-in-Path: ' + pathVal.split(';').includes(binDir));",
     "lines.push('docker.cmd-exists: ' + fs.existsSync(path.join(binDir, 'docker.cmd')));",
     "lines.push('cwd: ' + process.cwd());",
+    "lines.push('argv-count: ' + process.argv.length);",
+    "lines.push('argv: ' + JSON.stringify(process.argv));",
     "// Mimic resolveCommand exactly",
     "const exts = (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean);",
     "let resolved = null;",
@@ -65,7 +70,7 @@ function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoD
     "lines.push('resolveCommand-result: ' + (resolved || 'NULL'));",
     "console.log(lines.join('\\n'));"
   ].join("\n");
-  const probeResult = spawnSync(process.execPath, ["-e", probeScript, binDir], {
+  const probeResult = spawnSync(process.execPath, ["-e", probeScript], {
     cwd: repoDir,
     env: {
       ...envWithPrependedPath(gitSafeEnv(), binDir),
