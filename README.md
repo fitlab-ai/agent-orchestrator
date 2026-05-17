@@ -332,8 +332,6 @@ You can override the engine in `.agents/.airc.json`. Valid engines are platform-
 - macOS: `colima`, `orbstack`, `docker-desktop`
 - Windows: `wsl2`, `native`, `docker-desktop`
 
-This is stricter than earlier releases: invalid `sandbox.engine` values on Linux or Windows were previously ignored, but now fail during config loading with the supported values for the current platform.
-
 ### macOS
 
 - `ai init`, `ai sync`, etc.: works out of the box after `npm install -g @fitlab-ai/agent-infra` (or Homebrew).

@@ -311,8 +311,6 @@ agent-infra 支持 macOS、Linux 和 Windows。CLI 本身只需要 Node.js (>=22
 - macOS：`colima`、`orbstack`、`docker-desktop`
 - Windows：`wsl2`、`native`、`docker-desktop`
 
-这比旧版本更严格：Linux 或 Windows 上无效的 `sandbox.engine` 过去会被忽略，现在会在加载配置时报错，并提示当前平台支持的取值。
-
 ### macOS
 
 - `ai init`、`ai sync` 等：执行 `npm install -g @fitlab-ai/agent-infra`（或 Homebrew 安装）后开箱即用。
