@@ -26,6 +26,45 @@ function restoreDockerContext(previousValue) {
   }
 }
 
+// Builds a multi-section diagnostic string for an e2e CLI failure, exposing
+// the docker shim invocation log, env path config, and binDir listing.
+// Used by both execFileSync and spawnSync flavours of the sandbox exec e2e.
+function runCliDiagnosticMessage(resultOrError, debug) {
+  const readSafe = (filePathname) => {
+    try { return fs.readFileSync(filePathname, "utf8").trim(); }
+    catch (readErr) { return `(not readable: ${readErr.code || readErr.message})`; }
+  };
+  const env = debug.env || {};
+  const status = resultOrError.status;
+  const signal = resultOrError.signal ?? "none";
+  const stderr = (resultOrError.stderr ?? "").toString().trim() || "(empty)";
+  const stdout = (resultOrError.stdout ?? "").toString().trim() || "(empty)";
+  const header = resultOrError.message
+    ? `CLI subprocess failed: ${resultOrError.message}`
+    : `CLI subprocess exited non-zero (status=${status})`;
+  return [
+    header,
+    `exit status: ${status} signal: ${signal}`,
+    `--- CLI stderr ---\n${stderr}`,
+    `--- CLI stdout ---\n${stdout}`,
+    `--- fixture context ---\nplatform: ${process.platform}\nfixtureEngine: ${debug.fixtureEngine || "(n/a)"}\nbinDir: ${debug.binDir}\nPath: ${env.Path || "(unset)"}\nPATH: ${env.PATH || "(unset)"}\nPATHEXT: ${env.PATHEXT || "(unset)"}\nHOME: ${env.HOME || "(unset)"}\nUSERPROFILE: ${env.USERPROFILE || "(unset)"}`,
+    `--- docker shim invocations (DOCKER_DEBUG_PATH) ---\n${readSafe(debug.debugPath)}`,
+    `--- docker call log (DOCKER_LOG_PATH) ---\n${readSafe(debug.logPath)}`,
+    `--- binDir listing ---\n${(() => { try { return fs.readdirSync(debug.binDir).join(", "); } catch (e) { return `(not readable: ${e.message})`; } })()}`
+  ].join("\n\n");
+}
+
+// Wraps execFileSync so an e2e CLI failure attaches all docker shim diagnostic
+// state to the thrown error. Without this, a CI-only failure (especially on
+// Windows) gives no clue why the docker.cmd shim path failed.
+function runCliWithDiagnostic(execPath, cliArgs, execOptions, debug) {
+  try {
+    return execFileSync(execPath, cliArgs, execOptions);
+  } catch (error) {
+    throw new Error(runCliDiagnosticMessage(error, { ...debug, env: execOptions.env || {} }));
+  }
+}
+
 function withTTY(value, fn) {
   const descriptor = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
 
@@ -903,8 +942,14 @@ test("sandbox exec enters tmux automatically for interactive shells", onPlatform
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
   const logPath = path.join(tmpDir, "docker-log.jsonl");
+  const debugPath = path.join(tmpDir, "docker-debug.jsonl");
   const dockerPath = path.join(binDir, "docker");
   const dockerJsPath = path.join(binDir, "docker.js");
+  // Each platform's default engine routes docker calls through the local
+  // `docker` / `docker.cmd` shim that this test installs. native works on
+  // linux/win32; macOS does not allow native (Docker needs a VM) so we use
+  // colima, which is also the macOS platform default.
+  const fixtureEngine = process.platform === "darwin" ? "colima" : "native";
 
   try {
     fs.mkdirSync(repoDir, { recursive: true });
@@ -913,7 +958,7 @@ test("sandbox exec enters tmux automatically for interactive shells", onPlatform
     execSync("git init", { cwd: repoDir, env: gitSafeEnv(), stdio: "pipe" });
     fs.writeFileSync(
       path.join(repoDir, ".agents", ".airc.json"),
-      JSON.stringify({ project: "demo", org: "fitlab-ai", sandbox: { engine: "native" } }, null, 2) + "\n",
+      JSON.stringify({ project: "demo", org: "fitlab-ai", sandbox: { engine: fixtureEngine } }, null, 2) + "\n",
       "utf8"
     );
     fs.writeFileSync(
@@ -934,6 +979,17 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       [
         "const fs = require('node:fs');",
         "const args = process.argv.slice(2);",
+        // Diagnostic: log every shim invocation so a Windows-only CI failure",
+        // can be diagnosed without re-running. The debug file is only read",
+        // by the test if the CLI subprocess fails.",
+        "if (process.env.DOCKER_DEBUG_PATH) {",
+        "  try {",
+        "    fs.appendFileSync(process.env.DOCKER_DEBUG_PATH, JSON.stringify({",
+        "      args, cwd: process.cwd(), pid: process.pid, platform: process.platform,",
+        "      time: new Date().toISOString()",
+        "    }) + '\\n');",
+        "  } catch {}",
+        "}",
         "if (args[0] === 'ps') {",
         "  process.stdout.write('demo-dev-agent-infra-feature-cli-generic-sandbox\\n');",
         "  process.exit(0);",
@@ -948,7 +1004,7 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       "utf8"
     );
 
-    execFileSync(
+    runCliWithDiagnostic(
       process.execPath,
       [filePath("bin/cli.js"), "sandbox", "exec", "agent-infra-feature-cli-generic-sandbox"],
       {
@@ -958,6 +1014,7 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
           HOME: tmpDir,
           USERPROFILE: tmpDir,
           DOCKER_LOG_PATH: logPath,
+          DOCKER_DEBUG_PATH: debugPath,
           TERM_PROGRAM: "",
           TERM_PROGRAM_VERSION: "",
           LC_TERMINAL: "",
@@ -965,7 +1022,8 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
         },
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"]
-      }
+      },
+      { fixtureEngine, binDir, logPath, debugPath }
     );
 
     const dockerCalls = fs.readFileSync(logPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
@@ -987,9 +1045,11 @@ test("sandbox exec reconciles newer Claude credentials from a neighbouring proje
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
   const logPath = path.join(tmpDir, "docker-log.jsonl");
+  const debugPath = path.join(tmpDir, "docker-debug.jsonl");
   const dockerPath = path.join(binDir, "docker");
   const dockerJsPath = path.join(binDir, "docker.js");
   const fakeKeychainPath = path.join(tmpDir, "fake-keychain.json");
+  const fixtureEngine = process.platform === "darwin" ? "colima" : "native";
   const hostCredentialsPath = path.join(tmpDir, ".claude", ".credentials.json");
   const alphaCredentialsPath = path.join(
     tmpDir,
@@ -1023,7 +1083,7 @@ test("sandbox exec reconciles newer Claude credentials from a neighbouring proje
       JSON.stringify({
         project: "alpha",
         org: "fitlab-ai",
-        sandbox: { engine: "native", tools: ["claude-code"] }
+        sandbox: { engine: fixtureEngine, tools: ["claude-code"] }
       }, null, 2) + "\n",
       "utf8"
     );
@@ -1048,6 +1108,14 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       [
         "const fs = require('node:fs');",
         "const args = process.argv.slice(2);",
+        "if (process.env.DOCKER_DEBUG_PATH) {",
+        "  try {",
+        "    fs.appendFileSync(process.env.DOCKER_DEBUG_PATH, JSON.stringify({",
+        "      args, cwd: process.cwd(), pid: process.pid, platform: process.platform,",
+        "      time: new Date().toISOString()",
+        "    }) + '\\n');",
+        "  } catch {}",
+        "}",
         "if (args[0] === 'ps') {",
         "  process.stdout.write('alpha-dev-agent-infra-feature-cli-generic-sandbox\\n');",
         "  process.exit(0);",
@@ -1102,6 +1170,7 @@ exit 2
           HOME: tmpDir,
           USERPROFILE: tmpDir,
           DOCKER_LOG_PATH: logPath,
+          DOCKER_DEBUG_PATH: debugPath,
           FAKE_KEYCHAIN_FILE: fakeKeychainPath
         },
         encoding: "utf8",
@@ -1109,7 +1178,15 @@ exit 2
       }
     );
 
-    assert.equal(result.status, 0);
+    if (result.status !== 0) {
+      throw new Error(
+        runCliDiagnosticMessage(result, { fixtureEngine, binDir, logPath, debugPath, env: {
+          ...envWithPrependedPath(gitSafeEnv(), binDir),
+          HOME: tmpDir,
+          USERPROFILE: tmpDir
+        } })
+      );
+    }
     assert.match(result.stderr, /from sandbox refresh/);
     if (process.platform === "darwin") {
       assert.equal(fs.readFileSync(fakeKeychainPath, "utf8"), newerBlob);
