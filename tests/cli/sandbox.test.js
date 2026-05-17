@@ -1142,8 +1142,8 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
     fs.writeFileSync(
       path.join(binDir, "docker.cmd"),
       `@ECHO OFF\r\n`
-      + `>>"${cmdTracePath}" echo cmd-invoked args=[%*] cwd=[%CD%]\r\n`
-      + `"${process.execPath}" "%~dp0docker.js" %*\r\n`
+      + `>>"${cmdTracePath}" echo cmd-invoked args=[%*] cwd=[%CD%] dp0=[%~dp0] f0=[%~f0]\r\n`
+      + `"${process.execPath}" "${dockerJsPath}" %*\r\n`
       + `>>"${cmdTracePath}" echo cmd-exit=%ERRORLEVEL%\r\n`,
       "utf8"
     );
@@ -1278,8 +1278,8 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
     fs.writeFileSync(
       path.join(binDir, "docker.cmd"),
       `@ECHO OFF\r\n`
-      + `>>"${cmdTracePath}" echo cmd-invoked args=[%*] cwd=[%CD%]\r\n`
-      + `"${process.execPath}" "%~dp0docker.js" %*\r\n`
+      + `>>"${cmdTracePath}" echo cmd-invoked args=[%*] cwd=[%CD%] dp0=[%~dp0] f0=[%~f0]\r\n`
+      + `"${process.execPath}" "${dockerJsPath}" %*\r\n`
       + `>>"${cmdTracePath}" echo cmd-exit=%ERRORLEVEL%\r\n`,
       "utf8"
     );
