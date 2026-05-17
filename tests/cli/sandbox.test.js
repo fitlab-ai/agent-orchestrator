@@ -68,6 +68,21 @@ function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoD
     "  if (resolved) break;",
     "}",
     "lines.push('resolveCommand-result: ' + (resolved || 'NULL'));",
+    "// Try the actual spawn that runSafe would do (resolved + shell:true)",
+    "if (resolved) {",
+    "  const { spawnSync } = require('node:child_process');",
+    "  const r = spawnSync(resolved, ['ps', '--format', '{{.Names}}'], { shell: true, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });",
+    "  lines.push('spawn-status: ' + r.status);",
+    "  lines.push('spawn-signal: ' + r.signal);",
+    "  lines.push('spawn-error: ' + (r.error ? r.error.message : 'null'));",
+    "  lines.push('spawn-stdout: ' + JSON.stringify((r.stdout || '').trim()));",
+    "  lines.push('spawn-stderr: ' + JSON.stringify((r.stderr || '').trim()));",
+    "  // Also try WITHOUT shell:true to compare",
+    "  const r2 = spawnSync(resolved, ['ps'], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });",
+    "  lines.push('spawn-noshell-status: ' + r2.status);",
+    "  lines.push('spawn-noshell-error: ' + (r2.error ? r2.error.message : 'null'));",
+    "  lines.push('spawn-noshell-stdout: ' + JSON.stringify((r2.stdout || '').trim()));",
+    "}",
     "console.log(lines.join('\\n'));"
   ].join("\n");
   const probeResult = spawnSync(process.execPath, ["-e", probeScript], {
