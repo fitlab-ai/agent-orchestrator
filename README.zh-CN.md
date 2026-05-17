@@ -251,10 +251,6 @@ dotfiles 树解引用到
 
 悬空符号链接会被跳过并在 stderr 输出警告。符号链接循环以及超过 32 层的深层目录也会被跳过并输出警告。指向 `$HOME` 之外的符号链接可以使用，只要 host 用户能读取目标。
 
-此功能发布前已创建的沙箱，需要先执行一次 `ai sandbox rm <branch>`，再执行
-`ai sandbox create <branch>`，才能切换到新的快照 bind mount。`ai sandbox refresh`
-不会重建快照。
-
 > **不要往 `~/.agent-infra/dotfiles/` 放任何凭证。** 容器内是只读挂载，但整棵偏好树会链入所有项目沙箱。不要放 `.ssh/`、`.aws/credentials`、`.netrc`、`.gnupg/`、包含 `_authToken` 的 `.npmrc`、任何 AI 工具 OAuth/access token 文件，也不要放 `.gitconfig`。SSH 和工具凭证请使用专用通道；本地 Git 偏好建议用 `.gitconfig.local` 配合 `[include]`。
 
 **受保护路径**即使出现在 `~/.agent-infra/dotfiles/` 下，也会被钩子忽略：

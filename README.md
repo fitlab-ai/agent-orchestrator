@@ -266,10 +266,6 @@ nested directories beyond 32 levels are also skipped with a warning. Symlinks
 pointing outside `$HOME` are accepted as long as the host user can read the
 target.
 
-Existing sandboxes created before this feature need `ai sandbox rm <branch>`
-and `ai sandbox create <branch>` once to pick up the new snapshot bind mount.
-`ai sandbox refresh` does not rebuild the snapshot.
-
 > **Do not put secrets in `~/.agent-infra/dotfiles/`.** The mount is read-only
 > inside the container, but the full preference tree is linked into every
 > project sandbox. Do not place `.ssh/`, `.aws/credentials`, `.netrc`,
