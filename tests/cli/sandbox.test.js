@@ -50,6 +50,9 @@ function runCliDiagnosticMessage(resultOrError, debug) {
     `--- fixture context ---\nplatform: ${process.platform}\nfixtureEngine: ${debug.fixtureEngine || "(n/a)"}\nbinDir: ${debug.binDir}\nPath: ${env.Path || "(unset)"}\nPATH: ${env.PATH || "(unset)"}\nPATHEXT: ${env.PATHEXT || "(unset)"}\nHOME: ${env.HOME || "(unset)"}\nUSERPROFILE: ${env.USERPROFILE || "(unset)"}`,
     `--- docker shim invocations (DOCKER_DEBUG_PATH) ---\n${readSafe(debug.debugPath)}`,
     `--- docker call log (DOCKER_LOG_PATH) ---\n${readSafe(debug.logPath)}`,
+    `--- docker.cmd self-trace ---\n${debug.cmdTracePath ? readSafe(debug.cmdTracePath) : "(not configured)"}`,
+    `--- docker.cmd subprocess stdout ---\n${debug.cmdTracePath ? readSafe(`${debug.cmdTracePath}.stdout`) : "(not configured)"}`,
+    `--- docker.cmd subprocess stderr ---\n${debug.cmdTracePath ? readSafe(`${debug.cmdTracePath}.stderr`) : "(not configured)"}`,
     `--- binDir listing ---\n${(() => { try { return fs.readdirSync(debug.binDir).join(", "); } catch (e) { return `(not readable: ${e.message})`; } })()}`
   ].join("\n\n");
 }
@@ -998,9 +1001,19 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       ].join("\n"),
       "utf8"
     );
+    const cmdTracePath = path.join(tmpDir, "docker-cmd-trace.txt");
+    // docker.cmd self-traces to a file BEFORE invoking node.exe. If
+    // this file is missing on failure, docker.cmd was never invoked
+    // (likely resolveCommand returned 'docker' literal). If the file
+    // exists but docker-debug.jsonl is missing, the cmd ran but the
+    // node child failed before our debug write.
     fs.writeFileSync(
       path.join(binDir, "docker.cmd"),
-      `@ECHO OFF\r\n"${process.execPath}" "%~dp0docker.js" %*\r\n`,
+      `@ECHO OFF\r\n`
+      + `>>"${cmdTracePath}" echo cmd-invoked args=[%*] cwd=[%CD%]\r\n`
+      + `"${process.execPath}" "%~dp0docker.js" %* 1>>"${cmdTracePath}.stdout" 2>>"${cmdTracePath}.stderr"\r\n`
+      + `>>"${cmdTracePath}" echo cmd-exit=%ERRORLEVEL%\r\n`
+      + `type "${cmdTracePath}.stdout"\r\n`,
       "utf8"
     );
 
@@ -1023,7 +1036,7 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"]
       },
-      { fixtureEngine, binDir, logPath, debugPath }
+      { fixtureEngine, binDir, logPath, debugPath, cmdTracePath }
     );
 
     const dockerCalls = fs.readFileSync(logPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
@@ -1124,9 +1137,14 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       ].join("\n"),
       "utf8"
     );
+    const cmdTracePath = path.join(tmpDir, "docker-cmd-trace.txt");
     fs.writeFileSync(
       path.join(binDir, "docker.cmd"),
-      `@ECHO OFF\r\n"${process.execPath}" "%~dp0docker.js" %*\r\n`,
+      `@ECHO OFF\r\n`
+      + `>>"${cmdTracePath}" echo cmd-invoked args=[%*] cwd=[%CD%]\r\n`
+      + `"${process.execPath}" "%~dp0docker.js" %* 1>>"${cmdTracePath}.stdout" 2>>"${cmdTracePath}.stderr"\r\n`
+      + `>>"${cmdTracePath}" echo cmd-exit=%ERRORLEVEL%\r\n`
+      + `type "${cmdTracePath}.stdout"\r\n`,
       "utf8"
     );
 
@@ -1180,7 +1198,7 @@ exit 2
 
     if (result.status !== 0) {
       throw new Error(
-        runCliDiagnosticMessage(result, { fixtureEngine, binDir, logPath, debugPath, env: {
+        runCliDiagnosticMessage(result, { fixtureEngine, binDir, logPath, debugPath, cmdTracePath, env: {
           ...envWithPrependedPath(gitSafeEnv(), binDir),
           HOME: tmpDir,
           USERPROFILE: tmpDir
