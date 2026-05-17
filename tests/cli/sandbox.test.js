@@ -14,9 +14,10 @@ import {
   gitSafeEnv,
   loadFreshEsm,
   onPlatforms,
+  pathWithPrependedBin,
   withGitSafeProcessEnv
 } from "../helpers.js";
-import { restoreTerminal, runInteractive, runVerbose } from "../../lib/sandbox/shell.js";
+import { restoreTerminal, runInteractive, runSafe, runVerbose } from "../../lib/sandbox/shell.js";
 
 function restoreDockerContext(previousValue) {
   if (previousValue === undefined) {
@@ -24,6 +25,59 @@ function restoreDockerContext(previousValue) {
   } else {
     process.env.DOCKER_CONTEXT = previousValue;
   }
+}
+
+// Win32-only preflight: replicate the CLI's runSafe code path from inside
+// the test process. By temporarily mutating process.env.Path the test
+// process becomes env-equivalent to the CLI subprocess. We try both the
+// full args ("ps --format {{.Names}}") and a simpler form to isolate any
+// Node 22 .cmd-arg-hardening interaction.
+function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath }) {
+  if (process.platform !== "win32") return null;
+  const out = {};
+  // Direct fs check — tests resolveCommand's core operation
+  out.shimExists = {
+    "docker.cmd": fs.existsSync(path.join(binDir, "docker.cmd")),
+    "docker.js": fs.existsSync(path.join(binDir, "docker.js"))
+  };
+  const newPath = pathWithPrependedBin(binDir, process.env.Path || process.env.PATH || "");
+  const savedPath = process.env.Path;
+  const savedPATH = process.env.PATH;
+  // Use separate diagnostic files for preflight so they don't conflict
+  // with the CLI subprocess's debug log.
+  const savedLog = process.env.DOCKER_LOG_PATH;
+  const savedDebug = process.env.DOCKER_DEBUG_PATH;
+  process.env.Path = newPath;
+  process.env.PATH = newPath;
+  process.env.DOCKER_LOG_PATH = `${logPath}.preflight`;
+  process.env.DOCKER_DEBUG_PATH = `${debugPath}.preflight`;
+  try {
+    try { out.runSafeFullArgs = runSafe("docker", ["ps", "--format", "{{.Names}}"]); }
+    catch (err) { out.runSafeFullArgs = `THREW: ${err.message}`; }
+    try { out.runSafeSimpleArgs = runSafe("docker", ["ps"]); }
+    catch (err) { out.runSafeSimpleArgs = `THREW: ${err.message}`; }
+    // Raw spawn (no resolveCommand) — purely cmd.exe PATH lookup
+    const raw = spawnSync("docker", ["ps", "--format", "{{.Names}}"], {
+      encoding: "utf8", shell: true, stdio: ["ignore", "pipe", "pipe"]
+    });
+    out.rawShellTrue = {
+      status: raw.status, signal: raw.signal,
+      stdout: (raw.stdout ?? "").trim(),
+      stderr: (raw.stderr ?? "").trim(),
+      error: raw.error?.message ?? null
+    };
+    // Read what the preflight wrote to its diagnostic files
+    try { out.preflightDebugLog = fs.readFileSync(`${debugPath}.preflight`, "utf8").trim() || "(empty)"; }
+    catch (err) { out.preflightDebugLog = `(not readable: ${err.code})`; }
+    try { out.preflightCmdTrace = fs.readFileSync(cmdTracePath, "utf8").trim() || "(empty)"; }
+    catch (err) { out.preflightCmdTrace = `(not readable: ${err.code})`; }
+  } finally {
+    if (savedPath === undefined) delete process.env.Path; else process.env.Path = savedPath;
+    if (savedPATH === undefined) delete process.env.PATH; else process.env.PATH = savedPATH;
+    if (savedLog === undefined) delete process.env.DOCKER_LOG_PATH; else process.env.DOCKER_LOG_PATH = savedLog;
+    if (savedDebug === undefined) delete process.env.DOCKER_DEBUG_PATH; else process.env.DOCKER_DEBUG_PATH = savedDebug;
+  }
+  return out;
 }
 
 // Builds a multi-section diagnostic string for an e2e CLI failure, exposing
@@ -53,7 +107,8 @@ function runCliDiagnosticMessage(resultOrError, debug) {
     `--- docker.cmd self-trace ---\n${debug.cmdTracePath ? readSafe(debug.cmdTracePath) : "(not configured)"}`,
     `--- docker.cmd subprocess stdout ---\n${debug.cmdTracePath ? readSafe(`${debug.cmdTracePath}.stdout`) : "(not configured)"}`,
     `--- docker.cmd subprocess stderr ---\n${debug.cmdTracePath ? readSafe(`${debug.cmdTracePath}.stderr`) : "(not configured)"}`,
-    `--- binDir listing ---\n${(() => { try { return fs.readdirSync(debug.binDir).join(", "); } catch (e) { return `(not readable: ${e.message})`; } })()}`
+    `--- binDir listing ---\n${(() => { try { return fs.readdirSync(debug.binDir).join(", "); } catch (e) { return `(not readable: ${e.message})`; } })()}`,
+    `--- win32 preflight ---\n${debug.preflight ? JSON.stringify(debug.preflight, null, 2) : "(not applicable)"}`
   ].join("\n\n");
 }
 
@@ -1017,6 +1072,12 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       "utf8"
     );
 
+    // Win32 preflight: invoke the shim from this test process (not from
+    // the CLI subprocess) using the same runSafe path. If preflight
+    // succeeds but the CLI fails, the issue is env propagation. If both
+    // fail, the issue is in resolveCommand or spawnSync(shell:true).
+    const preflight = collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath });
+
     runCliWithDiagnostic(
       process.execPath,
       [filePath("bin/cli.js"), "sandbox", "exec", "agent-infra-feature-cli-generic-sandbox"],
@@ -1036,7 +1097,7 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"]
       },
-      { fixtureEngine, binDir, logPath, debugPath, cmdTracePath }
+      { fixtureEngine, binDir, logPath, debugPath, cmdTracePath, preflight }
     );
 
     const dockerCalls = fs.readFileSync(logPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
