@@ -59,6 +59,44 @@ function captureStdoutWrite(fn) {
   }
 }
 
+function makeDotfilesFixture(prefix = "agent-infra-materialize-dotfiles-") {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), prefix));
+  const srcDir = path.join(tmpDir, "src");
+  const cacheDir = path.join(tmpDir, "cache");
+  const externalDir = path.join(tmpDir, "external");
+  fs.mkdirSync(srcDir, { recursive: true });
+  fs.mkdirSync(externalDir, { recursive: true });
+  return { tmpDir, srcDir, cacheDir, externalDir };
+}
+
+function trySymlink(target, linkPath, type) {
+  try {
+    fs.symlinkSync(target, linkPath, type);
+    return true;
+  } catch (error) {
+    if (["EPERM", "EACCES", "ENOTSUP"].includes(error?.code)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+function symlinkType(type) {
+  if (type === "dir" && process.platform === "win32") {
+    return "junction";
+  }
+  return type;
+}
+
+function readMaterializeResult(sandboxDotfiles, srcDir, cacheDir, options = {}) {
+  const stderrChunks = [];
+  const result = sandboxDotfiles.materializeDotfiles(srcDir, cacheDir, {
+    writeStderr: (chunk) => stderrChunks.push(chunk),
+    ...options
+  });
+  return { result, stderr: stderrChunks.join("") };
+}
+
 function withFakeStty(exitCode, fn) {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-fake-stty-"));
   const sttyPath = path.join(tmpDir, "stty");
@@ -349,6 +387,15 @@ test("loadConfig derives sandbox defaults from .agents/.airc.json", async () => 
     process.chdir(previousCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
+});
+
+test("dotfilesCacheDir returns project-scoped cache path under .agent-infra cache", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+
+  assert.equal(
+    sandboxDotfiles.dotfilesCacheDir("/home/u", "demo"),
+    "/home/u/.agent-infra/.cache/dotfiles-resolved/demo"
+  );
 });
 
 test("loadConfig preserves configured sandbox engine", async () => {
@@ -824,6 +871,226 @@ test("buildDotfilesVolumeArgs applies engine-aware path on wsl2", async () => {
   );
 
   assert.deepEqual(args, ["-v", "/mnt/c/Users/u/.agent-infra/dotfiles:/dotfiles:ro"]);
+});
+
+test("materializeDotfiles returns null when source directory is missing", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir } = makeDotfilesFixture();
+
+  try {
+    fs.rmSync(srcDir, { recursive: true, force: true });
+
+    const result = sandboxDotfiles.materializeDotfiles(srcDir, cacheDir);
+
+    assert.equal(result, null);
+    assert.equal(fs.existsSync(cacheDir), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles dereferences a regular file symlink", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir, externalDir } = makeDotfilesFixture();
+
+  try {
+    const realFile = path.join(externalDir, ".tmux.conf");
+    fs.writeFileSync(realFile, "set -g mouse on\n", "utf8");
+    const symlinkCreated = trySymlink(realFile, path.join(srcDir, ".tmux.conf"), "file");
+    if (!symlinkCreated) {
+      assert.equal(fs.existsSync(path.join(srcDir, ".tmux.conf")), false);
+      return;
+    }
+
+    const { result, stderr } = readMaterializeResult(sandboxDotfiles, srcDir, cacheDir);
+
+    assert.equal(result.cacheDir, cacheDir);
+    assert.deepEqual(result.warnings, []);
+    assert.equal(stderr, "");
+    assert.equal(fs.lstatSync(path.join(cacheDir, ".tmux.conf")).isFile(), true);
+    assert.equal(fs.readFileSync(path.join(cacheDir, ".tmux.conf"), "utf8"), "set -g mouse on\n");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles dereferences a directory symlink", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir, externalDir } = makeDotfilesFixture();
+
+  try {
+    const realConfigDir = path.join(externalDir, "config");
+    fs.mkdirSync(path.join(realConfigDir, "lazygit"), { recursive: true });
+    fs.writeFileSync(path.join(realConfigDir, "lazygit", "config.yml"), "gui:\n  nerdFontsVersion: \"3\"\n", "utf8");
+    const symlinkCreated = trySymlink(realConfigDir, path.join(srcDir, ".config"), symlinkType("dir"));
+    if (!symlinkCreated) {
+      assert.equal(fs.existsSync(path.join(srcDir, ".config")), false);
+      return;
+    }
+
+    const { result } = readMaterializeResult(sandboxDotfiles, srcDir, cacheDir);
+
+    assert.deepEqual(result.warnings, []);
+    assert.equal(
+      fs.readFileSync(path.join(cacheDir, ".config", "lazygit", "config.yml"), "utf8"),
+      "gui:\n  nerdFontsVersion: \"3\"\n"
+    );
+    assert.equal(fs.lstatSync(path.join(cacheDir, ".config")).isSymbolicLink(), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles warns on dangling symlink and continues", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir } = makeDotfilesFixture();
+
+  try {
+    fs.writeFileSync(path.join(srcDir, "regular"), "kept\n", "utf8");
+    const symlinkCreated = trySymlink(path.join(tmpDir, "missing"), path.join(srcDir, "broken"), "file");
+    if (!symlinkCreated) {
+      assert.equal(fs.existsSync(path.join(srcDir, "broken")), false);
+      return;
+    }
+
+    const { result, stderr } = readMaterializeResult(sandboxDotfiles, srcDir, cacheDir);
+
+    assert.equal(result.warnings.some((warning) => warning.rel === "broken" && warning.reason === "dangling symlink"), true);
+    assert.match(stderr, /sandbox-dotfiles \(host\): skipping broken \(dangling symlink:/);
+    assert.equal(fs.existsSync(path.join(cacheDir, "broken")), false);
+    assert.equal(fs.readFileSync(path.join(cacheDir, "regular"), "utf8"), "kept\n");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles breaks symlink cycles via active realpath set", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir } = makeDotfilesFixture();
+
+  try {
+    const realDir = path.join(srcDir, "dir");
+    fs.mkdirSync(realDir, { recursive: true });
+    fs.writeFileSync(path.join(realDir, "kept"), "kept\n", "utf8");
+    const symlinkCreated = trySymlink(srcDir, path.join(realDir, "back"), symlinkType("dir"));
+    if (!symlinkCreated) {
+      assert.equal(fs.existsSync(path.join(realDir, "back")), false);
+      return;
+    }
+
+    const { result, stderr } = readMaterializeResult(sandboxDotfiles, srcDir, cacheDir);
+
+    assert.equal(result.warnings.some((warning) => warning.rel === "dir/back" && warning.reason === "symlink loop"), true);
+    assert.match(stderr, /sandbox-dotfiles \(host\): skipping dir\/back \(symlink loop\)/);
+    assert.equal(fs.readFileSync(path.join(cacheDir, "dir", "kept"), "utf8"), "kept\n");
+    assert.equal(fs.existsSync(path.join(cacheDir, "dir", "back", "dir", "back")), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles caps recursion at maxDepth", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir } = makeDotfilesFixture();
+
+  try {
+    const deepDir = path.join(srcDir, "one", "two", "three");
+    fs.mkdirSync(deepDir, { recursive: true });
+    fs.writeFileSync(path.join(deepDir, "too-deep"), "hidden\n", "utf8");
+
+    const { result, stderr } = readMaterializeResult(sandboxDotfiles, srcDir, cacheDir, { maxDepth: 2 });
+
+    assert.equal(result.warnings.some((warning) => warning.rel === "one/two/three" && warning.reason === "depth exceeds limit"), true);
+    assert.match(stderr, /sandbox-dotfiles \(host\): skipping one\/two\/three \(depth exceeds limit: 2\)/);
+    assert.equal(fs.existsSync(path.join(cacheDir, "one", "two", "three", "too-deep")), false);
+    assert.equal(fs.existsSync(path.join(cacheDir, "one", "two", "three")), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles dereferences symlinks pointing outside the source tree", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir, externalDir } = makeDotfilesFixture();
+
+  try {
+    const hostFile = path.join(externalDir, "host-tmux.conf");
+    fs.writeFileSync(hostFile, "set -g status-position top\n", "utf8");
+    const symlinkCreated = trySymlink(hostFile, path.join(srcDir, ".tmux.conf"), "file");
+    if (!symlinkCreated) {
+      assert.equal(fs.existsSync(path.join(srcDir, ".tmux.conf")), false);
+      return;
+    }
+
+    const { result } = readMaterializeResult(sandboxDotfiles, srcDir, cacheDir);
+
+    assert.deepEqual(result.warnings, []);
+    assert.equal(fs.readFileSync(path.join(cacheDir, ".tmux.conf"), "utf8"), "set -g status-position top\n");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles empties cacheDir contents without removing cacheDir itself", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir } = makeDotfilesFixture();
+
+  try {
+    fs.mkdirSync(cacheDir, { recursive: true });
+    fs.writeFileSync(path.join(cacheDir, "old"), "old\n", "utf8");
+    const before = fs.statSync(cacheDir);
+    fs.writeFileSync(path.join(srcDir, "new"), "new\n", "utf8");
+
+    readMaterializeResult(sandboxDotfiles, srcDir, cacheDir);
+
+    const after = fs.statSync(cacheDir);
+    assert.equal(after.ino, before.ino);
+    assert.equal(fs.existsSync(path.join(cacheDir, "old")), false);
+    assert.equal(fs.readFileSync(path.join(cacheDir, "new"), "utf8"), "new\n");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles preserves regular files alongside symlinks", async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir, externalDir } = makeDotfilesFixture();
+
+  try {
+    fs.writeFileSync(path.join(srcDir, ".inputrc"), "set editing-mode vi\n", "utf8");
+    const hostFile = path.join(externalDir, ".tmux.conf");
+    fs.writeFileSync(hostFile, "set -g history-limit 100000\n", "utf8");
+    const symlinkCreated = trySymlink(hostFile, path.join(srcDir, ".tmux.conf"), "file");
+    if (!symlinkCreated) {
+      assert.equal(fs.existsSync(path.join(srcDir, ".tmux.conf")), false);
+      return;
+    }
+
+    const { result } = readMaterializeResult(sandboxDotfiles, srcDir, cacheDir);
+
+    assert.deepEqual(result.warnings, []);
+    assert.equal(fs.readFileSync(path.join(cacheDir, ".inputrc"), "utf8"), "set editing-mode vi\n");
+    assert.equal(fs.readFileSync(path.join(cacheDir, ".tmux.conf"), "utf8"), "set -g history-limit 100000\n");
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("materializeDotfiles skips fifos silently", onPlatforms("linux", "darwin"), async () => {
+  const sandboxDotfiles = await loadFreshEsm("lib/sandbox/dotfiles.js");
+  const { tmpDir, srcDir, cacheDir } = makeDotfilesFixture();
+
+  try {
+    execFileSync("mkfifo", [path.join(srcDir, "pipe")]);
+
+    const { result, stderr } = readMaterializeResult(sandboxDotfiles, srcDir, cacheDir);
+
+    assert.deepEqual(result.warnings, []);
+    assert.equal(stderr, "");
+    assert.equal(fs.existsSync(path.join(cacheDir, "pipe")), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
 });
 
 test("terminalEnvFlags forwards iTerm2 detection variables for Shift+Enter support", async () => {

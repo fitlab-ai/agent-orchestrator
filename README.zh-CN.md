@@ -235,7 +235,27 @@ host 端目录树镜像容器 `$HOME` 下的预期路径，风格类似 GNU stow
 未来要加 `starship.toml`、`.gitconfig.local` 等偏好，只需把文件放进
 `~/.agent-infra/dotfiles/`，无需修改 Dockerfile 或 `ai sandbox create`。
 
-> **不要往 `~/.agent-infra/dotfiles/` 放任何凭证。** 容器内是只读挂载，但整棵偏好树会链入所有项目沙箱。不要放 `.ssh/`、`.aws/credentials`、`.netrc`、`.gnupg/`、包含 `_authToken` 的 `.npmrc`、任何 AI 工具 OAuth/access token 文件，也不要放 `.gitconfig`。SSH 和工具凭证请使用专用通道；本地 Git 偏好建议用 `.gitconfig.local` 配合 `[include]`。也不要在这棵目录里放符号链接；钩子使用 `find -type f` 遍历，不会跟随符号链接。
+##### 符号链接作为指向 host 文件的指针
+
+你可以在 `~/.agent-infra/dotfiles/` 里放符号链接，让它们指向 host 上的真实文件：
+
+```bash
+ln -s ~/.tmux.conf ~/.agent-infra/dotfiles/.tmux.conf
+ln -s ~/.config/lazygit ~/.agent-infra/dotfiles/.config/lazygit
+```
+
+每次执行 `ai sandbox create` 和 `ai sandbox enter` 前，agent-infra 会先把
+dotfiles 树解引用到
+`~/.agent-infra/.cache/dotfiles-resolved/<project>/`，再把这份快照挂载进容器。
+因此修改 host 源文件后，重新进入沙箱即可看到最新内容。
+
+悬空符号链接会被跳过并在 stderr 输出警告。符号链接循环以及超过 32 层的深层目录也会被跳过并输出警告。指向 `$HOME` 之外的符号链接可以使用，只要 host 用户能读取目标。
+
+此功能发布前已创建的沙箱，需要先执行一次 `ai sandbox rm <branch>`，再执行
+`ai sandbox create <branch>`，才能切换到新的快照 bind mount。`ai sandbox refresh`
+不会重建快照。
+
+> **不要往 `~/.agent-infra/dotfiles/` 放任何凭证。** 容器内是只读挂载，但整棵偏好树会链入所有项目沙箱。不要放 `.ssh/`、`.aws/credentials`、`.netrc`、`.gnupg/`、包含 `_authToken` 的 `.npmrc`、任何 AI 工具 OAuth/access token 文件，也不要放 `.gitconfig`。SSH 和工具凭证请使用专用通道；本地 Git 偏好建议用 `.gitconfig.local` 配合 `[include]`。
 
 **受保护路径**即使出现在 `~/.agent-infra/dotfiles/` 下，也会被钩子忽略：
 

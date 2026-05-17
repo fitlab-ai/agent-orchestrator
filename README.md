@@ -245,14 +245,37 @@ To add future preferences such as `starship.toml` or `.gitconfig.local`, put
 files in `~/.agent-infra/dotfiles/`; no Dockerfile or `ai sandbox create`
 changes are needed.
 
+#### Symlinks as pointers to host files
+
+You can place symlinks inside `~/.agent-infra/dotfiles/` to point at real files
+on your host:
+
+```bash
+ln -s ~/.tmux.conf ~/.agent-infra/dotfiles/.tmux.conf
+ln -s ~/.config/lazygit ~/.agent-infra/dotfiles/.config/lazygit
+```
+
+Before each `ai sandbox create` and `ai sandbox enter`, agent-infra
+dereferences the dotfiles tree into
+`~/.agent-infra/.cache/dotfiles-resolved/<project>/` and mounts that snapshot
+into the container. Editing the host source file, then re-entering the sandbox,
+is enough to pick up the latest content.
+
+Dangling symlinks are skipped with a stderr warning. Symlink cycles and deeply
+nested directories beyond 32 levels are also skipped with a warning. Symlinks
+pointing outside `$HOME` are accepted as long as the host user can read the
+target.
+
+Existing sandboxes created before this feature need `ai sandbox rm <branch>`
+and `ai sandbox create <branch>` once to pick up the new snapshot bind mount.
+`ai sandbox refresh` does not rebuild the snapshot.
+
 > **Do not put secrets in `~/.agent-infra/dotfiles/`.** The mount is read-only
 > inside the container, but the full preference tree is linked into every
 > project sandbox. Do not place `.ssh/`, `.aws/credentials`, `.netrc`,
 > `.gnupg/`, `.npmrc` files containing `_authToken`, AI tool OAuth/access token
 > files, or `.gitconfig` there. Use the dedicated SSH and credential channels,
 > and prefer `.gitconfig.local` with `[include]` for local Git preferences.
-> Also avoid symlinks in this tree; the hook uses `find -type f` and does not
-> follow them.
 
 **Protected paths** are ignored by the hook even if they appear under
 `~/.agent-infra/dotfiles/`:
