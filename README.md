@@ -316,7 +316,23 @@ agent-infra is intentionally simple: a bootstrap CLI creates the seed configurat
 
 ## Platform Support
 
-agent-infra runs on macOS and Linux. The CLI itself only needs Node.js (>=22); container-related features (`ai sandbox *`) additionally need Docker.
+agent-infra runs on macOS, Linux, and Windows. The CLI itself only needs Node.js (>=22); container-related features (`ai sandbox *`) additionally need Docker.
+
+### Sandbox engine selection
+
+`sandbox.engine` in `.agents/.airc.json` selects the container engine. When it is `null` or omitted, agent-infra uses the platform default:
+
+- Linux: `native`
+- macOS: `colima`
+- Windows: `wsl2`
+
+You can override the engine in `.agents/.airc.json`. Valid engines are platform-specific:
+
+- Linux: `native`, `docker-desktop`
+- macOS: `colima`, `orbstack`, `docker-desktop`
+- Windows: `wsl2`, `native`, `docker-desktop`
+
+This is stricter than earlier releases: invalid `sandbox.engine` values on Linux or Windows were previously ignored, but now fail during config loading with the supported values for the current platform.
 
 ### macOS
 
@@ -434,7 +450,7 @@ You can run the CLI from PowerShell or Git Bash, but the project path must be vi
 
 #### Engine resource configuration
 
-WSL2 is the sandbox engine on Windows. `sandbox.vm.cpu`, `sandbox.vm.memory`, and `--cpu / --memory` flags are not applied automatically — configure CPU and memory limits in Docker Desktop (Settings → Resources) instead. `sandbox.vm.disk` is not applicable to WSL2. `vm.memory` and `--memory` values are expressed in GiB.
+WSL2 is the default sandbox engine on Windows. `sandbox.vm.cpu`, `sandbox.vm.memory`, and `--cpu / --memory` flags are not applied automatically when using WSL2 — configure CPU and memory limits in Docker Desktop (Settings → Resources) instead. `sandbox.vm.disk` is not applicable to WSL2. `vm.memory` and `--memory` values are expressed in GiB.
 
 <a id="what-you-get"></a>
 

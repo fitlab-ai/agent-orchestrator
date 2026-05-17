@@ -68,12 +68,3 @@ try {
   }
 }
 ```
-
-## 4. 已知未启用的 Windows sandbox e2e
-
-`tests/cli/sandbox.test.js` 中的 sandbox exec e2e 当前仍限制在 Linux 和 macOS：
-
-- `sandbox exec enters tmux automatically for interactive shells`
-- `sandbox exec reconciles newer Claude credentials from a neighbouring project`
-
-原因是 Windows 上 `lib/sandbox/engine.js` 会自动选择 `wsl2`，docker 调用经由 `wsl.exe -- docker ...`，测试中的 `docker.cmd` shim 无法命中。后续如为 sandbox engine 增加测试用 override，再启用这些 Windows e2e。跟踪 Issue：[#294](https://github.com/fitlab-ai/agent-infra/issues/294)。

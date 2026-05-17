@@ -7,9 +7,14 @@ import os from "node:os";
 
 import { envWithPrependedPath, exists, filePath, read, supportsPosixModeBits, writeNodeCommandShim } from "../helpers.js";
 
-// On macOS, init prompts for sandbox engine (extra blank line input needed)
-const IS_DARWIN = os.platform() === "darwin";
-const ENGINE_NL = IS_DARWIN ? "\\n" : "";
+const PLATFORM_DEFAULT_ENGINES = {
+  linux: "native",
+  darwin: "colima",
+  win32: "wsl2"
+};
+const CURRENT_PLATFORM = os.platform();
+const DEFAULT_SANDBOX_ENGINE = PLATFORM_DEFAULT_ENGINES[CURRENT_PLATFORM] ?? null;
+const ENGINE_NL = DEFAULT_SANDBOX_ENGINE ? "\\n" : "";
 
 test("bootstrap CLI files exist", () => {
   assert.ok(exists("install.sh"), "install.sh should exist");
@@ -66,7 +71,7 @@ test("agent-infra init generates seed files in a temp directory", () => {
     assert.ok(!config.branchPrefix, "branchPrefix should not exist");
     assert.ok(!config.source, "consumer projects should not have source: self");
     assert.deepEqual(config.sandbox, {
-      engine: IS_DARWIN ? "colima" : null,
+      engine: DEFAULT_SANDBOX_ENGINE,
       runtimes: ["node20"],
       tools: ["claude-code", "codex", "opencode", "gemini-cli"],
       dockerfile: null,
@@ -144,13 +149,16 @@ test("agent-infra init generates seed files in a temp directory", () => {
   }
 });
 
-test("agent-infra init defaults macOS sandbox engine to Colima", () => {
+test("agent-infra init prompts with platform-specific sandbox engine choices", () => {
   const initSource = read("lib/init.js");
 
-  assert.match(
-    initSource,
-    /select\(\s*'Sandbox engine \(macOS\)',\s*\[\s*'colima',\s*'orbstack',\s*'docker-desktop'\s*\],\s*'colima'\s*\)/s
-  );
+  assert.match(initSource, /const PLATFORM_DEFAULT_ENGINES = Object\.freeze\(\{/);
+  assert.match(initSource, /linux:\s*'native'/);
+  assert.match(initSource, /darwin:\s*'colima'/);
+  assert.match(initSource, /win32:\s*'wsl2'/);
+  assert.match(initSource, /enginesForPlatform\(currentPlatform\)/);
+  assert.match(initSource, /left === defaultEngine/);
+  assert.match(initSource, /`Sandbox engine \(\$\{currentPlatform\}\)`/);
 });
 
 test("agent-infra init accepts a custom platform selected from the menu", () => {

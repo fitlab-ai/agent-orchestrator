@@ -364,7 +364,7 @@ test("loadConfig preserves configured sandbox engine", async () => {
       JSON.stringify({
         project: "demo",
         org: "fitlab-ai",
-        sandbox: { engine: "orbstack" }
+        sandbox: { engine: "docker-desktop" }
       }, null, 2) + "\n",
       "utf8"
     );
@@ -372,9 +372,37 @@ test("loadConfig preserves configured sandbox engine", async () => {
     process.chdir(tmpDir);
     const config = withGitSafeProcessEnv(() => sandboxConfig.loadConfig());
 
-    assert.equal(config.engine, "orbstack");
+    assert.equal(config.engine, "docker-desktop");
     assert.deepEqual(config.runtimes, ["node20"]);
     assert.deepEqual(config.vm, { cpu: null, memory: null, disk: null });
+  } finally {
+    process.chdir(previousCwd);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("loadConfig preserves configured darwin-only sandbox engine with platform context", async () => {
+  const sandboxConfig = await loadFreshEsm("lib/sandbox/config.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-engine-darwin-"));
+  const previousCwd = process.cwd();
+
+  try {
+    execSync("git init", { cwd: tmpDir, env: gitSafeEnv(), stdio: "pipe" });
+    fs.mkdirSync(path.join(tmpDir, ".agents"), { recursive: true });
+    fs.writeFileSync(
+      path.join(tmpDir, ".agents", ".airc.json"),
+      JSON.stringify({
+        project: "demo",
+        org: "fitlab-ai",
+        sandbox: { engine: "orbstack" }
+      }, null, 2) + "\n",
+      "utf8"
+    );
+
+    process.chdir(tmpDir);
+    const config = withGitSafeProcessEnv(() => sandboxConfig.loadConfig({ platformFn: () => "darwin" }));
+
+    assert.equal(config.engine, "orbstack");
   } finally {
     process.chdir(previousCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -402,7 +430,7 @@ test("loadConfig rejects unsupported sandbox engine values", async () => {
 
     assert.throws(
       () => withGitSafeProcessEnv(() => sandboxConfig.loadConfig()),
-      /invalid "sandbox\.engine" value "podman".*only affects macOS/s
+      /invalid "sandbox\.engine" value "podman".*unknown sandbox engine.*Valid engines:.*colima.*orbstack.*docker-desktop.*native.*wsl2/s
     );
   } finally {
     process.chdir(previousCwd);
@@ -870,11 +898,7 @@ test("sandbox exec formats host keychain unavailable credential sync warnings", 
   );
 });
 
-// On Windows, `lib/sandbox/engine.js` detectEngine forces the engine to wsl2,
-// so docker calls are routed through `wsl.exe -- docker ...` and bypass this
-// test's docker.cmd shim. Keep the shim for future enablement; commandForEngine
-// covers wsl2.
-test("sandbox exec enters tmux automatically for interactive shells", onPlatforms("linux", "darwin"), () => {
+test("sandbox exec enters tmux automatically for interactive shells", onPlatforms("linux", "darwin", "win32"), () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
@@ -889,7 +913,7 @@ test("sandbox exec enters tmux automatically for interactive shells", onPlatform
     execSync("git init", { cwd: repoDir, env: gitSafeEnv(), stdio: "pipe" });
     fs.writeFileSync(
       path.join(repoDir, ".agents", ".airc.json"),
-      JSON.stringify({ project: "demo", org: "fitlab-ai" }, null, 2) + "\n",
+      JSON.stringify({ project: "demo", org: "fitlab-ai", sandbox: { engine: "native" } }, null, 2) + "\n",
       "utf8"
     );
     fs.writeFileSync(
@@ -932,6 +956,7 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
         env: {
           ...envWithPrependedPath(gitSafeEnv(), binDir),
           HOME: tmpDir,
+          USERPROFILE: tmpDir,
           DOCKER_LOG_PATH: logPath,
           TERM_PROGRAM: "",
           TERM_PROGRAM_VERSION: "",
@@ -957,15 +982,13 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
   }
 });
 
-// Windows currently routes docker calls through the wsl2 engine, so this test's
-// docker shim is bypassed. Non-darwin credential writes use the same file path
-// on Linux and Windows once the sandbox engine can be overridden in tests.
-test("sandbox exec reconciles newer Claude credentials from a neighbouring project", onPlatforms("linux", "darwin"), () => {
+test("sandbox exec reconciles newer Claude credentials from a neighbouring project", onPlatforms("linux", "darwin", "win32"), () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-credentials-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
   const logPath = path.join(tmpDir, "docker-log.jsonl");
   const dockerPath = path.join(binDir, "docker");
+  const dockerJsPath = path.join(binDir, "docker.js");
   const fakeKeychainPath = path.join(tmpDir, "fake-keychain.json");
   const hostCredentialsPath = path.join(tmpDir, ".claude", ".credentials.json");
   const alphaCredentialsPath = path.join(
@@ -1000,7 +1023,7 @@ test("sandbox exec reconciles newer Claude credentials from a neighbouring proje
       JSON.stringify({
         project: "alpha",
         org: "fitlab-ai",
-        sandbox: { tools: ["claude-code"] }
+        sandbox: { engine: "native", tools: ["claude-code"] }
       }, null, 2) + "\n",
       "utf8"
     );
@@ -1020,6 +1043,24 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       "utf8"
     );
     fs.chmodSync(dockerPath, 0o755);
+    fs.writeFileSync(
+      dockerJsPath,
+      [
+        "const fs = require('node:fs');",
+        "const args = process.argv.slice(2);",
+        "if (args[0] === 'ps') {",
+        "  process.stdout.write('alpha-dev-agent-infra-feature-cli-generic-sandbox\\n');",
+        "  process.exit(0);",
+        "}",
+        "fs.appendFileSync(process.env.DOCKER_LOG_PATH, JSON.stringify(args) + '\\n');"
+      ].join("\n"),
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(binDir, "docker.cmd"),
+      `@ECHO OFF\r\n"${process.execPath}" "%~dp0docker.js" %*\r\n`,
+      "utf8"
+    );
 
     if (process.platform === "darwin") {
       // Inject a fake `security` shim so the CLI subprocess does not touch the
@@ -1059,6 +1100,7 @@ exit 2
         env: {
           ...envWithPrependedPath(gitSafeEnv(), binDir),
           HOME: tmpDir,
+          USERPROFILE: tmpDir,
           DOCKER_LOG_PATH: logPath,
           FAKE_KEYCHAIN_FILE: fakeKeychainPath
         },
@@ -2528,18 +2570,26 @@ test("ensureDocker uses Colima verbose commands for install and startup", async 
   }
 });
 
-test("detectEngine honors configured macOS sandbox engines", async () => {
+test("detectEngine honors configured engine across platforms", async () => {
   const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
-  const dependencies = {
-    platformFn: () => "darwin",
-    runOkFn() {
-      throw new Error("docker auto-detection should be skipped for explicit engines");
-    }
-  };
+  const cases = [
+    ["linux", "native"],
+    ["linux", "docker-desktop"],
+    ["darwin", "orbstack"],
+    ["darwin", "colima"],
+    ["darwin", "docker-desktop"],
+    ["win32", "wsl2"],
+    ["win32", "native"],
+    ["win32", "docker-desktop"]
+  ];
 
-  assert.equal(sandboxEngine.detectEngine({ engine: "orbstack" }, dependencies), "orbstack");
-  assert.equal(sandboxEngine.detectEngine({ engine: "colima" }, dependencies), "colima");
-  assert.equal(sandboxEngine.detectEngine({ engine: "docker-desktop" }, dependencies), "docker-desktop");
+  for (const [platformName, engine] of cases) {
+    assert.equal(
+      sandboxEngine.detectEngine({ engine }, { platformFn: () => platformName }),
+      engine,
+      `${platformName} should honor ${engine}`
+    );
+  }
 });
 
 test("detectEngine rejects unsupported configured sandbox engines early", async () => {
@@ -2547,7 +2597,17 @@ test("detectEngine rejects unsupported configured sandbox engines early", async 
 
   assert.throws(
     () => sandboxEngine.detectEngine({ engine: "podman" }, { platformFn: () => "darwin" }),
-    /Expected one of: null, colima, orbstack, docker-desktop.*only affects macOS/s
+    /invalid "sandbox\.engine" value "podman".*unknown sandbox engine.*Valid engines:.*colima.*orbstack.*docker-desktop.*native.*wsl2/s
+  );
+  assert.throws(
+    () => sandboxEngine.detectEngine({ engine: "colima" }, { platformFn: () => "linux" }),
+    (error) => {
+      assert.match(error.message, /"sandbox\.engine" value "colima" is not supported on linux/);
+      assert.match(error.message, /Supported engines on linux:/);
+      assert.match(error.message, /native/);
+      assert.match(error.message, /docker-desktop/);
+      return true;
+    }
   );
 });
 
@@ -2565,12 +2625,17 @@ test("detectEngine throws an actionable error on unsupported platforms", async (
       return true;
     }
   );
+  assert.throws(
+    () => sandboxEngine.detectEngine({ engine: "native" }, { platformFn: () => "freebsd" }),
+    /"sandbox\.engine" value "native" is not supported on freebsd.*Supported engines on freebsd: none/s
+  );
 });
 
 test("isVmManaged returns false on unsupported platforms instead of throwing", async () => {
   const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
 
   assert.equal(sandboxEngine.isVmManaged({}, { platformFn: () => "freebsd" }), false);
+  assert.equal(sandboxEngine.isVmManaged({ engine: "native" }, { platformFn: () => "freebsd" }), false);
 });
 
 test("isVmManaged keeps invalid sandbox engine config errors actionable", async () => {
@@ -2578,34 +2643,19 @@ test("isVmManaged keeps invalid sandbox engine config errors actionable", async 
 
   assert.throws(
     () => sandboxEngine.isVmManaged({ engine: "podman" }, { platformFn: () => "darwin" }),
-    /Expected one of: null, colima, orbstack, docker-desktop.*only affects macOS/s
+    /invalid "sandbox\.engine" value "podman".*unknown sandbox engine.*Valid engines:.*colima.*orbstack.*docker-desktop.*native.*wsl2/s
   );
 });
 
-test("detectEngine returns Colima on macOS when no engine is configured", async () => {
-  const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
-  const dependencies = {
-    platformFn: () => "darwin",
-    runOkFn() {
-      throw new Error("docker auto-detection should not run for missing engines");
-    }
-  };
-
-  assert.equal(sandboxEngine.detectEngine({ engine: null }, dependencies), "colima");
-  assert.equal(sandboxEngine.detectEngine({}, dependencies), "colima");
-});
-
-test("detectEngine keeps non-macOS platform behavior independent of sandbox engine config", async () => {
+test("detectEngine returns platform default when no engine is configured", async () => {
   const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
 
-  assert.equal(
-    sandboxEngine.detectEngine({ engine: "orbstack" }, { platformFn: () => "linux" }),
-    "native"
-  );
-  assert.equal(
-    sandboxEngine.detectEngine({ engine: "orbstack" }, { platformFn: () => "win32" }),
-    "wsl2"
-  );
+  assert.equal(sandboxEngine.detectEngine({ engine: null }, { platformFn: () => "linux" }), "native");
+  assert.equal(sandboxEngine.detectEngine({}, { platformFn: () => "linux" }), "native");
+  assert.equal(sandboxEngine.detectEngine({ engine: null }, { platformFn: () => "darwin" }), "colima");
+  assert.equal(sandboxEngine.detectEngine({}, { platformFn: () => "darwin" }), "colima");
+  assert.equal(sandboxEngine.detectEngine({ engine: null }, { platformFn: () => "win32" }), "wsl2");
+  assert.equal(sandboxEngine.detectEngine({}, { platformFn: () => "win32" }), "wsl2");
 });
 
 test("detectEngine does not apply Docker context", async () => {
@@ -2627,10 +2677,17 @@ test("detectEngine does not apply Docker context", async () => {
 
 test("sandbox engine adapters expose the required shape", async () => {
   const sandboxEngines = await loadFreshEsm("lib/sandbox/engines/index.js");
+  const knownPlatforms = new Set(["linux", "darwin", "win32"]);
 
   for (const adapter of Object.values(sandboxEngines.ADAPTERS)) {
     assert.equal(typeof adapter.id, "string");
     assert.equal(typeof adapter.displayName, "string");
+    assert.ok(Array.isArray(adapter.supportedPlatforms));
+    assert.ok(adapter.supportedPlatforms.length > 0);
+    for (const platformName of adapter.supportedPlatforms) {
+      assert.equal(typeof platformName, "string");
+      assert.ok(knownPlatforms.has(platformName), `${adapter.id} has unexpected platform ${platformName}`);
+    }
     assert.ok(adapter.dockerContext === null || typeof adapter.dockerContext === "string");
     assert.equal(typeof adapter.managed, "boolean");
     assert.match(adapter.canApplyResources, /^(hot|on-start|never)$/);
@@ -2642,6 +2699,43 @@ test("sandbox engine adapters expose the required shape", async () => {
       assert.equal(typeof adapter.stopVm, "function");
     }
   }
+});
+
+test("validateSandboxEngine accepts platform-supported engines", async () => {
+  const sandboxEngine = await loadFreshEsm("lib/sandbox/engine.js");
+  const cases = [
+    ["linux", "native"],
+    ["linux", "docker-desktop"],
+    ["darwin", "colima"],
+    ["darwin", "orbstack"],
+    ["darwin", "docker-desktop"],
+    ["win32", "wsl2"],
+    ["win32", "native"],
+    ["win32", "docker-desktop"]
+  ];
+
+  for (const [platformName, engine] of cases) {
+    assert.equal(
+      sandboxEngine.validateSandboxEngine(engine, { platformFn: () => platformName }),
+      engine,
+      `${platformName} should accept ${engine}`
+    );
+  }
+});
+
+test("enginesForPlatform returns correct engine sets per platform", async () => {
+  const sandboxEngines = await loadFreshEsm("lib/sandbox/engines/index.js");
+
+  assert.deepEqual(sandboxEngines.enginesForPlatform("linux").sort(), ["docker-desktop", "native"]);
+  assert.deepEqual(
+    sandboxEngines.enginesForPlatform("darwin").sort(),
+    ["colima", "docker-desktop", "orbstack"]
+  );
+  assert.deepEqual(
+    sandboxEngines.enginesForPlatform("win32").sort(),
+    ["docker-desktop", "native", "wsl2"]
+  );
+  assert.deepEqual(sandboxEngines.enginesForPlatform("freebsd"), []);
 });
 
 test("resolveEffectiveVm merges adapter defaults without changing user values", async () => {

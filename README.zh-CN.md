@@ -295,7 +295,23 @@ agent-infra 的结构刻意保持简单：引导 CLI 负责生成种子配置，
 
 ## 平台支持
 
-agent-infra 支持 macOS 和 Linux。CLI 本身只需要 Node.js (>=22)；容器相关功能（`ai sandbox *`）额外需要 Docker。
+agent-infra 支持 macOS、Linux 和 Windows。CLI 本身只需要 Node.js (>=22)；容器相关功能（`ai sandbox *`）额外需要 Docker。
+
+### 沙箱引擎选择
+
+`.agents/.airc.json` 中的 `sandbox.engine` 用来选择容器引擎。该字段为 `null` 或省略时，agent-infra 使用平台默认值：
+
+- Linux：`native`
+- macOS：`colima`
+- Windows：`wsl2`
+
+你可以在 `.agents/.airc.json` 中覆盖该引擎。合法值按平台区分：
+
+- Linux：`native`、`docker-desktop`
+- macOS：`colima`、`orbstack`、`docker-desktop`
+- Windows：`wsl2`、`native`、`docker-desktop`
+
+这比旧版本更严格：Linux 或 Windows 上无效的 `sandbox.engine` 过去会被忽略，现在会在加载配置时报错，并提示当前平台支持的取值。
 
 ### macOS
 
@@ -413,7 +429,7 @@ Rootless 模式的已知差异：
 
 #### 引擎资源配置
 
-WSL2 是 Windows 上的 sandbox 引擎。`sandbox.vm.cpu`、`sandbox.vm.memory` 以及 `--cpu / --memory` 标志不会自动生效——请在 Docker Desktop（Settings → Resources）中配置 CPU 和内存限制。`sandbox.vm.disk` 不适用于 WSL2。`vm.memory` 和 `--memory` 的单位是 GiB。
+WSL2 是 Windows 上的默认 sandbox 引擎。使用 WSL2 时，`sandbox.vm.cpu`、`sandbox.vm.memory` 以及 `--cpu / --memory` 标志不会自动生效——请在 Docker Desktop（Settings → Resources）中配置 CPU 和内存限制。`sandbox.vm.disk` 不适用于 WSL2。`vm.memory` 和 `--memory` 的单位是 GiB。
 
 <a id="what-you-get"></a>
 
