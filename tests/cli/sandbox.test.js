@@ -83,7 +83,19 @@ function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoD
     "  lines.push('spawn-noshell-error: ' + (r2.error ? r2.error.message : 'null'));",
     "  lines.push('spawn-noshell-stdout: ' + JSON.stringify((r2.stdout || '').trim()));",
     "}",
-    "console.log(lines.join('\\n'));"
+    "// Now: call production runSafe / runSafeEngine to test the EXACT CLI path",
+    "(async () => {",
+    "  try {",
+    `    const shell = await import(${JSON.stringify("file:///" + path.resolve("lib/sandbox/shell.js").replace(/\\\\/g, "/"))});`,
+    "    try { lines.push('prod-runSafe: ' + JSON.stringify(shell.runSafe('docker', ['ps', '--format', '{{.Names}}']))); }",
+    "    catch (e) { lines.push('prod-runSafe THREW: ' + e.message); }",
+    "    try { lines.push('prod-runSafeEngine: ' + JSON.stringify(shell.runSafeEngine('native', 'docker', ['ps', '--format', '{{.Names}}']))); }",
+    "    catch (e) { lines.push('prod-runSafeEngine THREW: ' + e.message); }",
+    "  } catch (e) {",
+    "    lines.push('prod-import-error: ' + e.message);",
+    "  }",
+    "  console.log(lines.join('\\n'));",
+    "})();"
   ].join("\n");
   const probeResult = spawnSync(process.execPath, ["-e", probeScript], {
     cwd: repoDir,
