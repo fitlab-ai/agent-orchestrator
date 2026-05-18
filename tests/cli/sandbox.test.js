@@ -5017,11 +5017,68 @@ test("resolveTaskBranch rejects missing task files and missing branch metadata",
   }
 });
 
-test("sandbox ls format embeds Names and Status columns in stable order", async () => {
+test("sandbox ls format is engine-neutral and embeds raw Labels", async () => {
   const { containerListFormat } = await loadFreshEsm("lib/sandbox/commands/ls.js");
 
   assert.equal(
-    containerListFormat("proj.sandbox"),
-    '{{.Names}}\t{{.Status}}\t{{index .Labels "proj.sandbox.branch"}}'
+    containerListFormat(),
+    "{{.Names}}\t{{.Status}}\t{{.Labels}}"
   );
+});
+
+test("sandbox ls parseLabels parses docker label CSV", async () => {
+  const { parseLabels } = await loadFreshEsm("lib/sandbox/commands/ls.js");
+
+  assert.deepEqual(parseLabels(""), {});
+  assert.deepEqual(parseLabels("k=v"), { k: "v" });
+  assert.deepEqual(parseLabels("a=1,b=2"), { a: "1", b: "2" });
+  assert.deepEqual(parseLabels("k=a=b"), { k: "a=b" });
+  assert.deepEqual(parseLabels("k="), { k: "" });
+  assert.deepEqual(parseLabels("k=v,"), { k: "v" });
+});
+
+test("runSafe forwards stderr on non-zero exit while preserving stdout return", async () => {
+  const { runSafe } = await loadFreshEsm("lib/sandbox/shell.js");
+  const originalWrite = process.stderr.write;
+  const writes = [];
+
+  try {
+    process.stderr.write = (...args) => {
+      writes.push(args[0]);
+      return true;
+    };
+
+    const output = runSafe(process.execPath, [
+      "-e",
+      "process.stdout.write(' out '); process.stderr.write('boom'); process.exit(1)"
+    ]);
+
+    assert.equal(output, "out");
+    assert.deepEqual(writes, ["boom"]);
+  } finally {
+    process.stderr.write = originalWrite;
+  }
+});
+
+test("runSafe does not forward stderr on zero exit", async () => {
+  const { runSafe } = await loadFreshEsm("lib/sandbox/shell.js");
+  const originalWrite = process.stderr.write;
+  const writes = [];
+
+  try {
+    process.stderr.write = (...args) => {
+      writes.push(args[0]);
+      return true;
+    };
+
+    const output = runSafe(process.execPath, [
+      "-e",
+      "process.stderr.write('noise'); process.exit(0)"
+    ]);
+
+    assert.equal(output, "");
+    assert.deepEqual(writes, []);
+  } finally {
+    process.stderr.write = originalWrite;
+  }
 });
