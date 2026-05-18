@@ -1712,6 +1712,117 @@ test("ensureClaudeOnboarding ignores malformed host json", async () => {
   }
 });
 
+test("ensureClaudeOnboarding inherits host launch-pin flag when sandbox is absent", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-inherit-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-host-"));
+
+  try {
+    fs.writeFileSync(
+      path.join(hostHome, ".claude.json"),
+      JSON.stringify({ unpinOpus47LaunchEffort: true }),
+      "utf8"
+    );
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(data.unpinOpus47LaunchEffort, true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeOnboarding preserves existing sandbox launch-pin flag value", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-preserve-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-host-preserve-"));
+
+  try {
+    fs.writeFileSync(
+      path.join(hostHome, ".claude.json"),
+      JSON.stringify({ unpinOpus47LaunchEffort: true }),
+      "utf8"
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, ".claude.json"),
+      JSON.stringify({ unpinOpus47LaunchEffort: false }),
+      "utf8"
+    );
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(data.unpinOpus47LaunchEffort, false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeOnboarding skips launch-pin flag when host omits it", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-omit-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-host-omit-"));
+
+  try {
+    fs.writeFileSync(path.join(hostHome, ".claude.json"), JSON.stringify({ theme: "dark" }), "utf8");
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(Object.hasOwn(data, "unpinOpus47LaunchEffort"), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeOnboarding inherits all matching launch-pin flags for future models", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-future-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-host-future-"));
+
+  try {
+    fs.writeFileSync(
+      path.join(hostHome, ".claude.json"),
+      JSON.stringify({
+        unpinOpus47LaunchEffort: true,
+        unpinOpus48LaunchEffort: true
+      }),
+      "utf8"
+    );
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(data.unpinOpus47LaunchEffort, true);
+    assert.equal(data.unpinOpus48LaunchEffort, true);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
+test("ensureClaudeOnboarding skips launch-pin flag values that are not strictly true", async () => {
+  const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-nonboolean-"));
+  const hostHome = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-launchpin-host-nonboolean-"));
+
+  try {
+    fs.writeFileSync(
+      path.join(hostHome, ".claude.json"),
+      JSON.stringify({
+        unpinOpus47LaunchEffort: "true",
+        unpinOpus48LaunchEffort: 1,
+        unpinOpus49LaunchEffort: false
+      }),
+      "utf8"
+    );
+    sandboxCreate.ensureClaudeOnboarding(tmpDir, hostHome);
+    const data = JSON.parse(fs.readFileSync(path.join(tmpDir, ".claude.json"), "utf8"));
+    assert.equal(Object.hasOwn(data, "unpinOpus47LaunchEffort"), false);
+    assert.equal(Object.hasOwn(data, "unpinOpus48LaunchEffort"), false);
+    assert.equal(Object.hasOwn(data, "unpinOpus49LaunchEffort"), false);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    fs.rmSync(hostHome, { recursive: true, force: true });
+  }
+});
+
 test("ensureClaudeSettings creates settings.json with skipDangerousModePermissionPrompt", async () => {
   const sandboxCreate = await loadFreshEsm("lib/sandbox/commands/create.js");
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-claude-settings-"));
