@@ -14,189 +14,15 @@ import {
   gitSafeEnv,
   loadFreshEsm,
   onPlatforms,
-  pathWithPrependedBin,
   withGitSafeProcessEnv
 } from "../helpers.js";
-import { restoreTerminal, runInteractive, runSafe, runVerbose } from "../../lib/sandbox/shell.js";
+import { restoreTerminal, runInteractive, runVerbose } from "../../lib/sandbox/shell.js";
 
 function restoreDockerContext(previousValue) {
   if (previousValue === undefined) {
     delete process.env.DOCKER_CONTEXT;
   } else {
     process.env.DOCKER_CONTEXT = previousValue;
-  }
-}
-
-// Win32-only preflight: replicate the CLI's runSafe code path from inside
-// the test process. By temporarily mutating process.env.Path the test
-// process becomes env-equivalent to the CLI subprocess. We try both the
-// full args ("ps --format {{.Names}}") and a simpler form to isolate any
-// Node 22 .cmd-arg-hardening interaction.
-function collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoDir, tmpDir }) {
-  if (process.platform !== "win32") return null;
-  const out = {};
-  // Subprocess probe: spawn a minimal Node script with the SAME env the CLI
-  // gets, then have it report what it actually sees (Path, PATHEXT, whether
-  // docker.cmd is resolvable). If the subprocess shows binDir missing from
-  // Path, then execFileSync's env option is not propagating correctly.
-  // Embed binDir as a string literal (passing via argv was unreliable on
-  // win32: previous iteration had argv[2] undefined despite spawn passing it).
-  const binDirLiteral = JSON.stringify(binDir);
-  const probeScript = [
-    "const fs = require('node:fs');",
-    "const path = require('node:path');",
-    "const lines = [];",
-    "const pathVal = process.env.Path || process.env.PATH || '';",
-    "lines.push('Path-len: ' + pathVal.length);",
-    "lines.push('Path-head: ' + JSON.stringify(pathVal.slice(0, 250)));",
-    "lines.push('PATHEXT: ' + (process.env.PATHEXT || '(unset)'));",
-    `const binDir = ${binDirLiteral};`,
-    "lines.push('binDir-literal: ' + binDir);",
-    "lines.push('binDir-in-Path: ' + pathVal.split(';').includes(binDir));",
-    "lines.push('docker.cmd-exists: ' + fs.existsSync(path.join(binDir, 'docker.cmd')));",
-    "lines.push('cwd: ' + process.cwd());",
-    "lines.push('argv-count: ' + process.argv.length);",
-    "lines.push('argv: ' + JSON.stringify(process.argv));",
-    "// Mimic resolveCommand exactly",
-    "const exts = (process.env.PATHEXT || '.COM;.EXE;.BAT;.CMD').split(';').filter(Boolean);",
-    "let resolved = null;",
-    "for (const dir of pathVal.split(';').filter(Boolean)) {",
-    "  for (const ext of exts) {",
-    "    const p = path.join(dir, 'docker' + ext.toLowerCase());",
-    "    if (fs.existsSync(p)) { resolved = p; break; }",
-    "  }",
-    "  if (resolved) break;",
-    "}",
-    "lines.push('resolveCommand-result: ' + (resolved || 'NULL'));",
-    "// Try the actual spawn that runSafe would do (resolved + shell:true)",
-    "if (resolved) {",
-    "  const { spawnSync } = require('node:child_process');",
-    "  const r = spawnSync(resolved, ['ps', '--format', '{{.Names}}'], { shell: true, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });",
-    "  lines.push('spawn-status: ' + r.status);",
-    "  lines.push('spawn-signal: ' + r.signal);",
-    "  lines.push('spawn-error: ' + (r.error ? r.error.message : 'null'));",
-    "  lines.push('spawn-stdout: ' + JSON.stringify((r.stdout || '').trim()));",
-    "  lines.push('spawn-stderr: ' + JSON.stringify((r.stderr || '').trim()));",
-    "  // Also try WITHOUT shell:true to compare",
-    "  const r2 = spawnSync(resolved, ['ps'], { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });",
-    "  lines.push('spawn-noshell-status: ' + r2.status);",
-    "  lines.push('spawn-noshell-error: ' + (r2.error ? r2.error.message : 'null'));",
-    "  lines.push('spawn-noshell-stdout: ' + JSON.stringify((r2.stdout || '').trim()));",
-    "}",
-    "// Now: call production runSafe / runSafeEngine to test the EXACT CLI path",
-    "(async () => {",
-    "  try {",
-    `    const shell = await import(${JSON.stringify("file:///" + path.resolve("lib/sandbox/shell.js").replace(/\\\\/g, "/"))});`,
-    "    try { lines.push('prod-runSafe: ' + JSON.stringify(shell.runSafe('docker', ['ps', '--format', '{{.Names}}']))); }",
-    "    catch (e) { lines.push('prod-runSafe THREW: ' + e.message); }",
-    "    try { lines.push('prod-runSafeEngine: ' + JSON.stringify(shell.runSafeEngine('native', 'docker', ['ps', '--format', '{{.Names}}']))); }",
-    "    catch (e) { lines.push('prod-runSafeEngine THREW: ' + e.message); }",
-    "  } catch (e) {",
-    "    lines.push('prod-import-error: ' + e.message);",
-    "  }",
-    "  console.log(lines.join('\\n'));",
-    "})();"
-  ].join("\n");
-  const probeResult = spawnSync(process.execPath, ["-e", probeScript], {
-    cwd: repoDir,
-    env: {
-      ...envWithPrependedPath(gitSafeEnv(), binDir),
-      HOME: tmpDir,
-      USERPROFILE: tmpDir
-    },
-    encoding: "utf8",
-    stdio: ["ignore", "pipe", "pipe"]
-  });
-  out.subprocessProbe = {
-    status: probeResult.status,
-    stderr: (probeResult.stderr ?? "").trim(),
-    output: (probeResult.stdout ?? "").trim()
-  };
-  // Direct fs check — tests resolveCommand's core operation
-  out.shimExists = {
-    "docker.cmd": fs.existsSync(path.join(binDir, "docker.cmd")),
-    "docker.js": fs.existsSync(path.join(binDir, "docker.js"))
-  };
-  const newPath = pathWithPrependedBin(binDir, process.env.Path || process.env.PATH || "");
-  const savedPath = process.env.Path;
-  const savedPATH = process.env.PATH;
-  // Use separate diagnostic files for preflight so they don't conflict
-  // with the CLI subprocess's debug log.
-  const savedLog = process.env.DOCKER_LOG_PATH;
-  const savedDebug = process.env.DOCKER_DEBUG_PATH;
-  process.env.Path = newPath;
-  process.env.PATH = newPath;
-  process.env.DOCKER_LOG_PATH = `${logPath}.preflight`;
-  process.env.DOCKER_DEBUG_PATH = `${debugPath}.preflight`;
-  try {
-    try { out.runSafeFullArgs = runSafe("docker", ["ps", "--format", "{{.Names}}"]); }
-    catch (err) { out.runSafeFullArgs = `THREW: ${err.message}`; }
-    try { out.runSafeSimpleArgs = runSafe("docker", ["ps"]); }
-    catch (err) { out.runSafeSimpleArgs = `THREW: ${err.message}`; }
-    // Raw spawn (no resolveCommand) — purely cmd.exe PATH lookup
-    const raw = spawnSync("docker", ["ps", "--format", "{{.Names}}"], {
-      encoding: "utf8", shell: true, stdio: ["ignore", "pipe", "pipe"]
-    });
-    out.rawShellTrue = {
-      status: raw.status, signal: raw.signal,
-      stdout: (raw.stdout ?? "").trim(),
-      stderr: (raw.stderr ?? "").trim(),
-      error: raw.error?.message ?? null
-    };
-    // Read what the preflight wrote to its diagnostic files
-    try { out.preflightDebugLog = fs.readFileSync(`${debugPath}.preflight`, "utf8").trim() || "(empty)"; }
-    catch (err) { out.preflightDebugLog = `(not readable: ${err.code})`; }
-    try { out.preflightCmdTrace = fs.readFileSync(cmdTracePath, "utf8").trim() || "(empty)"; }
-    catch (err) { out.preflightCmdTrace = `(not readable: ${err.code})`; }
-  } finally {
-    if (savedPath === undefined) delete process.env.Path; else process.env.Path = savedPath;
-    if (savedPATH === undefined) delete process.env.PATH; else process.env.PATH = savedPATH;
-    if (savedLog === undefined) delete process.env.DOCKER_LOG_PATH; else process.env.DOCKER_LOG_PATH = savedLog;
-    if (savedDebug === undefined) delete process.env.DOCKER_DEBUG_PATH; else process.env.DOCKER_DEBUG_PATH = savedDebug;
-  }
-  return out;
-}
-
-// Builds a multi-section diagnostic string for an e2e CLI failure, exposing
-// the docker shim invocation log, env path config, and binDir listing.
-// Used by both execFileSync and spawnSync flavours of the sandbox exec e2e.
-function runCliDiagnosticMessage(resultOrError, debug) {
-  const readSafe = (filePathname) => {
-    try { return fs.readFileSync(filePathname, "utf8").trim(); }
-    catch (readErr) { return `(not readable: ${readErr.code || readErr.message})`; }
-  };
-  const env = debug.env || {};
-  const status = resultOrError.status;
-  const signal = resultOrError.signal ?? "none";
-  const stderr = (resultOrError.stderr ?? "").toString().trim() || "(empty)";
-  const stdout = (resultOrError.stdout ?? "").toString().trim() || "(empty)";
-  const header = resultOrError.message
-    ? `CLI subprocess failed: ${resultOrError.message}`
-    : `CLI subprocess exited non-zero (status=${status})`;
-  return [
-    header,
-    `exit status: ${status} signal: ${signal}`,
-    `--- CLI stderr ---\n${stderr}`,
-    `--- CLI stdout ---\n${stdout}`,
-    `--- fixture context ---\nplatform: ${process.platform}\nfixtureEngine: ${debug.fixtureEngine || "(n/a)"}\nbinDir: ${debug.binDir}\nPath: ${env.Path || "(unset)"}\nPATH: ${env.PATH || "(unset)"}\nPATHEXT: ${env.PATHEXT || "(unset)"}\nHOME: ${env.HOME || "(unset)"}\nUSERPROFILE: ${env.USERPROFILE || "(unset)"}`,
-    `--- docker shim invocations (DOCKER_DEBUG_PATH) ---\n${readSafe(debug.debugPath)}`,
-    `--- docker call log (DOCKER_LOG_PATH) ---\n${readSafe(debug.logPath)}`,
-    `--- docker.cmd self-trace ---\n${debug.cmdTracePath ? readSafe(debug.cmdTracePath) : "(not configured)"}`,
-    `--- docker.cmd subprocess stdout ---\n${debug.cmdTracePath ? readSafe(`${debug.cmdTracePath}.stdout`) : "(not configured)"}`,
-    `--- docker.cmd subprocess stderr ---\n${debug.cmdTracePath ? readSafe(`${debug.cmdTracePath}.stderr`) : "(not configured)"}`,
-    `--- binDir listing ---\n${(() => { try { return fs.readdirSync(debug.binDir).join(", "); } catch (e) { return `(not readable: ${e.message})`; } })()}`,
-    `--- win32 preflight ---\n${debug.preflight ? JSON.stringify(debug.preflight, null, 2) : "(not applicable)"}`
-  ].join("\n\n");
-}
-
-// Wraps execFileSync so an e2e CLI failure attaches all docker shim diagnostic
-// state to the thrown error. Without this, a CI-only failure (especially on
-// Windows) gives no clue why the docker.cmd shim path failed.
-function runCliWithDiagnostic(execPath, cliArgs, execOptions, debug) {
-  try {
-    return execFileSync(execPath, cliArgs, execOptions);
-  } catch (error) {
-    throw new Error(runCliDiagnosticMessage(error, { ...debug, env: execOptions.env || {} }));
   }
 }
 
@@ -1077,14 +903,8 @@ test("sandbox exec enters tmux automatically for interactive shells", onPlatform
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
   const logPath = path.join(tmpDir, "docker-log.jsonl");
-  const debugPath = path.join(tmpDir, "docker-debug.jsonl");
   const dockerPath = path.join(binDir, "docker");
   const dockerJsPath = path.join(binDir, "docker.js");
-  // Each platform's default engine routes docker calls through the local
-  // `docker` / `docker.cmd` shim that this test installs. native works on
-  // linux/win32; macOS does not allow native (Docker needs a VM) so we use
-  // colima, which is also the macOS platform default.
-  const fixtureEngine = process.platform === "darwin" ? "colima" : "native";
 
   try {
     fs.mkdirSync(repoDir, { recursive: true });
@@ -1093,7 +913,7 @@ test("sandbox exec enters tmux automatically for interactive shells", onPlatform
     execSync("git init", { cwd: repoDir, env: gitSafeEnv(), stdio: "pipe" });
     fs.writeFileSync(
       path.join(repoDir, ".agents", ".airc.json"),
-      JSON.stringify({ project: "demo", org: "fitlab-ai", sandbox: { engine: fixtureEngine } }, null, 2) + "\n",
+      JSON.stringify({ project: "demo", org: "fitlab-ai", sandbox: { engine: "native" } }, null, 2) + "\n",
       "utf8"
     );
     fs.writeFileSync(
@@ -1114,17 +934,6 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       [
         "const fs = require('node:fs');",
         "const args = process.argv.slice(2);",
-        // Diagnostic: log every shim invocation so a Windows-only CI failure",
-        // can be diagnosed without re-running. The debug file is only read",
-        // by the test if the CLI subprocess fails.",
-        "if (process.env.DOCKER_DEBUG_PATH) {",
-        "  try {",
-        "    fs.appendFileSync(process.env.DOCKER_DEBUG_PATH, JSON.stringify({",
-        "      args, cwd: process.cwd(), pid: process.pid, platform: process.platform,",
-        "      time: new Date().toISOString()",
-        "    }) + '\\n');",
-        "  } catch {}",
-        "}",
         "if (args[0] === 'ps') {",
         "  process.stdout.write('demo-dev-agent-infra-feature-cli-generic-sandbox\\n');",
         "  process.exit(0);",
@@ -1133,28 +942,13 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       ].join("\n"),
       "utf8"
     );
-    const cmdTracePath = path.join(tmpDir, "docker-cmd-trace.txt");
-    // docker.cmd self-traces to a file BEFORE invoking node.exe. If
-    // this file is missing on failure, docker.cmd was never invoked
-    // (likely resolveCommand returned 'docker' literal). If the file
-    // exists but docker-debug.jsonl is missing, the cmd ran but the
-    // node child failed before our debug write.
     fs.writeFileSync(
       path.join(binDir, "docker.cmd"),
-      `@ECHO OFF\r\n`
-      + `>>"${cmdTracePath}" echo cmd-invoked args=[%*] cwd=[%CD%] dp0=[%~dp0] f0=[%~f0]\r\n`
-      + `"${process.execPath}" "${dockerJsPath}" %*\r\n`
-      + `>>"${cmdTracePath}" echo cmd-exit=%ERRORLEVEL%\r\n`,
+      `@ECHO OFF\r\n"${process.execPath}" "%~dp0docker.js" %*\r\n`,
       "utf8"
     );
 
-    // Win32 preflight: invoke the shim from this test process (not from
-    // the CLI subprocess) using the same runSafe path. If preflight
-    // succeeds but the CLI fails, the issue is env propagation. If both
-    // fail, the issue is in resolveCommand or spawnSync(shell:true).
-    const preflight = collectWin32Preflight({ binDir, cmdTracePath, debugPath, logPath, repoDir, tmpDir });
-
-    runCliWithDiagnostic(
+    execFileSync(
       process.execPath,
       [filePath("bin/cli.js"), "sandbox", "exec", "agent-infra-feature-cli-generic-sandbox"],
       {
@@ -1164,7 +958,6 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
           HOME: tmpDir,
           USERPROFILE: tmpDir,
           DOCKER_LOG_PATH: logPath,
-          DOCKER_DEBUG_PATH: debugPath,
           TERM_PROGRAM: "",
           TERM_PROGRAM_VERSION: "",
           LC_TERMINAL: "",
@@ -1172,8 +965,7 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
         },
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"]
-      },
-      { fixtureEngine, binDir, logPath, debugPath, cmdTracePath, preflight }
+      }
     );
 
     const dockerCalls = fs.readFileSync(logPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
@@ -1195,11 +987,9 @@ test("sandbox exec reconciles newer Claude credentials from a neighbouring proje
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
   const logPath = path.join(tmpDir, "docker-log.jsonl");
-  const debugPath = path.join(tmpDir, "docker-debug.jsonl");
   const dockerPath = path.join(binDir, "docker");
   const dockerJsPath = path.join(binDir, "docker.js");
   const fakeKeychainPath = path.join(tmpDir, "fake-keychain.json");
-  const fixtureEngine = process.platform === "darwin" ? "colima" : "native";
   const hostCredentialsPath = path.join(tmpDir, ".claude", ".credentials.json");
   const alphaCredentialsPath = path.join(
     tmpDir,
@@ -1233,7 +1023,7 @@ test("sandbox exec reconciles newer Claude credentials from a neighbouring proje
       JSON.stringify({
         project: "alpha",
         org: "fitlab-ai",
-        sandbox: { engine: fixtureEngine, tools: ["claude-code"] }
+        sandbox: { engine: "native", tools: ["claude-code"] }
       }, null, 2) + "\n",
       "utf8"
     );
@@ -1258,14 +1048,6 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       [
         "const fs = require('node:fs');",
         "const args = process.argv.slice(2);",
-        "if (process.env.DOCKER_DEBUG_PATH) {",
-        "  try {",
-        "    fs.appendFileSync(process.env.DOCKER_DEBUG_PATH, JSON.stringify({",
-        "      args, cwd: process.cwd(), pid: process.pid, platform: process.platform,",
-        "      time: new Date().toISOString()",
-        "    }) + '\\n');",
-        "  } catch {}",
-        "}",
         "if (args[0] === 'ps') {",
         "  process.stdout.write('alpha-dev-agent-infra-feature-cli-generic-sandbox\\n');",
         "  process.exit(0);",
@@ -1274,13 +1056,9 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       ].join("\n"),
       "utf8"
     );
-    const cmdTracePath = path.join(tmpDir, "docker-cmd-trace.txt");
     fs.writeFileSync(
       path.join(binDir, "docker.cmd"),
-      `@ECHO OFF\r\n`
-      + `>>"${cmdTracePath}" echo cmd-invoked args=[%*] cwd=[%CD%] dp0=[%~dp0] f0=[%~f0]\r\n`
-      + `"${process.execPath}" "${dockerJsPath}" %*\r\n`
-      + `>>"${cmdTracePath}" echo cmd-exit=%ERRORLEVEL%\r\n`,
+      `@ECHO OFF\r\n"${process.execPath}" "%~dp0docker.js" %*\r\n`,
       "utf8"
     );
 
@@ -1324,7 +1102,6 @@ exit 2
           HOME: tmpDir,
           USERPROFILE: tmpDir,
           DOCKER_LOG_PATH: logPath,
-          DOCKER_DEBUG_PATH: debugPath,
           FAKE_KEYCHAIN_FILE: fakeKeychainPath
         },
         encoding: "utf8",
@@ -1332,15 +1109,7 @@ exit 2
       }
     );
 
-    if (result.status !== 0) {
-      throw new Error(
-        runCliDiagnosticMessage(result, { fixtureEngine, binDir, logPath, debugPath, cmdTracePath, env: {
-          ...envWithPrependedPath(gitSafeEnv(), binDir),
-          HOME: tmpDir,
-          USERPROFILE: tmpDir
-        } })
-      );
-    }
+    assert.equal(result.status, 0);
     assert.match(result.stderr, /from sandbox refresh/);
     if (process.platform === "darwin") {
       assert.equal(fs.readFileSync(fakeKeychainPath, "utf8"), newerBlob);

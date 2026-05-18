@@ -68,3 +68,12 @@ try {
   }
 }
 ```
+
+## 4. 已知未启用的 Windows sandbox e2e
+
+`tests/cli/sandbox.test.js` 中的 sandbox exec e2e 当前仍限制在 Linux 和 macOS：
+
+- `sandbox exec enters tmux automatically for interactive shells`
+- `sandbox exec reconciles newer Claude credentials from a neighbouring project`
+
+PR #313 完成 unified config-driven engine 重构后，原"win32 强制 wsl2"的 engine 选择问题已解除，理论上这两条测试可通过在 fixture 的 `.airc.json` 中写入 `sandbox.engine: "native"` 在 Windows 上运行。但 CI 实测发现 Windows runner 上 docker.cmd shim 在深层 spawn 嵌套（test → CLI → cmd.exe → node.exe）下被调用且 cmd-exit=0，但 node.exe 的 stdout 不会回传到 CLI 子进程，**导致 `runSafeEngine('docker', 'ps')` 拿到空字符串**。从测试进程或独立 subprocess 调用同一 runSafe 都正常，仅 CLI 路径下失败。根因（Node 22 BatBadBut 加固 / Windows cmd.exe stdio 重定向 / spawn 嵌套）需在 Windows 环境本地复现才能继续推进。跟踪 Issue 待 PR 合并后单独建。
