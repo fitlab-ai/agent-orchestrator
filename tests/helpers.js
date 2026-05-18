@@ -165,6 +165,115 @@ function writeNodeCommandShim(commandPath, scriptPath) {
   return commandPath;
 }
 
+function writeSandboxEngineFixture(
+  tmpDir,
+  {
+    project = "demo",
+    org = "fitlab-ai",
+    sandbox = {},
+    dockerStdoutForPs = ""
+  } = {}
+) {
+  const repoDir = path.join(tmpDir, "repo");
+  const binDir = path.join(tmpDir, "bin");
+  const logPath = path.join(tmpDir, "docker-log.jsonl");
+  const dockerJsPath = path.join(binDir, "docker.js");
+  const idJsPath = path.join(binDir, "id.js");
+  const whichJsPath = path.join(binDir, "which.js");
+
+  fs.mkdirSync(path.join(repoDir, ".agents"), { recursive: true });
+  fs.mkdirSync(binDir, { recursive: true });
+  initIsolatedGitRepo(repoDir);
+  fs.writeFileSync(
+    path.join(repoDir, ".agents", ".airc.json"),
+    `${JSON.stringify({
+      project,
+      org,
+      sandbox: {
+        ...sandbox,
+        engine: "native"
+      }
+    }, null, 2)}\n`,
+    "utf8"
+  );
+
+  fs.writeFileSync(
+    dockerJsPath,
+    [
+      "const fs = require('node:fs');",
+      `const dockerStdoutForPs = ${JSON.stringify(dockerStdoutForPs)};`,
+      "const args = process.argv.slice(2);",
+      "function log() {",
+      "  fs.appendFileSync(process.env.DOCKER_LOG_PATH, JSON.stringify(args) + '\\n');",
+      "}",
+      "log();",
+      "if (args[0] === 'ps') {",
+      "  if (dockerStdoutForPs) {",
+      "    process.stdout.write(dockerStdoutForPs.endsWith('\\n') ? dockerStdoutForPs : `${dockerStdoutForPs}\\n`);",
+      "  }",
+      "  process.exit(0);",
+      "}",
+      "if (args[0] === 'image' && args[1] === 'inspect') {",
+      "  process.exit(1);",
+      "}",
+      "if (args[0] === 'version') {",
+      "  process.stdout.write('24.0.0\\n');",
+      "}",
+      "if (args[0] === 'run' && process.env.DOCKER_EXIT_FOR_RUN) {",
+      "  process.exit(Number(process.env.DOCKER_EXIT_FOR_RUN));",
+      "}",
+      "process.exit(0);"
+    ].join("\n"),
+    "utf8"
+  );
+  writeNodeCommandShim(path.join(binDir, "docker"), dockerJsPath);
+
+  fs.writeFileSync(
+    idJsPath,
+    [
+      "const args = process.argv.slice(2);",
+      "if (args[0] === '-u' || args[0] === '-g') {",
+      "  process.stdout.write('1000\\n');",
+      "  process.exit(0);",
+      "}",
+      "process.exit(1);"
+    ].join("\n"),
+    "utf8"
+  );
+  writeNodeCommandShim(path.join(binDir, "id"), idJsPath);
+
+  fs.writeFileSync(
+    whichJsPath,
+    [
+      "const path = require('node:path');",
+      "const args = process.argv.slice(2);",
+      "if (args[0] === 'docker') {",
+      "  process.stdout.write(path.join(__dirname, process.platform === 'win32' ? 'docker.cmd' : 'docker') + '\\n');",
+      "  process.exit(0);",
+      "}",
+      "process.exit(1);"
+    ].join("\n"),
+    "utf8"
+  );
+  writeNodeCommandShim(path.join(binDir, "which"), whichJsPath);
+
+  return {
+    repoDir,
+    binDir,
+    logPath,
+    readDockerCalls() {
+      if (!fs.existsSync(logPath)) {
+        return [];
+      }
+      return fs.readFileSync(logPath, "utf8")
+        .trim()
+        .split("\n")
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+    }
+  };
+}
+
 function listFilesRecursive(relativeDir) {
   const entries = fs.readdirSync(filePath(relativeDir), { withFileTypes: true });
 
@@ -423,6 +532,7 @@ export {
   onPlatforms,
   supportsPosixModeBits,
   withGitSafeProcessEnv,
+  writeSandboxEngineFixture,
   writeNodeCommandShim,
   skillDocPaths
 };

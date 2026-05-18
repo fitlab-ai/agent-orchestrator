@@ -14,7 +14,8 @@ import {
   gitSafeEnv,
   loadFreshEsm,
   onPlatforms,
-  withGitSafeProcessEnv
+  withGitSafeProcessEnv,
+  writeSandboxEngineFixture
 } from "../helpers.js";
 import { restoreTerminal, runInteractive, runVerbose } from "../../lib/sandbox/shell.js";
 
@@ -1165,69 +1166,41 @@ test("sandbox exec formats host keychain unavailable credential sync warnings", 
   );
 });
 
-// Two sandbox exec e2e tests are still limited to Linux + macOS pending the
-// follow-up Windows shim-invocation work tracked in
-// `.agents/rules/cross-platform-tests.md` §4 and Issue #315.
-test("sandbox exec enters tmux automatically for interactive shells", onPlatforms("linux", "darwin"), () => {
+function spawnSandboxCli(fixture, tmpDir, args, extraEnv = {}, options = {}) {
+  return spawnSync(process.execPath, [filePath("bin/cli.js"), "sandbox", ...args], {
+    cwd: fixture.repoDir,
+    env: {
+      ...envWithPrependedPath(gitSafeEnv(), fixture.binDir),
+      HOME: tmpDir,
+      USERPROFILE: tmpDir,
+      DOCKER_LOG_PATH: fixture.logPath,
+      ...extraEnv
+    },
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    timeout: options.timeout ?? 15_000
+  });
+}
+
+test("sandbox exec enters tmux automatically for interactive shells", onPlatforms("linux", "darwin", "win32"), () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-"));
-  const repoDir = path.join(tmpDir, "repo");
-  const binDir = path.join(tmpDir, "bin");
-  const logPath = path.join(tmpDir, "docker-log.jsonl");
-  const dockerPath = path.join(binDir, "docker");
-  const dockerJsPath = path.join(binDir, "docker.js");
 
   try {
-    fs.mkdirSync(repoDir, { recursive: true });
-    fs.mkdirSync(path.join(repoDir, ".agents"), { recursive: true });
-    fs.mkdirSync(binDir, { recursive: true });
-    execSync("git init", { cwd: repoDir, env: gitSafeEnv(), stdio: "pipe" });
-    fs.writeFileSync(
-      path.join(repoDir, ".agents", ".airc.json"),
-      JSON.stringify({ project: "demo", org: "fitlab-ai" }, null, 2) + "\n",
-      "utf8"
-    );
-    fs.writeFileSync(
-      dockerPath,
-      `#!/bin/sh
-set -eu
-if [ "$1" = "ps" ]; then
-  printf '%s\\n' demo-dev-agent-infra-feature-cli-generic-sandbox
-  exit 0
-fi
-node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.argv.slice(2)) + "\\n")' "$DOCKER_LOG_PATH" "$@"
-`,
-      "utf8"
-    );
-    fs.chmodSync(dockerPath, 0o755);
-    fs.writeFileSync(
-      dockerJsPath,
-      [
-        "const fs = require('node:fs');",
-        "const args = process.argv.slice(2);",
-        "if (args[0] === 'ps') {",
-        "  process.stdout.write('demo-dev-agent-infra-feature-cli-generic-sandbox\\n');",
-        "  process.exit(0);",
-        "}",
-        "fs.appendFileSync(process.env.DOCKER_LOG_PATH, JSON.stringify(args) + '\\n');"
-      ].join("\n"),
-      "utf8"
-    );
-    fs.writeFileSync(
-      path.join(binDir, "docker.cmd"),
-      `@ECHO OFF\r\n"${process.execPath}" "%~dp0docker.js" %*\r\n`,
-      "utf8"
-    );
+    const fixture = writeSandboxEngineFixture(tmpDir, {
+      project: "demo",
+      dockerStdoutForPs: "demo-dev-agent-infra-feature-cli-generic-sandbox"
+    });
 
     execFileSync(
       process.execPath,
       [filePath("bin/cli.js"), "sandbox", "exec", "agent-infra-feature-cli-generic-sandbox"],
       {
-        cwd: repoDir,
+        cwd: fixture.repoDir,
         env: {
-          ...envWithPrependedPath(gitSafeEnv(), binDir),
+          ...envWithPrependedPath(gitSafeEnv(), fixture.binDir),
           HOME: tmpDir,
           USERPROFILE: tmpDir,
-          DOCKER_LOG_PATH: logPath,
+          DOCKER_LOG_PATH: fixture.logPath,
           TERM_PROGRAM: "",
           TERM_PROGRAM_VERSION: "",
           LC_TERMINAL: "",
@@ -1238,9 +1211,10 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
       }
     );
 
-    const dockerCalls = fs.readFileSync(logPath, "utf8").trim().split("\n").map((line) => JSON.parse(line));
-    assert.equal(dockerCalls.length, 1);
-    assert.deepEqual(dockerCalls[0], [
+    const dockerCalls = fixture.readDockerCalls();
+    assert.equal(dockerCalls.length, 2);
+    assert.deepEqual(dockerCalls[0], ["ps", "--format", "{{.Names}}"]);
+    assert.deepEqual(dockerCalls[1], [
       "exec",
       "-it",
       "demo-dev-agent-infra-feature-cli-generic-sandbox",
@@ -1252,13 +1226,8 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
   }
 });
 
-test("sandbox exec reconciles newer Claude credentials from a neighbouring project", onPlatforms("linux", "darwin"), () => {
+test("sandbox exec reconciles newer Claude credentials from a neighbouring project", onPlatforms("linux", "darwin", "win32"), () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-credentials-"));
-  const repoDir = path.join(tmpDir, "repo");
-  const binDir = path.join(tmpDir, "bin");
-  const logPath = path.join(tmpDir, "docker-log.jsonl");
-  const dockerPath = path.join(binDir, "docker");
-  const dockerJsPath = path.join(binDir, "docker.js");
   const fakeKeychainPath = path.join(tmpDir, "fake-keychain.json");
   const hostCredentialsPath = path.join(tmpDir, ".claude", ".credentials.json");
   const alphaCredentialsPath = path.join(
@@ -1281,63 +1250,25 @@ test("sandbox exec reconciles newer Claude credentials from a neighbouring proje
   const newerBlob = validClaudeCredentialsBlob(Date.now() + 7_200_000);
 
   try {
-    fs.mkdirSync(repoDir, { recursive: true });
-    fs.mkdirSync(path.join(repoDir, ".agents"), { recursive: true });
-    fs.mkdirSync(binDir, { recursive: true });
+    const fixture = writeSandboxEngineFixture(tmpDir, {
+      project: "alpha",
+      sandbox: { tools: ["claude-code"] },
+      dockerStdoutForPs: "alpha-dev-agent-infra-feature-cli-generic-sandbox"
+    });
+
     fs.mkdirSync(path.dirname(hostCredentialsPath), { recursive: true });
     fs.mkdirSync(path.dirname(alphaCredentialsPath), { recursive: true });
     fs.mkdirSync(path.dirname(betaCredentialsPath), { recursive: true });
-    execSync("git init", { cwd: repoDir, env: gitSafeEnv(), stdio: "pipe" });
-    fs.writeFileSync(
-      path.join(repoDir, ".agents", ".airc.json"),
-      JSON.stringify({
-        project: "alpha",
-        org: "fitlab-ai",
-        sandbox: { tools: ["claude-code"] }
-      }, null, 2) + "\n",
-      "utf8"
-    );
     fs.writeFileSync(hostCredentialsPath, validClaudeCredentialsBlob(Date.now() + 3_600_000), "utf8");
     fs.writeFileSync(alphaCredentialsPath, alphaBlob, "utf8");
     fs.writeFileSync(betaCredentialsPath, newerBlob, "utf8");
-    fs.writeFileSync(
-      dockerPath,
-      `#!/bin/sh
-set -eu
-if [ "$1" = "ps" ]; then
-  printf '%s\\n' alpha-dev-agent-infra-feature-cli-generic-sandbox
-  exit 0
-fi
-node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.argv.slice(2)) + "\\n")' "$DOCKER_LOG_PATH" "$@"
-`,
-      "utf8"
-    );
-    fs.chmodSync(dockerPath, 0o755);
-    fs.writeFileSync(
-      dockerJsPath,
-      [
-        "const fs = require('node:fs');",
-        "const args = process.argv.slice(2);",
-        "if (args[0] === 'ps') {",
-        "  process.stdout.write('alpha-dev-agent-infra-feature-cli-generic-sandbox\\n');",
-        "  process.exit(0);",
-        "}",
-        "fs.appendFileSync(process.env.DOCKER_LOG_PATH, JSON.stringify(args) + '\\n');"
-      ].join("\n"),
-      "utf8"
-    );
-    fs.writeFileSync(
-      path.join(binDir, "docker.cmd"),
-      `@ECHO OFF\r\n"${process.execPath}" "%~dp0docker.js" %*\r\n`,
-      "utf8"
-    );
 
     if (process.platform === "darwin") {
       // Inject a fake `security` shim so the CLI subprocess does not touch the
       // real macOS Keychain on CI runners (which can hang on add-generic-password
       // due to login keychain ACL prompts). The shim reports MISSING for reads
       // and persists writes to FAKE_KEYCHAIN_FILE so the assertion can read back.
-      const securityShimPath = path.join(binDir, "security");
+      const securityShimPath = path.join(fixture.binDir, "security");
       fs.writeFileSync(
         securityShimPath,
         `#!/bin/sh
@@ -1366,12 +1297,12 @@ exit 2
       process.execPath,
       [filePath("bin/cli.js"), "sandbox", "exec", "agent-infra-feature-cli-generic-sandbox", "true"],
       {
-        cwd: repoDir,
+        cwd: fixture.repoDir,
         env: {
-          ...envWithPrependedPath(gitSafeEnv(), binDir),
+          ...envWithPrependedPath(gitSafeEnv(), fixture.binDir),
           HOME: tmpDir,
           USERPROFILE: tmpDir,
-          DOCKER_LOG_PATH: logPath,
+          DOCKER_LOG_PATH: fixture.logPath,
           FAKE_KEYCHAIN_FILE: fakeKeychainPath
         },
         encoding: "utf8",
@@ -1388,6 +1319,74 @@ exit 2
     }
     assert.equal(fs.readFileSync(alphaCredentialsPath, "utf8"), newerBlob);
     assert.equal(fs.readFileSync(betaCredentialsPath, "utf8"), newerBlob);
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("sandbox ls resolves to configured engine", onPlatforms("linux", "darwin", "win32"), () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-ls-engine-"));
+
+  try {
+    const fixture = writeSandboxEngineFixture(tmpDir, {
+      project: "demo",
+      // Matches ls.js' current docker ps format: NAMES, STATUS, BRANCH.
+      dockerStdoutForPs: "demo-dev-feature-x\tUp 1 minute\tfeature-x"
+    });
+
+    const result = spawnSandboxCli(fixture, tmpDir, ["ls"]);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /demo-dev-feature-x/);
+    assert.ok(
+      fixture.readDockerCalls().some((call) => call[0] === "ps"),
+      "expected sandbox ls to call docker ps through the configured native engine"
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("sandbox rebuild resolves to configured engine", onPlatforms("linux", "darwin", "win32"), () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-rebuild-engine-"));
+
+  try {
+    const fixture = writeSandboxEngineFixture(tmpDir, { project: "demo" });
+
+    const result = spawnSandboxCli(fixture, tmpDir, ["rebuild", "--quiet"]);
+
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(
+      fixture.readDockerCalls().some((call) => call[0] === "build"),
+      "expected sandbox rebuild to call docker build through the configured native engine"
+    );
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test("sandbox create resolves to configured engine", onPlatforms("linux", "darwin", "win32"), () => {
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-create-engine-"));
+
+  try {
+    const fixture = writeSandboxEngineFixture(tmpDir, {
+      project: "demo",
+      sandbox: { tools: ["codex"] }
+    });
+
+    spawnSandboxCli(
+      fixture,
+      tmpDir,
+      ["create", "feature-x", "--cpu", "1", "--memory", "1"],
+      { DOCKER_EXIT_FOR_RUN: "1" },
+      { timeout: 5_000 }
+    );
+
+    // Ignore exit status: this thin probe only validates engine resolution.
+    assert.ok(
+      fixture.readDockerCalls().some((call) => call[0] === "build"),
+      "expected sandbox create to reach docker build through the configured native engine"
+    );
   } finally {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   }
@@ -2414,6 +2413,29 @@ test("sandbox command modules route docker calls through engine-aware helpers", 
     assert.doesNotMatch(content, /run\('docker'/, relativePath);
     assert.doesNotMatch(content, /execFn\('docker'/, relativePath);
   }
+});
+
+test("sandbox command modules do not call detectEngine without config", () => {
+  const commandsDir = filePath("lib/sandbox/commands");
+  const offenders = [];
+
+  for (const entry of fs.readdirSync(commandsDir, { withFileTypes: true })) {
+    if (!entry.isFile() || !entry.name.endsWith(".js")) {
+      continue;
+    }
+
+    const content = fs.readFileSync(path.join(commandsDir, entry.name), "utf8");
+    const matches = [...content.matchAll(/\bdetectEngine\(\s*\)/g)];
+    if (matches.length > 0) {
+      offenders.push(`${entry.name}: ${matches.length} bare detectEngine() call(s)`);
+    }
+  }
+
+  assert.deepEqual(
+    offenders,
+    [],
+    `Found detectEngine() called without config. Pass the loadConfig() result so sandbox.engine does not silently fall back to platform defaults.\n${offenders.join("\n")}`
+  );
 });
 
 test("wsl2BackendStatus checks WSL2 and Docker without Colima", async () => {
