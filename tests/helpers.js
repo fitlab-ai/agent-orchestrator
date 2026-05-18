@@ -184,6 +184,13 @@ function writeSandboxEngineFixture(
   fs.mkdirSync(path.join(repoDir, ".agents"), { recursive: true });
   fs.mkdirSync(binDir, { recursive: true });
   initIsolatedGitRepo(repoDir);
+  // Pick an engine that is (a) valid on every platform via validateSandboxEngine
+  // and (b) different from PLATFORM_DEFAULTS[os], so the fixture actually proves
+  // that .agents/.airc.json's sandbox.engine reaches detectEngine on each platform
+  // (Linux default=native, darwin default=colima, win32 default=wsl2; docker-desktop
+  // satisfies both constraints). On Windows this is what catches the wsl2 fallback
+  // regression — `commandForEngine('docker-desktop', 'docker', …)` returns the
+  // bare `docker` invocation, whereas the buggy fallback wraps it in `wsl.exe --`.
   fs.writeFileSync(
     path.join(repoDir, ".agents", ".airc.json"),
     `${JSON.stringify({
@@ -191,7 +198,7 @@ function writeSandboxEngineFixture(
       org,
       sandbox: {
         ...sandbox,
-        engine: "native"
+        engine: "docker-desktop"
       }
     }, null, 2)}\n`,
     "utf8"
