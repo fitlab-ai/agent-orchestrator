@@ -101,3 +101,39 @@ test("release documentation reflects CI-driven npm publishing", () => {
     assert.match(content, /Issues that we want to release in v/);
   });
 });
+
+test("post-release-smoke workflow verifies npm and brew install channels", () => {
+  const workflow = read(".github/workflows/post-release-smoke.yml");
+
+  assert.match(workflow, /name: Post-Release Smoke/);
+  assert.match(workflow, /release:[\s\S]*types: \[published\]/);
+  assert.match(workflow, /workflow_dispatch:/);
+  assert.match(workflow, /inputs:[\s\S]*version:/);
+  assert.match(workflow, /permissions: \{\}/);
+  assert.match(workflow, /concurrency:/);
+  assert.match(workflow, /cancel-in-progress: true/);
+
+  assert.match(workflow, /resolve-version:/);
+  assert.match(workflow, /timeout-minutes: 5/);
+  assert.match(workflow, /EVENT_NAME: \$\{\{ github\.event_name \}\}/);
+  assert.match(workflow, /DISPATCH_VERSION: \$\{\{ inputs\.version \}\}/);
+  assert.match(workflow, /RELEASE_TAG: \$\{\{ github\.event\.release\.tag_name \}\}/);
+  assert.match(workflow, /outputs:[\s\S]*version:/);
+
+  assert.match(workflow, /npm-smoke:/);
+  assert.match(workflow, /needs: resolve-version/);
+  assert.match(workflow, /timeout-minutes: 15/);
+  assert.match(workflow, /matrix:[\s\S]*os: \[ubuntu-latest, macos-latest, windows-latest\]/);
+  assert.match(workflow, /fail-fast: false/);
+  assert.match(workflow, /npm view "@fitlab-ai\/agent-infra@\$\{VERSION\}" version/);
+  assert.match(workflow, /npx -y "@fitlab-ai\/agent-infra@\$\{VERSION\}" version/);
+  assert.match(workflow, /npx -y "@fitlab-ai\/agent-infra@\$\{VERSION\}" sandbox --help/);
+
+  assert.match(workflow, /brew-smoke:/);
+  assert.match(workflow, /runs-on: macos-latest/);
+  assert.match(workflow, /timeout-minutes: 20/);
+  assert.match(workflow, /raw\.githubusercontent\.com\/fitlab-ai\/homebrew-tap\/main\/Formula\/agent-infra\.rb/);
+  assert.match(workflow, /name: brew install\s*\n\s*shell: bash/);
+  assert.match(workflow, /brew install fitlab-ai\/tap\/agent-infra/);
+  assert.match(workflow, /agent-infra version/);
+});
