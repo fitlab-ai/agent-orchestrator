@@ -898,7 +898,10 @@ test("sandbox exec formats host keychain unavailable credential sync warnings", 
   );
 });
 
-test("sandbox exec enters tmux automatically for interactive shells", onPlatforms("linux", "darwin", "win32"), () => {
+// Two sandbox exec e2e tests are still limited to Linux + macOS pending the
+// follow-up Windows shim-invocation work tracked in
+// `.agents/rules/cross-platform-tests.md` §4 and Issue #315.
+test("sandbox exec enters tmux automatically for interactive shells", onPlatforms("linux", "darwin"), () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
@@ -913,7 +916,7 @@ test("sandbox exec enters tmux automatically for interactive shells", onPlatform
     execSync("git init", { cwd: repoDir, env: gitSafeEnv(), stdio: "pipe" });
     fs.writeFileSync(
       path.join(repoDir, ".agents", ".airc.json"),
-      JSON.stringify({ project: "demo", org: "fitlab-ai", sandbox: { engine: "native" } }, null, 2) + "\n",
+      JSON.stringify({ project: "demo", org: "fitlab-ai" }, null, 2) + "\n",
       "utf8"
     );
     fs.writeFileSync(
@@ -982,7 +985,7 @@ node -e 'require("fs").appendFileSync(process.argv[1], JSON.stringify(process.ar
   }
 });
 
-test("sandbox exec reconciles newer Claude credentials from a neighbouring project", onPlatforms("linux", "darwin", "win32"), () => {
+test("sandbox exec reconciles newer Claude credentials from a neighbouring project", onPlatforms("linux", "darwin"), () => {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "agent-infra-sandbox-enter-credentials-"));
   const repoDir = path.join(tmpDir, "repo");
   const binDir = path.join(tmpDir, "bin");
@@ -1023,7 +1026,7 @@ test("sandbox exec reconciles newer Claude credentials from a neighbouring proje
       JSON.stringify({
         project: "alpha",
         org: "fitlab-ai",
-        sandbox: { engine: "native", tools: ["claude-code"] }
+        sandbox: { tools: ["claude-code"] }
       }, null, 2) + "\n",
       "utf8"
     );
